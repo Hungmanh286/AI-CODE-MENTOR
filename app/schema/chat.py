@@ -12,7 +12,6 @@ class MessageName:
     sql_agent = "sql_agent"
     api_agent = "api_agent"
     answer = "answer"
-    next_questions = "next_questions"
 
 
 class Role(str, Enum):

@@ -120,7 +120,7 @@ async def handle_message(
     question_id: str,
     user_token: UserToken,
     usage_client: UserUsage,
-    # tracer: CallbackHandler,
+    tracer: CallbackHandler,
 ) -> None:
     """Handle message in background task
 
@@ -159,7 +159,7 @@ async def handle_message(
                 session_uuid=session_uuid,
                 question_id=question_id,
                 user_token=user_token,
-                # tracer=tracer,
+                tracer=tracer,
             )
 
             tokens_usage = cb.total_tokens
@@ -184,7 +184,7 @@ async def websocket_endpoint_chat_agent(
     token: str = Query("", title="Token", description="authen token"),
     usage_client: UserUsage = Depends(get_user_usage),
     graph: CompiledStateGraph = Depends(get_graph),
-    # tracer: CallbackHandler = Depends(get_tracer),
+    tracer: CallbackHandler = Depends(get_tracer),
 ):
     try:
         user_dict = verify_access_token(token)
@@ -251,7 +251,7 @@ async def websocket_endpoint_chat_agent(
                     question_id=question_id,
                     usage_client=usage_client,
                     user_token=user_token,
-                    # tracer=tracer,
+                    tracer=tracer,
                 )
             )
     except WebSocketDisconnect:

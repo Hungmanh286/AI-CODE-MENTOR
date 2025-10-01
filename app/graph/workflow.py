@@ -1,10 +1,10 @@
-import json
 import uuid
 from typing import Optional
 from dotenv import load_dotenv
 from fastapi import WebSocket
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables.config import RunnableConfig
+from langfuse.callback import CallbackHandler
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
@@ -38,29 +38,13 @@ def build_workflow():
     workflow.add_edge(START, MessageName.agent)
     workflow.add_edge(MessageName.agent, "tools")
     workflow.add_edge("tools", "documents_node")
-    # WARNING: Đặt "next_questions" sau "tools_node" sẽ không chạy song song
     workflow.add_edge("documents_node", MessageName.answer)
-    workflow.add_edge("documents_node", MessageName.next_questions)
     workflow.add_edge(MessageName.answer, END)
-    workflow.add_edge(MessageName.next_questions, END)
 
     return workflow
 
 
-def suggest2str(suggest: str) -> str:
-    """Validate suggest question in json format
-    Args:
-        suggest (str): llm response text
-    Returns:
-        str: suggestion if data is valid or empty array
-    """
-    try:
-        data = str(suggest).replace("json", "").replace("`", "")
-        if isinstance(json.loads(data), list):
-            return data
-        return "[]"
-    except Exception:
-        return "[]"
+# Function suggest2str removed - no longer using suggest questions feature
 
 
 async def invoke_workflow(
@@ -70,7 +54,7 @@ async def invoke_workflow(
     session_uuid: str,
     question_id: str,
     user_token: UserToken,
-    # tracer: CallbackHandler,
+    tracer: CallbackHandler,
 ) -> None:
     _trace_id = str(uuid.uuid4())
     _question_id = question_id
@@ -97,7 +81,7 @@ async def invoke_workflow(
             "user_name": user_token.username,
             "user_id": user_token.user_id,
         },
-        # callbacks=[tracer],
+        callbacks=[tracer],
         metadata={
             "langfuse_user_id": user_token.user_id,
             "langfuse_session_id": session_uuid,
@@ -109,7 +93,6 @@ async def invoke_workflow(
     await send_response(role=Role.bot, content="", msg_type=ChatType.start)
 
     try:
-        next_questions = ""
         prev_response_id = ""
 
         async for _, (msg, metadata) in graph.astream(
@@ -134,15 +117,6 @@ async def invoke_workflow(
                     role=Role.bot, content=msg.content, msg_type=ChatType.stream
                 )
 
-            if MessageName.next_questions in node:
-                next_questions += msg.content
-
-        await send_response(
-            role=Role.bot,
-            content=suggest2str(next_questions),
-            msg_type=ChatType.suggest,
-        )
-
     except Exception as e:
         print(f"session: {session_uuid}\nquestion: {message}\nerror: {e}")
         await send_response(
@@ -153,7 +127,7 @@ async def invoke_workflow(
         )
     finally:
         await send_response(role=Role.bot, content="", msg_type=ChatType.end)
-        # tracer.flush()
+        tracer.flush()
 
 
 if __name__ == "__main__":

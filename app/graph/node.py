@@ -108,10 +108,13 @@ def documents_node(state: State) -> dict:
     for t_message in tool_messages:
         if t_message.status == "error":
             continue
+        if not t_message.content:  # Skip empty or None content
+            continue
         try:
             data = json.loads(t_message.content)
             if isinstance(data, list):
-                documents.extend(data)
+                # Filter out None values from list
+                documents.extend([item for item in data if item is not None])
             else:
                 documents.append(data)
         except Exception:
@@ -129,22 +132,38 @@ async def answer_node(state: State, config: RunnableConfig):
     documents = state.get("documents", [])
     docs_content = []
     for c in documents:
-        if isinstance(c, dict):
-            docs_content.append(c.get("page_content", str(c)))
+        if c is None:  # Skip None values
             continue
-        docs_content.append(c)
-    docs_content = "\n\n---\n".join(docs_content)
+        if isinstance(c, dict):
+            page_content = c.get("page_content")
+            if page_content is not None:
+                docs_content.append(page_content)
+            else:
+                docs_content.append(str(c))
+            continue
+        if c:  # Only add non-empty values
+            docs_content.append(str(c))
 
-    system_message = SystemMessage(
-        content=Prompts.ANSWER_SYSTEM_PROMPT.format(
+    # Join non-empty documents with separator
+    if docs_content:
+        docs_content = "\n\n---\n".join(docs_content)
+    else:
+        docs_content = "No relevant documents found."
+
+    # Check if ANSWER_SYSTEM_PROMPT is empty and provide a default prompt if needed
+    if Prompts.ANSWER_SYSTEM_PROMPT:
+        system_prompt_content = Prompts.ANSWER_SYSTEM_PROMPT.format(
             docs_content=docs_content,
             user_name=user_name,
         )
-    )
+    else:
+        system_prompt_content = f"You are a helpful AI assistant for {user_name if user_name else 'the user'}. Answer questions based on the provided context."
 
-    system_context = SystemMessage(
-        content=f"Use the following documents as context for your response:\n\n{docs_content}"
-    )
+    system_message = SystemMessage(content=system_prompt_content)
+
+    # Create system context with document content
+    context_prefix = "Use the following documents as context for your response:"
+    system_context = SystemMessage(content=f"{context_prefix}\n\n{docs_content}")
 
     # Get conversation messages
     full_conversation_messages = get_conversation_messages(

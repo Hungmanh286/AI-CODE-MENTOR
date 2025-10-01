@@ -17,7 +17,6 @@ from app.config import settings
 class State(MessagesState):
     user_question: str | None
     ai_answer: str | None
-    ai_next_questions: List[str] | None
     documents: List | None
     next: str | None
 
