@@ -1,0 +1,11 @@
+{
+    "vega": {
+        "username": "vega",
+        "full_name": "vega",
+        "email": "vega@vega.com.vn",
+        "hashed_password": "$2b$12$Hl.9sW5Wf4S3Not83McsX.g285J3NSm1MErs7ZdeenFHhylj1/NJ6",
+        "disabled": false,
+        "priority": 1,
+        "group": "basic"
+    }
+}

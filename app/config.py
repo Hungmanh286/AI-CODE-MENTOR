@@ -1,0 +1,67 @@
+import json
+from typing import Optional, List
+
+from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field, PrivateAttr
+
+ENV_FILE = "./.env"
+
+
+class GlobalConfig(BaseSettings):
+    # App
+    CORS: Optional[List[str]] = Field(default=["*"])
+    VERSION: Optional[str] = Field(default=None)
+    APP_ENV: Optional[str] = Field(default="dev")
+    TRACING_ENV_FILE: Optional[str] = Field(default="app/config/tracing_env.json")
+
+    # ChatModel
+    CHAT_MODEL_KEY: Optional[str] = Field(default=None)
+    CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
+    CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
+
+    # Ratelimit
+    RATELIMIT_REDIS: Optional[str] = Field(default="redis://localhost:6379/0")
+    REDIS_MAX_CONNECTION_POOL: Optional[int] = Field(default=100)
+    RATELIMIT_WINDOW_MINUTES: Optional[int] = Field(default=24 * 60)
+
+    # Checkpointer
+    CHECKPOINT_HOST: Optional[str] = Field(default="localhost")
+    CHECKPOINT_PORT: Optional[int] = Field(default=5432)
+    CHECKPOINT_DB: Optional[str] = Field(default="checkpointer")
+    CHECKPOINT_USER: Optional[str] = Field()
+    CHECKPOINT_PASSWORD: Optional[str] = Field()
+    HISTORY_CONTEXT_LEN: Optional[int] = Field(default=5)
+
+    # Authentication
+    SECRET_KEY: Optional[str] = Field(default=None)
+    TOKEN_EXPIRE_HOURS: Optional[int] = Field(default=87600)
+    ALGORITHM: Optional[str] = Field(default="HS256")
+    ACCOUNT_FILE: Optional[Path] = Field(default=Path("app/config/user.json"))
+
+    _accounts: dict = PrivateAttr()
+    _checkpointer_db_uri: str = PrivateAttr()
+    _tracing_env: dict = PrivateAttr()
+    _tracing_projectid: str = PrivateAttr()
+
+    model_config = SettingsConfigDict(
+        extra="ignore", env_file=ENV_FILE, env_file_encoding="utf-8"
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        with open(self.ACCOUNT_FILE, "r") as f:
+            self._accounts = json.load(f)
+
+        with open(self.TRACING_ENV_FILE, "r") as f:
+            self._tracing_env = json.load(f)
+        self._tracing_projectid = self._tracing_env.get(self.APP_ENV.lower())
+
+        self._checkpointer_db_uri = (
+            f"postgresql://{self.CHECKPOINT_USER}:{self.CHECKPOINT_PASSWORD}"
+            f"@{self.CHECKPOINT_HOST}:{self.CHECKPOINT_PORT}/{self.CHECKPOINT_DB}"
+        )
+
+
+settings = GlobalConfig()

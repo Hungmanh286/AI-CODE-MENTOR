@@ -1,0 +1,64 @@
+x-common-build: &common-build
+  image: codeMentor-backend
+  build:
+    context: ./
+    dockerfile: Dockerfile
+
+services:
+  builder:
+    <<: *common-build
+    command: "echo 'Image built successfully'"
+    profiles: ["builder"]
+
+  codeMentor-ratelimit:
+    image: redis:alpine
+    container_name: mentorbot-ratelimit
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    networks:
+      - mentorbot-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  codeMentor-checkpointer:
+    image: postgres:17-alpine
+    container_name: mentorbot-checkpointer
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${CHECKPOINT_DB:-checkpointer}
+      POSTGRES_USER: ${CHECKPOINT_USER:-edu}
+      POSTGRES_PASSWORD: ${CHECKPOINT_PASSWORD}
+    ports:
+      - "5434:5432"
+    volumes:
+      - checkpointer-data:/var/lib/postgresql/data
+    networks:
+      - mentorbot-net
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${CHECKPOINT_USER:-edu} -d ${CHECKPOINT_DB:-checkpointer}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+configs:
+  qdrant_config:
+    content: |
+      log_level: INFO
+
+volumes:
+  checkpointer-data:
+    driver: local
+
+networks:
+  wakabot-net:
+    driver: bridge
+  mentorbot-net:
+    driver: bridge
