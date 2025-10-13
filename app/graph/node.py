@@ -11,7 +11,6 @@ from langchain_core.messages import (
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.prebuilt import ToolNode
-from langgraph.types import interrupt
 
 from app.chatmodel import init_llm
 from app.graph.state import (
@@ -19,9 +18,8 @@ from app.graph.state import (
     get_conversation_messages,
     get_tool_messages,
     State,
-    AgentState,
 )
-from app.graph.agents import generate_agent
+from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
 from app.schema import MessageName
 from app.config import settings
@@ -123,15 +121,6 @@ def documents_node(state: State) -> dict:
     return {"documents": documents}
 
 
-def ask_agent_name_node(state: AgentState, config: RunnableConfig):
-    """Interrupt to ask agent name if not set."""
-    if not state.get("agent_name"):
-        state["agent_name"] = interrupt(
-            "Before we start, what would you like to call me?"
-        )
-    return {"agent_name": state["agent_name"]}
-
-
 # Step 4: Generate a response using the retrieved content.
 async def answer_node(
     state: State, config: RunnableConfig, system_prompt_content: Prompts = None
@@ -188,3 +177,42 @@ async def answer_node(
         "messages": [AIMessage(content=content, name=MessageName.answer)],
         "ai_answer": content,
     }
+
+
+# Step 5: Generate next questions
+async def next_questions_node(state: State, config: RunnableConfig):
+    """Find next question from user query using FAQ retriever, fallback to documents."""
+
+    related_questions = "abc"
+
+    candidate_questions = (
+        "\n".join([f"- {q.strip()}" for q in set(related_questions) if q.strip()])
+        or "[]"
+    )
+
+    full_conversation_messages = get_conversation_messages(state, aimessage_name=[])
+    conversation_messages = trim_messages(
+        full_conversation_messages,
+        strategy="last",
+        token_counter=len,
+        max_tokens=settings.HISTORY_CONTEXT_LEN,
+        start_on=HumanMessage,
+        end_on=HumanMessage,
+        include_system=False,
+    )
+    conversation_questions = [msg.content for msg in conversation_messages]
+    last_questions = (
+        "\n".join([f"- {q.strip()}" for q in set(conversation_questions) if q.strip()])
+        or "[]"
+    )
+
+    nextquestion_system_prompt = "Hãy gợi ý các câu hỏi tiếp theo"
+    system_message_content = nextquestion_system_prompt.format(
+        candidate_questions=candidate_questions, last_questions=last_questions
+    )
+    llm_questions = llm.model_copy(update={"tags": ["questions"]})
+
+    prompt = [HumanMessage(system_message_content)]
+    response = await llm_questions.ainvoke(prompt, config=config)
+    response.name = MessageName.next_questions
+    return {"messages": [response]}

@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from fastapi import WebSocket
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables.config import RunnableConfig
-from langfuse.langchain import CallbackHandler
+from langfuse.callback import CallbackHandler
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
@@ -13,7 +13,6 @@ from app.graph.node import (
     tools_node,
     documents_node,
     answer_node,
-    ask_agent_name_node,
 )
 from app.graph.state import State
 from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken, MessageName
@@ -31,14 +30,12 @@ def build_workflow():
         "tools": tools_node,
         "documents_node": documents_node,
         MessageName.answer: answer_node,
-        "agent_node": ask_agent_name_node,
     }
 
     for node_name, action in nodes.items():
         workflow.add_node(node_name, action)
 
-    workflow.add_edge(START, "agent_node")
-    workflow.add_edge("agent_node", MessageName.agent)
+    workflow.add_edge(START, MessageName.agent)
     workflow.add_edge(MessageName.agent, "tools")
     workflow.add_edge("tools", "documents_node")
     workflow.add_edge("documents_node", MessageName.answer)

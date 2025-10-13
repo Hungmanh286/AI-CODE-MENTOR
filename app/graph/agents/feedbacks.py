@@ -32,13 +32,19 @@ def call_model(state: State, config: RunnableConfig):
     return {"messages": [response]}
 
 
-workflow = StateGraph(State)
-workflow.add_node(MessageName.feedback_agent, call_model)
-workflow.add_node("any_tools", ToolNode(TOOLS))
-workflow.add_edge(START, MessageName.feedback_agent)
-workflow.add_edge(MessageName.feedback_agent, "any_tools")
-workflow.add_edge("any_tools", END)
+def build_feedbacks_workflow():
+    workflow = StateGraph(State)
+    workflow.add_node(MessageName.feedback_agent, call_model)
+    workflow.add_node("any_tools", ToolNode(TOOLS))
 
+    workflow.add_edge(START, MessageName.feedback_agent)
+    workflow.add_edge(MessageName.feedback_agent, "any_tools")
+    workflow.add_edge("any_tools", END)
+
+    return workflow
+
+
+workflow = build_feedbacks_workflow()
 feedback_agent = workflow.compile()
 
 
