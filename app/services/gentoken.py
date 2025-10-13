@@ -85,8 +85,8 @@ if __name__ == "__main__":
     # args = parser.parse_args()
     # print(get_password_hash(args.pwd))
     user_token = UserToken(
-        user_id="0000008",
-        username="tester08",
+        user_id="000009",
+        username="tester09",
         token_limit=100000,
     )
     print(create_access_token(user_token.model_dump()))

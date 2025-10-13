@@ -9,6 +9,7 @@ from langchain_core.messages import (
     trim_messages,
 )
 from langgraph.graph.message import MessagesState
+from copilotkit import CopilotKitState
 
 from app.schema import MessageName
 from app.config import settings
@@ -19,6 +20,10 @@ class State(MessagesState):
     ai_answer: str | None
     documents: List | None
     next: str | None
+
+
+class AgentState(CopilotKitState):
+    agent_name: str
 
 
 def get_conversation_messages(

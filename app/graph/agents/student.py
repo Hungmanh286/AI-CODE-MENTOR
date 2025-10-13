@@ -7,7 +7,6 @@ from langgraph.graph import StateGraph, START, END
 from app.chatmodel import init_llm
 from app.graph.state import State
 from app.schema import MessageName
-from app.graph.tools import calculator_tool  # noqa
 from app.config import settings
 
 
@@ -18,10 +17,10 @@ try:
         api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE,
-        tags=["agent"],
+        tags=["student_agent"],
     )
 
-    # TODO: bind tools if need
+    llm_student = model.bind_tools(TOOLS)
 except Exception as e:
     print(f"Error initializing model: {e}")
     sys.exit(1)
@@ -42,11 +41,11 @@ def should_continue(state: State):
 
 
 workflow = StateGraph(State)
-workflow.add_node(MessageName.generate_agent, call_model)
+workflow.add_node(MessageName.student_agent, call_model)
 workflow.add_node("generate_tools", ToolNode(TOOLS))
-workflow.add_edge(START, MessageName.generate_agent)
+workflow.add_edge(START, MessageName.student_agent)
 workflow.add_conditional_edges(
-    MessageName.generate_agent,
+    MessageName.student_agent,
     should_continue,
     {
         "continue": "generate_tools",
@@ -55,9 +54,7 @@ workflow.add_conditional_edges(
 )
 
 
-workflow.add_edge("generate_tools", MessageName.generate_agent)
-
-planner = workflow.compile()
+student_agent = workflow.compile()
 
 
 if __name__ == "__main__":
@@ -72,4 +69,4 @@ if __name__ == "__main__":
                 message.pretty_print()
 
     inputs = {"messages": [HumanMessage(content="4 nhân 9 bao nhiêu")]}
-    print_stream(planner.stream(inputs, stream_mode="values"))
+    print_stream(student_agent.stream(inputs, stream_mode="values"))

@@ -4,6 +4,7 @@ from typing import Optional, List
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, PrivateAttr
+from sqlalchemy.engine import Engine, create_engine
 
 ENV_FILE = "./.env"
 
@@ -33,6 +34,13 @@ class GlobalConfig(BaseSettings):
     CHECKPOINT_PASSWORD: Optional[str] = Field()
     HISTORY_CONTEXT_LEN: Optional[int] = Field(default=5)
 
+    # app db
+    APP_DB_HOST: Optional[str] = Field(default="localhost")
+    APP_DB_PORT: Optional[int] = Field(default=5432)
+    APP_DB: Optional[str] = Field(default="mentorbot")
+    APP_USER: Optional[str] = Field()
+    APP_PASSWORD: Optional[str] = Field()
+
     # Authentication
     SECRET_KEY: Optional[str] = Field(default=None)
     TOKEN_EXPIRE_HOURS: Optional[int] = Field(default=87600)
@@ -43,6 +51,8 @@ class GlobalConfig(BaseSettings):
     _checkpointer_db_uri: str = PrivateAttr()
     _tracing_env: dict = PrivateAttr()
     _tracing_projectid: str = PrivateAttr()
+    _app_db_uri: str = PrivateAttr()
+    _app_db_engine: Engine = PrivateAttr()
 
     model_config = SettingsConfigDict(
         extra="ignore", env_file=ENV_FILE, env_file_encoding="utf-8"
@@ -62,6 +72,12 @@ class GlobalConfig(BaseSettings):
             f"postgresql://{self.CHECKPOINT_USER}:{self.CHECKPOINT_PASSWORD}"
             f"@{self.CHECKPOINT_HOST}:{self.CHECKPOINT_PORT}/{self.CHECKPOINT_DB}"
         )
+
+        self._app_db_uri = (
+            f"postgresql://{self.APP_USER}:{self.APP_PASSWORD}"
+            f"@{self.APP_DB_HOST}:{self.APP_DB_PORT}/{self.APP_DB}"
+        )
+        self._app_db_engine = create_engine(self._app_db_uri)
 
 
 settings = GlobalConfig()

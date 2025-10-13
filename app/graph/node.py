@@ -11,25 +11,23 @@ from langchain_core.messages import (
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.prebuilt import ToolNode
+from langgraph.types import interrupt
 
 from app.chatmodel import init_llm
-from app.graph.prompts import Prompts
 from app.graph.state import (
     filter_message,
     get_conversation_messages,
     get_tool_messages,
     State,
+    AgentState,
 )
-
-from app.graph.agents import planner, researcher, tutor  # noqa
-from app.graph.tools import developer_tool, researcher_tool, tutor_tool
+from app.graph.agents import generate_agent
+from app.graph.prompts import Prompts
 from app.schema import MessageName
 from app.config import settings
+from app.graph.tools import retriever_tool
 
-
-# agent tổng bên ngoài sẽ có các tool để chọn
-
-TOOLS = [developer_tool, researcher_tool, tutor_tool]
+TOOLS = [retriever_tool]
 
 try:
     # LLM: Generate answer
@@ -117,6 +115,7 @@ def documents_node(state: State) -> dict:
                 documents.extend([item for item in data if item is not None])
             else:
                 documents.append(data)
+
         except Exception:
             if isinstance(t_message.content, str):
                 documents.append(t_message.content)
@@ -124,12 +123,23 @@ def documents_node(state: State) -> dict:
     return {"documents": documents}
 
 
+def ask_agent_name_node(state: AgentState, config: RunnableConfig):
+    """Interrupt to ask agent name if not set."""
+    if not state.get("agent_name"):
+        state["agent_name"] = interrupt(
+            "Before we start, what would you like to call me?"
+        )
+    return {"agent_name": state["agent_name"]}
+
+
 # Step 4: Generate a response using the retrieved content.
-async def answer_node(state: State, config: RunnableConfig):
+async def answer_node(
+    state: State, config: RunnableConfig, system_prompt_content: Prompts = None
+):
     """Generate answer for questions."""
-    user_name = config["configurable"].get("user_name", "")
 
     documents = state.get("documents", [])
+
     docs_content = []
     for c in documents:
         if c is None:  # Skip None values
@@ -149,15 +159,6 @@ async def answer_node(state: State, config: RunnableConfig):
         docs_content = "\n\n---\n".join(docs_content)
     else:
         docs_content = "No relevant documents found."
-
-    # Check if ANSWER_SYSTEM_PROMPT is empty and provide a default prompt if needed
-    if Prompts.ANSWER_SYSTEM_PROMPT:
-        system_prompt_content = Prompts.ANSWER_SYSTEM_PROMPT.format(
-            docs_content=docs_content,
-            user_name=user_name,
-        )
-    else:
-        system_prompt_content = f"You are a helpful AI assistant for {user_name if user_name else 'the user'}. Answer questions based on the provided context."
 
     system_message = SystemMessage(content=system_prompt_content)
 
@@ -181,7 +182,7 @@ async def answer_node(state: State, config: RunnableConfig):
 
     prompt = {"messages": [system_message] + [system_context] + conversation_messages}
 
-    response_msg = await planner.ainvoke(prompt, config=config)
+    response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
     return {
         "messages": [AIMessage(content=content, name=MessageName.answer)],

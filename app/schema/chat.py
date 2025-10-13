@@ -9,9 +9,10 @@ from enum import Enum
 class MessageName:
     agent = "agent"
     generate_agent = "generate_agent"
-    sql_agent = "sql_agent"
-    api_agent = "api_agent"
+    pedagogical_agent = "pedagogical_agent"
     answer = "answer"
+    feedback_agent = "feedback_agent"
+    student_agent = "student_agent"
 
 
 class Role(str, Enum):
@@ -26,6 +27,7 @@ class ChatType(str, Enum):
     error = "error"
     info = "info"
     suggest = "suggest"
+    interrupt = "interrupt"
 
 
 class ErrorCode(int, Enum):

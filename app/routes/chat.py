@@ -14,11 +14,12 @@ from fastapi import (
     status,
 )
 from langchain_community.callbacks import get_openai_callback
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph.state import CompiledStateGraph
 from redis.asyncio import Redis as AsyncRedis, ConnectionPool
 from starlette.websockets import WebSocketState
+
 
 from app.graph.workflow import build_workflow, invoke_workflow
 from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken

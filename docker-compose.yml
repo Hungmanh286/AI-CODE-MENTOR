@@ -47,6 +47,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+  codeMentor-app:
+    image: postgres:17-alpine
+    container_name: mentorbot-app
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${APP_DB:-mentorbot}
+      POSTGRES_USER: ${APP_USER:-edu}
+      POSTGRES_PASSWORD: ${APP_PASSWORD}
+    ports:
+      - "5435:5432"
+    networks:
+      - mentorbot-net
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${APP_USER:-edu} -d ${APP_DB:-mentorbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 configs:
   qdrant_config:

@@ -4,7 +4,6 @@ import warnings
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from scalar_fastapi import get_scalar_api_reference
@@ -24,7 +23,6 @@ app = FastAPI(
     title="Chatbot service",
     openapi_url="/api/v1/openapi.json",
     description="API service for chatbot.",
-    docs_url="/documentation",
     redoc_url=None,
 )
 
@@ -36,9 +34,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-app.mount("/docs", StaticFiles(directory="site", html=True), name="docs")
 
 
 @app.get("/ping", include_in_schema=False)
@@ -56,7 +51,9 @@ async def scalar_html():
 
 
 app.include_router(Routers.chat_router, prefix="", tags=["Chatws"])
-
+app.include_router(Routers.user_router, prefix="", tags=["User"])
+app.include_router(Routers.progress_user_router, prefix="", tags=["ProgressUser"])
+app.include_router(Routers.lesson_router, prefix="", tags=["Lesson"])
 
 if __name__ == "__main__":
     import uvicorn
