@@ -1,7 +1,16 @@
+from docling.document_converter import DocumentConverter
 from sqlmodel import select, Session
 from langchain.tools import tool
+
 from app.schema.lesson import Lesson
 from app.config import settings
+
+
+def convert_pdf_to_text(source: str):
+    converter = DocumentConverter()
+    doc = converter.convert(source).document
+    documents = doc.export_to_markdown()
+    return documents
 
 
 def get_lesson_by_query(query: str) -> Lesson | None:

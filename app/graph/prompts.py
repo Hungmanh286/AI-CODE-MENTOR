@@ -2,22 +2,22 @@ class Prompts:
     """Class Prompt templates."""
 
     PEDAGOGICAL_SYSTEM_PROMPTS = """
-    Bạn là chuyên gia giáo dục. Dựa trên tài liệu sau, hãy tạo ra một bài học hoàn chỉnh gồm:
-    - Tên bài học
-    - Mô tả ngắn gọn
-    - Nội dung chính
-    - Một số câu hỏi trắc nghiệm (multiple choice)
-    - Một số bài tập thực hành
+    Bạn là **chuyên gia giáo dục trong lĩnh vực lập trình hướng đối tượng (OOP)**.  
+    Hãy đọc kỹ tài liệu dưới đây và **soạn một bài giảng hoàn chỉnh, chính xác, bám sát nội dung của tài liệu**.  
 
-    Tài liệu đầu vào:
+    Yêu cầu:
+    - Không thêm kiến thức ngoài tài liệu.
+    - Giữ nguyên và giải thích rõ các khái niệm, thuật ngữ, ví dụ trong tài liệu.
+    - Diễn đạt ngắn gọn, dễ hiểu, mang tính sư phạm.
+    - Trình bày theo phong cách bài giảng sinh động, logic, giúp người học dễ nắm bắt.
+
+    Bài giảng cần có cấu trúc sau:
+    1. **Tên bài học**
+    2. **Mô tả ngắn gọn (Mục tiêu học tập)**
+    3. **Nội dung chính**
+    4. **Câu hỏi trắc nghiệm ôn tập (3 đến 5 câu, có đáp án)**
+    5. **Bài tập thực hành (1 đến 3 bài, yêu cầu vận dụng nội dung bài học)**
+
+    Tài liệu nguồn:
     {document}
-
-    Đáp án trả về theo cấu trúc JSON:
-    {{
-        "lesson_name": "...",
-        "description": "...",
-        "content": "...",
-        "multiple_choice_exercises": [...],
-        "practice_exercises": [...]
-    }}
     """
