@@ -1,41 +1,28 @@
-import os
-from mcp.server.fastmcp import FastMCP
-from typing import Annotated
-from docling.document_converter import DocumentConverter
+import numexpr as ne
 
+from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("PDFExtractor")
-converter = DocumentConverter()
 
-
-UPLOAD_DIR = "/tmp/uploads"
-# Biến lưu file upload gần nhất
 
 latest_uploaded_file: str | None = None
 
 
 @mcp.tool()
-async def extract_pdf_text(
-    file_path: Annotated[str, "Path to the uploaded PDF file"],
-) -> str:
-    """
+def calculator_tool(expression: str) -> float:
+    """Công cụ thực hiện tính toán và trả về giá trị cho các biểu thức, phép toán đầu vào.
 
-    trích xuất nội dung từ file pdf
-    Input:
-        file_path (str): Path to PDF file saved on server
-    Output:
-        Extracted Markdown text
+    Args:
+        expression (str): expression to evaluate
+
+    Returns:
+        float: result of the expression
     """
-    file_path = "/tmp/uploads/Đề thi Lập trình hướng đối tượng đề số 2 kỳ 2 năm học 2022-2023 – UET.pdf"
     try:
-        if not os.path.exists(file_path):
-            return f"File not found: {file_path}"
-
-        doc = converter.convert(file_path).document
-        text = doc.export_to_markdown()
-        return text or "Không trích xuất được nội dung từ PDF."
-    except Exception as e:
-        return f"Lỗi khi đọc PDF: {e}"
+        result = ne.evaluate(expression).item()
+        return f"{expression} = {result}"
+    except Exception:
+        return expression
 
 
 # @mcp.tool()

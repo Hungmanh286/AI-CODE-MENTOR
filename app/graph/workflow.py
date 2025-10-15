@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from fastapi import WebSocket
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables.config import RunnableConfig
+
 from langfuse.callback import CallbackHandler
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
@@ -75,9 +76,10 @@ async def invoke_workflow(
         )
         await safe_send(websocket, resp)
 
+    # 7a442810-4bc2-47ff-aaa5-d72d4a11bd5b
     config = RunnableConfig(
         configurable={
-            "thread_id": f"{user_token.user_id}_{session_uuid}",
+            "thread_id": "abc",
             "user_name": user_token.username,
             "user_id": user_token.user_id,
         },
