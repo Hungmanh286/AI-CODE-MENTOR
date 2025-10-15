@@ -11,9 +11,9 @@ class User(SQLModel, table=True):
 
 
 class ProgressUser(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    lesson_id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(index=True, nullable=False)
-    user_name: str = Field(index=True, nullable=False)
+    id: int | None = Field(default=None, primary_key=True)
+    lesson_id: str = Field(nullable=False)
+    user_id: str = Field(index=True, nullable=False)
     lesson_name: str = Field(index=True, nullable=False)
-    progress: float = Field(default=0.0, nullable=False)
+    user_name: str = Field(index=True, nullable=False)
+    progress: str = Field(default=None, nullable=False)

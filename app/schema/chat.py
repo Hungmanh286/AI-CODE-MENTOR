@@ -9,10 +9,10 @@ from enum import Enum
 class MessageName:
     agent = "agent"
     generate_agent = "generate_agent"
-    pedagogical_agent = "pedagogical_agent"
+    question_agent = "question_agent"
     answer = "answer"
-    feedback_agent = "feedback_agent"
-    student_agent = "student_agent"
+    feedbacks_answer = "feedbacks_answer"
+    feedbacks_question = "feedbacks_question"
 
 
 class Role(str, Enum):

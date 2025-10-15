@@ -26,7 +26,6 @@ from starlette.websockets import WebSocketState
 from app.graph.workflow import build_workflow, invoke_workflow  # noqa
 from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken
 
-from app.graph.agents import build_pedagogical_workflow
 
 from app.services import UserUsage, verify_access_token, safe_send
 from app.config import settings
@@ -72,7 +71,7 @@ async def get_graph():
         async with AsyncPostgresSaver.from_conn_string(
             settings._checkpointer_db_uri
         ) as checkpointer:
-            workflow = build_pedagogical_workflow()
+            workflow = build_workflow()
             graph = workflow.compile(checkpointer=checkpointer)
             yield graph
     except Exception as e:

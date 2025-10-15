@@ -54,6 +54,7 @@ app.include_router(Routers.chat_router, prefix="", tags=["Chatws"])
 app.include_router(Routers.user_router, prefix="", tags=["User"])
 app.include_router(Routers.progress_user_router, prefix="", tags=["ProgressUser"])
 app.include_router(Routers.lesson_router, prefix="", tags=["Lesson"])
+app.include_router(Routers.upload_pdf_router, prefix="", tags=["UploadPDF"])
 
 if __name__ == "__main__":
     import uvicorn
