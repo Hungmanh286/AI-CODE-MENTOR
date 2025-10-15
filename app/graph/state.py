@@ -20,6 +20,7 @@ class State(MessagesState):
     ai_answer: str | None
     documents: List | None
     next: str | None
+    file_path: str | None
 
 
 class AgentState(CopilotKitState):
