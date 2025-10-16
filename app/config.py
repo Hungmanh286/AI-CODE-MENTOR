@@ -21,6 +21,10 @@ class GlobalConfig(BaseSettings):
     CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
     CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
 
+    EMBEDDING_KEY: Optional[str] = Field(default=None)
+    EMBEDDING_MODEL: Optional[str] = Field(default="voyage-3-large")
+    EMBEDDING_DIMS: Optional[int] = Field(default=1024)
+
     # Ratelimit
     RATELIMIT_REDIS: Optional[str] = Field(default="redis://localhost:6379/0")
     REDIS_MAX_CONNECTION_POOL: Optional[int] = Field(default=100)
