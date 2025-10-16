@@ -79,7 +79,7 @@ async def invoke_workflow(
     # 7a442810-4bc2-47ff-aaa5-d72d4a11bd5b
     config = RunnableConfig(
         configurable={
-            "thread_id": "abc",
+            "thread_id": session_uuid,
             "user_name": user_token.username,
             "user_id": user_token.user_id,
         },

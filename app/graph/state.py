@@ -21,6 +21,8 @@ class State(MessagesState):
     documents: List | None
     next: str | None
     file_path: str | None
+    collection_name: str | None
+    docs: List | None
 
 
 class AgentState(CopilotKitState):
