@@ -25,6 +25,19 @@ def calculator_tool(expression: str) -> float:
         return expression
 
 
+@mcp.tool()
+def echo_tool(message: str) -> str:
+    """Công cụ trả về chính xác tin nhắn người dùng đã nhập vào.
+
+    Args:
+        message (str): message to echo
+
+    Returns:
+        str: echoed message
+    """
+    return message
+
+
 # @mcp.tool()
 # async def get_latest_pdf_path() -> str:
 #     """

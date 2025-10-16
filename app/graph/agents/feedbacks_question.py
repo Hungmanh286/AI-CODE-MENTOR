@@ -35,18 +35,17 @@ def call_model(state: State, config: RunnableConfig):
 
 def build_feedbacks_workflow():
     workflow = StateGraph(State)
-    workflow.add_node(MessageName.feedback_agent, call_model)
-    workflow.add_node("any_tools", ToolNode(TOOLS))
+    workflow.add_node(MessageName.feedbacks_question, call_model)
+    workflow.add_node("tools_node", ToolNode(TOOLS))
 
-    workflow.add_edge(START, MessageName.feedback_agent)
-    workflow.add_edge(MessageName.feedback_agent, "any_tools")
-    workflow.add_edge("any_tools", END)
+    workflow.add_edge(START, MessageName.feedbacks_question)
+    workflow.add_edge(MessageName.feedbacks_question, "tools_node")
+    workflow.add_edge("tools_node", END)
 
     return workflow
 
-
 workflow = build_feedbacks_workflow()
-feedback_agent = workflow.compile()
+feedbacks_question = workflow.compile()
 
 
 if __name__ == "__main__":
@@ -61,4 +60,4 @@ if __name__ == "__main__":
                 message.pretty_print()
 
     inputs = {"messages": [HumanMessage(content="4 nhân 9 bao nhiêu")]}
-    print_stream(feedback_agent.stream(inputs, stream_mode="values"))
+    print_stream(feedbacks_question.stream(inputs, stream_mode="values"))
