@@ -23,6 +23,8 @@ class State(MessagesState):
     file_path: str | None
     collection_name: str | None
     docs: List | None
+    summarize_context: str | None
+    evaluation_result: str | None
 
 
 class AgentState(CopilotKitState):

@@ -8,6 +8,7 @@ from app.chatmodel import init_llm
 from app.graph.state import State
 from app.schema import MessageName
 from app.config import settings
+from app.graph.tools.retrieval_tool import subgraph
 
 
 TOOLS = []
@@ -41,20 +42,17 @@ def should_continue(state: State):
 
 
 workflow = StateGraph(State)
-workflow.add_node(MessageName.student_agent, call_model)
+workflow.add_node(MessageName.feedbacks_answer, call_model)
 workflow.add_node("generate_tools", ToolNode(TOOLS))
-workflow.add_edge(START, MessageName.student_agent)
-workflow.add_conditional_edges(
-    MessageName.student_agent,
-    should_continue,
-    {
-        "continue": "generate_tools",
-        "end": END,
-    },
-)
+workflow.add_node("retrieval_subgraph", subgraph)
+
+workflow.add_edge(START, MessageName.feedbacks_answer)
+workflow.add_edge(MessageName.feedbacks_answer, "generate_tools")
+workflow.add_edge("generate_tools", "retrieval_subgraph")
+workflow.add_edge("retrieval_subgraph", END)
 
 
-student_agent = workflow.compile()
+feedbacks_answer = workflow.compile()
 
 
 if __name__ == "__main__":
@@ -69,4 +67,4 @@ if __name__ == "__main__":
                 message.pretty_print()
 
     inputs = {"messages": [HumanMessage(content="4 nhân 9 bao nhiêu")]}
-    print_stream(student_agent.stream(inputs, stream_mode="values"))
+    print_stream(feedbacks_answer.stream(inputs, stream_mode="values"))

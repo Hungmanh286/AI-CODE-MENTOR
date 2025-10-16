@@ -1,35 +1,38 @@
 import os
-import re
+import sys
 
 from langchain_core.runnables.config import RunnableConfig
 from docling.document_converter import DocumentConverter
 from langchain_core.messages import SystemMessage
-from langchain_core.messages import AIMessage
-from langchain_qdrant import QdrantVectorStore
-from langchain_voyageai.embeddings import VoyageAIEmbeddings
+from langchain_core.messages import (
+    AIMessage,
+)
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
-from qdrant_client import QdrantClient
+from langchain.prompts import PromptTemplate
 
 from app.graph.state import State
 from app.graph.prompts import Prompts
 from app.graph.generate import generate_agent
+from app.chatmodel import init_llm
 from app.config import settings
+
 
 UPLOAD_DIR = "/tmp/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 converter = DocumentConverter()
 
+try:
+    llm = init_llm(
+        api_key=settings.CHAT_MODEL_KEY,
+        model=settings.CHAT_MODEL,
+        temperature=settings.CHAT_MODEL_TEMPERATURE,
+        tags=["feedback_agent"],
+    )
+except Exception as e:
+    print(f"Fatal Error: Failed to initialize API agent model: {e}")
+    sys.exit(1)
 
-embeddings = VoyageAIEmbeddings(
-    api_key=settings.EMBEDDING_KEY,
-    model=settings.EMBEDDING_MODEL,
-    output_dimension=settings.EMBEDDING_DIMS,
-)
-url = "http://localhost:6333"
 
-
-# hàm lấy câu hỏi của user
 def get_human_message_content(state: State):
     messages = state.get("messages", [])
     for msg in messages:
@@ -42,138 +45,69 @@ def get_human_message_content(state: State):
     return ""
 
 
-# step 1 : node chunk pdf
-def parse_and_chunk_pdf(state: State, config: RunnableConfig):
+# node trích xuất dữ liệu từ file pdf
+async def extract_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
 
     latest_file = os.path.join(UPLOAD_DIR, f"{session_id}_latest.txt")
     print(f"Looking for latest file at: {latest_file}")
+
     if os.path.exists(latest_file):
         with open(latest_file, "r") as f:
-            source_path = f.read().strip()
+            file_path = f.read().strip()
     else:
         return {"documents": None}
 
     try:
-        if not os.path.exists(source_path):
+        if not os.path.exists(file_path):
             return {"documents": None}
 
-        converter = DocumentConverter()
-        doc = converter.convert(source_path).document
-        markdown_text = doc.export_to_markdown()
-    except Exception as e:
-        print(f"Error converting document: {e}")
+        doc = converter.convert(file_path).document
+        text = doc.export_to_markdown()
+        return {"documents": text}
+    except Exception:
         return {"documents": None}
 
-    # --- Tự động trích xuất topic ---
-    filename = os.path.basename(source_path)
-    base_name = os.path.splitext(filename)[0]
 
-    # Tìm "Bài X - ..." trong tên file
-    match = re.search(r"(?i)bài\s*(\d+)[_\-\s]*(.*)", base_name)
-    if match:
-        lesson_num = match.group(1)
-        lesson_title = match.group(2).replace("_", " ").strip().title()
-        topic = f"{lesson_title} (Bài {lesson_num})"
-    else:
-        # Nếu không match thì lấy tiêu đề đầu tiên trong markdown
-        first_heading = re.search(r"^#\s*(.+)", markdown_text, re.MULTILINE)
-        topic = first_heading.group(1).strip() if first_heading else "Tài liệu học tập"
-
-    # --- Chunk theo section ---
-    sections = re.split(r"(?:^|\n)(#{2,3} .+)", markdown_text)
-    documents = []
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=100, separators=["\n\n", "\n", ".", " "]
-    )
-
-    for i in range(1, len(sections), 2):
-        section_title = sections[i].strip("# ").strip()
-        section_text = sections[i + 1].strip()
-        chunks = splitter.split_text(section_text)
-
-        for j, chunk in enumerate(chunks):
-            documents.append(
-                Document(
-                    page_content=chunk,
-                    metadata={
-                        "source": filename,
-                        "section": section_title,
-                        "chunk_index": j,
-                        "topic": topic,
-                    },
-                )
-            )
-
-    return {"documents": documents}
-
-
-# step 2 : node embedding document
-def embedding_document(state: State, config: RunnableConfig):
-    docs = state.get("documents", [])
-
-    collection_name = config["configurable"].get("thread_id")
-
-    client = QdrantClient(url=url)
-
-    existing_collections = [c.name for c in client.get_collections().collections]
-    if collection_name not in existing_collections:
-        vector_store = QdrantVectorStore.from_documents(
-            docs,
-            embeddings,
-            url=url,
-            prefer_grpc=True,
-            collection_name=collection_name,
-        )
-    else:
-        vector_store = QdrantVectorStore(
-            client=client,
-            collection_name=collection_name,
-            embedding=embeddings,
-        )
-        vector_store.add_documents(docs)
-
-    return {"collection_name": collection_name}
-
-
-# node 3: information_retriever
-def information_retriever(state: State, config: RunnableConfig) -> str:
-    query = get_human_message_content(state)
-
-    collection_name = state.get("collection_name", "")
-
-    vector_store = QdrantVectorStore.from_existing_collection(
-        embedding=embeddings,
-        collection_name=collection_name,
-        url="http://localhost:6333",
-    )
-    doc_retriever = vector_store.as_retriever(
-        search_kwargs={"k": 10},
-    )
-    retrieved_docs = doc_retriever.invoke(query)
-    docs = []
-    for doc in retrieved_docs:
-        doc_obj = doc.model_dump()
-        docs.append(doc_obj)
-    return {"docs": docs}
-
-
-# step 4: kiểm tra có tồn tại pdf nào không
-def check_pdf_exists(state: State, config: RunnableConfig):
+# node summarize context
+async def summarize_context(state: State, config: RunnableConfig):
     documents = state.get("documents", None)
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=10000,
+        chunk_overlap=100,
+        separators=["\n\n", "\n", " ", ""],
+    )
+
+    chunks = splitter.split_text(documents)
+    summaries = []
+
+    prompt = PromptTemplate.from_template("""
+Tóm tắt đoạn văn sau bằng tiếng Việt, giữ lại thông tin quan trọng:
+---
+{text}
+---
+Tóm tắt:
+""")
+    for chunk in chunks:
+        response = await llm.ainvoke(prompt.format(text=chunk), config=config)
+        text = response.content
+        summaries.append(text)
+    return {"summarize_context": summaries}
+
+
+def check_pdf_exists(state: State, config: RunnableConfig):
+    documents = state.get("summarize_context", None)
     if not documents:
         return "web_search"
     else:
         return "pdf_exists"
 
 
-# step 5 :node sinh câu hỏi :
-async def generate_questions(
-    state: State, config: RunnableConfig, system_prompt_content: Prompts = None
-):
-    documents = state.get("docs", [])
+# node sinh câu hỏi :
+async def generate_questions(state: State, config: RunnableConfig):
+    documents = state.get("summarize_context", [])
     question = get_human_message_content(state)
-    print(question)
 
     system_message = SystemMessage(
         content=Prompts.GENERATE_QUESTIONS_PROMPT.format(
@@ -190,8 +124,36 @@ async def generate_questions(
     content = response_msg["messages"][-1].content
 
     return {
-        "messages": [AIMessage(content=content, name="question_expert")],
         "ai_answer": content,
+    }
+
+
+# nếu mà câu hỏi cụ thể sử dụng tool này
+
+
+# node đánh giá câu hỏi :
+async def evaluate_questions(state: State, config: RunnableConfig):
+    """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
+    documents = state.get("summarize_context", [])
+    generated_questions = state.get("ai_answer", "")
+
+    # Tạo system prompt
+    system_message = SystemMessage(
+        content=Prompts.EVALUATE_QUESTIONS_PROMPT.format(
+            documents=documents,
+            questions=generated_questions,
+        )
+    )
+
+    prompt = {"messages": [system_message]}
+
+    # Gọi LLM để đánh giá
+    response_msg = await generate_agent.ainvoke(prompt, config=config)
+    content = response_msg["messages"][-1].content
+
+    return {
+        "messages": [AIMessage(content=content, name="evaluation_agent")],
+        "evaluation_result": content,
     }
 
 
@@ -199,25 +161,24 @@ def build_expert_workflow():
     from langgraph.graph import StateGraph, START, END
 
     workflow = StateGraph(State)
-
-    workflow.add_node("parse_and_chunk_pdf", parse_and_chunk_pdf)
-    workflow.add_node("embedding_document", embedding_document)
-    workflow.add_node("information_retriever", information_retriever)
-
+    workflow.add_node("extract_pdf_text", extract_pdf_text)
     workflow.add_node("generate_questions", generate_questions)
+    workflow.add_node("summarize_context", summarize_context)
+    workflow.add_node("evaluate_questions", evaluate_questions)
 
     workflow.add_conditional_edges(
-        "parse_and_chunk_pdf",
+        "extract_pdf_text",
         check_pdf_exists,
         {
-            "pdf_exists": "embedding_document",
+            "pdf_exists": "generate_questions",
             "web_search": END,
         },
     )
-    workflow.add_edge(START, "parse_and_chunk_pdf")
-    workflow.add_edge("embedding_document", "information_retriever")
-    workflow.add_edge("information_retriever", "generate_questions")
-    workflow.add_edge("generate_questions", END)
+    workflow.add_edge(START, "extract_pdf_text")
+    workflow.add_edge("extract_pdf_text", "summarize_context")
+    workflow.add_edge("summarize_context", "generate_questions")
+    workflow.add_edge("generate_questions", "evaluate_questions")
+    workflow.add_edge("evaluate_questions", END)
     return workflow
 
 
