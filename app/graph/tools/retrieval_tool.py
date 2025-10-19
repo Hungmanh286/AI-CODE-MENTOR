@@ -9,6 +9,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from qdrant_client import QdrantClient
 from langgraph.graph.state import StateGraph
+from langgraph.graph import START, END
 
 from app.graph.state import State
 from app.config import settings
@@ -162,7 +163,9 @@ subgraph_builder = StateGraph(State)
 subgraph_builder.add_node("parse_and_chunk_pdf", parse_and_chunk_pdf)
 subgraph_builder.add_node("embedding_document", embedding_document)
 subgraph_builder.add_node("information_retriever", information_retriever)
+subgraph_builder.add_edge(START, "parse_and_chunk_pdf")
 subgraph_builder.add_edge("parse_and_chunk_pdf", "embedding_document")
 subgraph_builder.add_edge("embedding_document", "information_retriever")
+subgraph_builder.add_edge("information_retriever", END)
 
 subgraph = subgraph_builder.compile()

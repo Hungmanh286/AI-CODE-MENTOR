@@ -21,6 +21,7 @@ UPLOAD_DIR = "/tmp/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 converter = DocumentConverter()
 
+
 try:
     llm = init_llm(
         api_key=settings.CHAT_MODEL_KEY,
@@ -36,10 +37,8 @@ except Exception as e:
 def get_human_message_content(state: State):
     messages = state.get("messages", [])
     for msg in messages:
-        # Nếu là HumanMessage
         if msg.__class__.__name__ == "HumanMessage":
             return msg.content
-        # Nếu là dict và role là user
         if isinstance(msg, dict) and msg.get("role") == "user":
             return msg.get("content", "")
     return ""
@@ -122,13 +121,9 @@ async def generate_questions(state: State, config: RunnableConfig):
     prompt = {"messages": [system_message]}
     response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
-
     return {
         "ai_answer": content,
     }
-
-
-# nếu mà câu hỏi cụ thể sử dụng tool này
 
 
 # node đánh giá câu hỏi :
@@ -150,7 +145,6 @@ async def evaluate_questions(state: State, config: RunnableConfig):
     # Gọi LLM để đánh giá
     response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
-
     return {
         "messages": [AIMessage(content=content, name="evaluation_agent")],
         "evaluation_result": content,

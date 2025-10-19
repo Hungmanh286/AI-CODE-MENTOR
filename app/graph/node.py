@@ -23,9 +23,9 @@ from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
 from app.schema import MessageName
 from app.config import settings
-from app.graph.tools import retriever_tool
+# from app.graph.tools import retriever_tool
 
-TOOLS = [retriever_tool]
+TOOLS = []
 
 try:
     # LLM: Generate answer

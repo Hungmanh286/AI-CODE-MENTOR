@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, TypedDict, Optional
 
 from langchain_core.messages import (
     AIMessage,
@@ -9,10 +9,17 @@ from langchain_core.messages import (
     trim_messages,
 )
 from langgraph.graph.message import MessagesState
-from copilotkit import CopilotKitState
 
 from app.schema import MessageName
 from app.config import settings
+
+
+class Question(TypedDict):
+    """A multi choice question."""
+
+    question: str
+    choices: List[str]
+    answer: Optional[str]
 
 
 class State(MessagesState):
@@ -25,10 +32,8 @@ class State(MessagesState):
     docs: List | None
     summarize_context: str | None
     evaluation_result: str | None
-
-
-class AgentState(CopilotKitState):
-    agent_name: str
+    questions: List[Question]
+    selected_answers: List[str]
 
 
 def get_conversation_messages(
