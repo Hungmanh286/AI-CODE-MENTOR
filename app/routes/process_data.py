@@ -1,0 +1,131 @@
+import os
+import json
+import uuid
+
+from fastapi import APIRouter, Form
+from app.graph.agents.question_expert import question_expert, UPLOAD_DIR
+from app.schema.question import Project, Question, QuestionOption
+from app.services.datasource import insert_database
+from sqlmodel import Session, select
+from app.schema.question import SessionProject
+
+router = APIRouter()
+
+
+@router.post("/process")
+async def process_pdf(
+    session_id: str = Form(...),
+    project_name: str = Form(...),
+):
+    # Gọi question_expert để xử lý PDF và sinh câu hỏi
+    result = await question_expert.ainvoke(
+        {}, {"configurable": {"thread_id": session_id}}
+    )
+    evaluated_result = result["evaluation_result"]
+    questions_data = json.loads(evaluated_result)
+
+    # Tạo project mới
+    project_id = str(uuid.uuid4())
+    project_data = {
+        "id": project_id,
+        "name": project_name,
+        "source_path": os.path.join(UPLOAD_DIR, f"{session_id}_latest.txt"),
+    }
+
+    # Lưu project vào database
+    insert_database(project_data, Project)
+    # Lưu session-project vào database
+    from app.schema.question import SessionProject
+
+    session_project_data = {"session_id": session_id, "project_id": project_id}
+    insert_database(session_project_data, SessionProject)
+
+    # Lưu từng câu hỏi và các lựa chọn vào database
+    for q in questions_data:
+        # Tạo câu hỏi
+        question_id = str(uuid.uuid4())
+        question_data = {
+            "id": question_id,
+            "project_id": project_id,
+            "question_id": q["id"],
+            "question": q["question"],
+            "type": q["type"],
+            "difficulty": q.get("difficulty"),
+            "correct_answer": q.get("correct_answer"),
+            "explanation": q.get("explanation"),
+        }
+
+        # Lưu câu hỏi vào database
+        insert_database(question_data, Question)
+
+        # Lưu các option của câu hỏi
+        for idx, option_text in enumerate(q.get("options", [])):
+            option_data = {
+                "question_id": question_id,
+                "option_index": idx,
+                "option_text": option_text,
+            }
+            insert_database(option_data, QuestionOption)
+
+    return {
+        "project_id": project_id,
+        "questions": questions_data,
+        "message": f"Đã lưu {len(questions_data)} câu hỏi vào database",
+    }
+
+
+@router.get("/session-projects/{session_id}")
+def get_projects_by_session(session_id: str):
+    from app.services.datasource import settings as ds_settings
+
+    engine = ds_settings._app_db_engine
+    with Session(engine) as session:
+        session_projects = session.exec(
+            select(SessionProject).where(SessionProject.session_id == session_id)
+        ).all()
+        project_ids = [sp.project_id for sp in session_projects]
+        projects = session.exec(
+            select(Project).where(Project.id.in_(project_ids))
+        ).all()
+        return {"projects": [p.dict() for p in projects]}
+
+
+@router.get("/project-questions/{project_id}")
+def get_questions_by_project(project_id: str):
+    from app.services.datasource import settings as ds_settings
+
+    engine = ds_settings._app_db_engine
+    with Session(engine) as session:
+        questions = session.exec(
+            select(Question).where(Question.project_id == project_id)
+        ).all()
+        result = []
+        for q in questions:
+            options = session.exec(
+                select(QuestionOption).where(QuestionOption.question_id == q.id)
+            ).all()
+            result.append(
+                {
+                    "question": q.question,
+                    "type": q.type,
+                    "difficulty": q.difficulty,
+                    "correct_answer": q.correct_answer,
+                    "explanation": q.explanation,
+                    "options": [opt.option_text for opt in options],
+                }
+            )
+        return {"questions": result}
+
+
+@router.get("/sessions")
+def get_all_sessions():
+    from app.services.datasource import settings as ds_settings
+
+    engine = ds_settings._app_db_engine
+    from app.schema.question import SessionProject
+
+    with Session(engine) as session:
+        sessions = session.exec(select(SessionProject.session_id)).all()
+        # Loại bỏ trùng lặp
+        unique_sessions = list(set(sessions))
+        return {"sessions": unique_sessions}
