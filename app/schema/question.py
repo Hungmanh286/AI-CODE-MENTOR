@@ -44,4 +44,4 @@ class SessionProject(SQLModel, table=True):
     __tablename__ = "session_projects"
     id: Optional[int] = Field(default=None, primary_key=True)
     session_id: str
-    project_id: str = Field(foreign_key="projects.id")
+    project_id: Optional[str] = Field(default=None)

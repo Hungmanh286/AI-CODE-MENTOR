@@ -5,9 +5,10 @@ from dotenv import load_dotenv
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.engine import Engine
-from sqlmodel import SQLModel, Session, inspect, Table
+from sqlmodel import SQLModel, Session, inspect, select, Table
 
 from app.config import settings
+from app.schema.upload import UploadFileStatus
 
 
 load_dotenv()
@@ -83,3 +84,19 @@ def update_database(
             )
             session.rollback()
             raise
+
+
+def get_active_file_id(session_id: str):
+    """
+    Truy vấn db để tìm tất cả file_id có active=True theo session_id
+    """
+    engine = settings._app_db_engine
+    with Session(engine) as session:
+        file_records = session.exec(
+            select(UploadFileStatus).where(
+                (UploadFileStatus.session_id == session_id) & (UploadFileStatus.active)
+            )
+        ).all()
+        if not file_records:
+            return {"error": f"No active file found for session_id {session_id}"}
+        return [record.file_id for record in file_records]

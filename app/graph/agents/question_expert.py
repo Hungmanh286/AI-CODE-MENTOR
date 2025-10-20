@@ -15,6 +15,7 @@ from app.graph.prompts import Prompts
 from app.graph.generate import generate_agent
 from app.chatmodel import init_llm
 from app.config import settings
+from app.services.datasource import get_active_file_id
 
 
 UPLOAD_DIR = "/tmp/uploads"
@@ -48,24 +49,27 @@ def get_human_message_content(state: State):
 async def extract_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
 
-    latest_file = os.path.join(UPLOAD_DIR, f"{session_id}_latest.txt")
-    print(f"Looking for latest file at: {latest_file}")
-
-    if os.path.exists(latest_file):
-        with open(latest_file, "r") as f:
-            file_path = f.read().strip()
-    else:
+    file_ids = get_active_file_id(session_id)
+    all_texts = []
+    for file_id in file_ids:
+        latest_file = os.path.join(UPLOAD_DIR, f"{file_id}_{session_id}_latest.txt")
+        print(f"Looking for latest file at: {latest_file}")
+        if os.path.exists(latest_file):
+            with open(latest_file, "r") as f:
+                file_path = f.read().strip()
+                try:
+                    if not os.path.exists(file_path):
+                        continue
+                    doc = converter.convert(file_path).document
+                    text = doc.export_to_markdown()
+                    all_texts.append(text)
+                except Exception:
+                    continue
+    if not all_texts:
         return {"documents": None}
 
-    try:
-        if not os.path.exists(file_path):
-            return {"documents": None}
-
-        doc = converter.convert(file_path).document
-        text = doc.export_to_markdown()
-        return {"documents": text}
-    except Exception:
-        return {"documents": None}
+    big_text = "\n\n".join(all_texts)
+    return {"documents": big_text}
 
 
 # node summarize context
