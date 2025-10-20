@@ -3,11 +3,13 @@ import json
 import uuid
 
 from fastapi import APIRouter, Form
+from sqlmodel import SQLModel, Session, select
+
 from app.graph.agents.question_expert import question_expert, UPLOAD_DIR
 from app.schema.question import Project, Question, QuestionOption
 from app.services.datasource import insert_database
-from sqlmodel import Session, select
 from app.schema.question import SessionProject
+from app.services.datasource import get_active_file_id
 
 router = APIRouter()
 
@@ -15,7 +17,6 @@ router = APIRouter()
 @router.post("/process")
 async def process_pdf(
     session_id: str = Form(...),
-    project_name: str = Form(...),
 ):
     # Gọi question_expert để xử lý PDF và sinh câu hỏi
     result = await question_expert.ainvoke(
@@ -24,11 +25,20 @@ async def process_pdf(
     evaluated_result = result["evaluation_result"]
     questions_data = json.loads(evaluated_result)
 
+    file_ids = get_active_file_id(session_id)
+    file_id = file_ids[0] if file_ids else None
+
+    latest_file = os.path.join(UPLOAD_DIR, f"{file_id}_{session_id}_latest.txt")
+    if os.path.exists(latest_file):
+        with open(latest_file, "r") as f:
+            file_path = f.read().strip()
+        file_name = os.path.basename(file_path)
+
     # Tạo project mới
     project_id = str(uuid.uuid4())
     project_data = {
         "id": project_id,
-        "name": project_name,
+        "name": file_name,
         "source_path": os.path.join(UPLOAD_DIR, f"{session_id}_latest.txt"),
     }
 
@@ -71,6 +81,17 @@ async def process_pdf(
         "project_id": project_id,
         "questions": questions_data,
         "message": f"Đã lưu {len(questions_data)} câu hỏi vào database",
+    }
+
+
+@router.post("/create-session")
+def create_session(session_id: str = Form(...), project_id: str = Form(None)):
+    session_project_data = {"session_id": session_id, "project_id": project_id}
+    insert_database(session_project_data, SessionProject)
+    return {
+        "message": "Session created successfully",
+        "session_id": session_id,
+        "project_id": project_id,
     }
 
 
@@ -119,13 +140,19 @@ def get_questions_by_project(project_id: str):
 
 @router.get("/sessions")
 def get_all_sessions():
-    from app.services.datasource import settings as ds_settings
+    try:
+        from app.services.datasource import settings as ds_settings
 
-    engine = ds_settings._app_db_engine
-    from app.schema.question import SessionProject
+        engine = ds_settings._app_db_engine
+        from app.schema.question import SessionProject
 
-    with Session(engine) as session:
-        sessions = session.exec(select(SessionProject.session_id)).all()
-        # Loại bỏ trùng lặp
-        unique_sessions = list(set(sessions))
-        return {"sessions": unique_sessions}
+        # Đảm bảo bảng tồn tại trước khi truy vấn
+        SQLModel.metadata.create_all(engine)
+
+        with Session(engine) as session:
+            sessions = session.exec(select(SessionProject.session_id)).all()
+            # Loại bỏ trùng lặp
+            unique_sessions = list(set(sessions))
+            return {"sessions": unique_sessions}
+    except Exception:
+        pass
