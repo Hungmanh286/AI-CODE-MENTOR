@@ -12,7 +12,7 @@ from app.services.datasource import insert_database
 from app.config import settings as ds_settings
 
 router = APIRouter()
-UPLOAD_DIR = "/tmp/uploads"
+UPLOAD_DIR = "/home/hungmanh/upload_pdf"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

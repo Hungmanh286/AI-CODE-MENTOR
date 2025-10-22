@@ -14,7 +14,7 @@ from langgraph.graph import START, END
 from app.graph.state import State
 from app.config import settings
 
-UPLOAD_DIR = "/tmp/uploads"
+UPLOAD_DIR = "/home/hungmanh/upload_pdf"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 converter = DocumentConverter()
 
@@ -38,7 +38,7 @@ embeddings = VoyageAIEmbeddings(
 )
 url = "http://localhost:6333"
 
-UPLOAD_DIR = "/tmp/uploads"
+UPLOAD_DIR = "/home/hungmanh/upload_pdf"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
