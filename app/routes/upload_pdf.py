@@ -12,7 +12,7 @@ from app.services.datasource import insert_database
 from app.config import settings as ds_settings
 
 router = APIRouter()
-UPLOAD_DIR = "/home/hungmanh/upload_pdf"
+UPLOAD_DIR = "/tmp/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
@@ -109,5 +109,21 @@ async def view_file(session_id: str, file_id: str):
             img_base64 = base64.b64encode(img_byte_arr).decode("utf-8")
             img_base64_list.append(img_base64)
         return JSONResponse({"images_base64": img_base64_list})
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.post("/upload-crop")
+async def upload_cropped_image(
+    file: UploadFile = File(...), session_id: str = Form(...)
+):
+    try:
+        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        latest_file = os.path.join(UPLOAD_DIR, f"{session_id}_latest_crop.txt")
+        with open(latest_file, "w") as latest:
+            latest.write(file_path)
     except Exception as e:
         return {"error": str(e)}

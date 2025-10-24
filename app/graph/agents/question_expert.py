@@ -18,7 +18,7 @@ from app.config import settings
 from app.services.datasource import get_active_file_id
 
 
-UPLOAD_DIR = "/home/hungmanh/upload_pdf"
+UPLOAD_DIR = "/tmp/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 converter = DocumentConverter()
 
