@@ -42,20 +42,24 @@ def should_continue(state: State):
         return "continue"
 
 
-workflow = StateGraph(State)
-workflow.add_node(MessageName.generate_agent, call_model)
-workflow.add_node("generate_tools", ToolNode(TOOLS))
-workflow.add_edge(START, MessageName.generate_agent)
-workflow.add_conditional_edges(
-    MessageName.generate_agent,
-    should_continue,
-    {
-        "continue": "generate_tools",
-        "end": END,
-    },
-)
-workflow.add_edge("generate_tools", MessageName.generate_agent)
+def build_generate_workflow():
+    workflow = StateGraph(State)
+    workflow.add_node(MessageName.generate_agent, call_model)
+    workflow.add_node("generate_tools", ToolNode(TOOLS))
+    workflow.add_edge(START, MessageName.generate_agent)
+    workflow.add_conditional_edges(
+        MessageName.generate_agent,
+        should_continue,
+        {
+            "continue": "generate_tools",
+            "end": END,
+        },
+    )
+    workflow.add_edge("generate_tools", MessageName.generate_agent)
+    return workflow
 
+
+workflow = build_generate_workflow()
 generate_agent = workflow.compile()
 
 
