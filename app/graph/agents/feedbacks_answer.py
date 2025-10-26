@@ -1,57 +1,207 @@
-import sys
+import os
+import base64
 
-from langgraph.prebuilt import ToolNode
+from openai import OpenAI
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
+from langchain_voyageai.embeddings import VoyageAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
+from langchain_core.messages import SystemMessage
+from langchain_core.messages import (
+    AIMessage,
+)
 
-from app.chatmodel import init_llm
 from app.graph.state import State
 from app.schema import MessageName
 from app.config import settings
-from app.graph.tools.retrieval_tool import subgraph
+from app.graph.prompts import Prompts
+from app.graph.generate import generate_agent
 
 
 TOOLS = []
 
-try:
-    model = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
-        model=settings.CHAT_MODEL,
-        temperature=settings.CHAT_MODEL_TEMPERATURE,
-        tags=["student_agent"],
+UPLOAD_DIR = "/tmp/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+embeddings = VoyageAIEmbeddings(
+    api_key=settings.EMBEDDING_KEY,
+    model=settings.EMBEDDING_MODEL,
+    output_dimension=settings.EMBEDDING_DIMS,
+)
+
+url = "http://localhost:6333"
+
+
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+
+# Path to your image
+def image_to_text(image_path):
+    # Getting the Base64 string
+    client = OpenAI(api_key=settings.CHAT_MODEL_VISION_KEY)
+    base64_image = encode_image(image_path)
+
+    response = client.responses.create(
+        model="gpt-5-nano",
+        input=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "chuyển ảnh sang text"},
+                    {
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{base64_image}",
+                    },
+                ],
+            }
+        ],
+    )
+    return response.output_text
+
+
+# lấy câu hỏi
+def get_human_message_content(state: State):
+    messages = state.get("messages", [])
+    for msg in messages:
+        # Nếu là HumanMessage
+        if msg.__class__.__name__ == "HumanMessage":
+            return msg.content
+        # Nếu là dict và role là user
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            return msg.get("content", "")
+    return ""
+
+
+# node : lấy ảnh crop và chuyển sang text
+# đồng thời xóa ảnh ở trong folder
+def parse_pdf_text(state: State, config: RunnableConfig):
+    session_id = config["configurable"].get("thread_id")
+    session_folder = os.path.join(UPLOAD_DIR, session_id)
+    os.makedirs(session_folder, exist_ok=True)
+    latest_file = os.path.join(session_folder, f"{session_id}_latest_crop.txt")
+    if os.path.exists(latest_file):
+        with open(latest_file, "r") as f:
+            image_path = f.read().strip()
+    else:
+        return {"documents": None}
+    try:
+        if not os.path.exists(image_path):
+            return {"documents": None}
+        text = image_to_text(image_path)
+        # Xóa file ảnh sau khi chuyển sang text
+        if os.path.exists(image_path):
+            os.remove(image_path)
+        return {"documents": text}
+    except Exception as e:
+        print(f"Error converting image to text: {e}")
+        return {"documents": None}
+
+
+# node điều kiện
+def check_pdf(state: State, config: RunnableConfig):
+    documents = state.get("documents", None)
+    if not documents:
+        return "normal"
+    else:
+        return "not normal"
+
+
+# điều kiện 1
+# node 2: information_retriever
+def information_retriever_image(state: State, config: RunnableConfig) -> str:
+    query = get_human_message_content(state)
+
+    collection_name = config["configurable"].get("thread_id")
+
+    vector_store = QdrantVectorStore.from_existing_collection(
+        embedding=embeddings,
+        collection_name=collection_name,
+        url=url,
+    )
+    doc_retriever = vector_store.as_retriever(
+        search_kwargs={"k": 10},
+    )
+    retrieved_docs = doc_retriever.invoke(query)
+    docs = []
+    for doc in retrieved_docs:
+        doc_obj = doc.model_dump()
+        docs.append(doc_obj)
+    return {"docs": docs}
+
+
+# điều kiện 2
+# node 3 :
+def information_retriever(state: State, config: RunnableConfig) -> str:
+    query = get_human_message_content(state)
+
+    collection_name = config["configurable"].get("thread_id")
+
+    vector_store = QdrantVectorStore.from_existing_collection(
+        embedding=embeddings,
+        collection_name=collection_name,
+        url=url,
+    )
+    doc_retriever = vector_store.as_retriever(
+        search_kwargs={"k": 10},
+    )
+    retrieved_docs = doc_retriever.invoke(query)
+    docs = []
+    for doc in retrieved_docs:
+        doc_obj = doc.model_dump()
+        docs.append(doc_obj)
+    return {"docs": docs}
+
+
+async def answer_node(state: State, config: RunnableConfig):
+    """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
+    documents = state.get("docs", [])
+    question = get_human_message_content(state)
+
+    # Tạo system prompt
+    system_message = SystemMessage(
+        content=Prompts.FEEDBACK_QUESTIONS_PROMPT.format(
+            documents=documents,
+            question=question,
+        )
     )
 
-    llm_student = model.bind_tools(TOOLS)
-except Exception as e:
-    print(f"Error initializing model: {e}")
-    sys.exit(1)
+    prompt = {"messages": [system_message]}
+
+    response_msg = await generate_agent.ainvoke(prompt, config=config)
+    content = response_msg["messages"][-1].content
+    return {
+        "messages": [AIMessage(content=content, name="feedbacks_answer")],
+    }
 
 
-def call_model(state: State, config: RunnableConfig):
-    response = model.invoke(state["messages"], config)
-    return {"messages": [response]}
+def build_feedbacks_workflow():
+    workflow = StateGraph(State)
+    workflow.add_node("parse_pdf", parse_pdf_text)
+
+    workflow.add_node("information_retriever", information_retriever)
+    workflow.add_node("information_retriever_image", information_retriever_image)
+    workflow.add_node(MessageName.feedbacks_answer, answer_node)
+
+    workflow.add_conditional_edges(
+        "parse_pdf",
+        check_pdf,
+        {
+            "normal": "information_retriever",
+            "not normal": "information_retriever_image",
+        },
+    )
+    workflow.add_edge(START, "parse_pdf")
+    workflow.add_edge("information_retriever", MessageName.feedbacks_answer)
+    workflow.add_edge("information_retriever_image", MessageName.feedbacks_answer)
+    workflow.add_edge(MessageName.feedbacks_answer, END)
+
+    return workflow
 
 
-def should_continue(state: State):
-    messages = state["messages"]
-    last_message = messages[-1]
-    if not last_message.tool_calls:
-        return "end"
-    else:
-        return "continue"
-
-
-workflow = StateGraph(State)
-workflow.add_node(MessageName.feedbacks_answer, call_model)
-workflow.add_node("generate_tools", ToolNode(TOOLS))
-workflow.add_node("retrieval_subgraph", subgraph)
-
-workflow.add_edge(START, MessageName.feedbacks_answer)
-workflow.add_edge(MessageName.feedbacks_answer, "generate_tools")
-workflow.add_edge("generate_tools", "retrieval_subgraph")
-workflow.add_edge("retrieval_subgraph", END)
-
-
+workflow = build_feedbacks_workflow()
 feedbacks_answer = workflow.compile()
 
 

@@ -48,26 +48,17 @@ def get_human_message_content(state: State):
 # node trích xuất dữ liệu từ file pdf
 async def extract_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
-
     file_ids = get_active_file_id(session_id)
     all_texts = []
+    session_folder = os.path.join(UPLOAD_DIR, session_id)
     for file_id in file_ids:
-        latest_file = os.path.join(UPLOAD_DIR, f"{file_id}_{session_id}_latest.txt")
-        print(f"Looking for latest file at: {latest_file}")
-        if os.path.exists(latest_file):
-            with open(latest_file, "r") as f:
-                file_path = f.read().strip()
-                try:
-                    if not os.path.exists(file_path):
-                        continue
-                    doc = converter.convert(file_path).document
-                    text = doc.export_to_markdown()
-                    all_texts.append(text)
-                except Exception:
-                    continue
+        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
+        if os.path.exists(docs_file):
+            with open(docs_file, "r", encoding="utf-8") as f:
+                text = f.read().strip()
+                all_texts.append(text)
     if not all_texts:
         return {"documents": None}
-
     big_text = "\n\n".join(all_texts)
     return {"documents": big_text}
 

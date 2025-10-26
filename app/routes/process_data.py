@@ -2,8 +2,8 @@ import os
 import json
 import uuid
 
-from fastapi import APIRouter, Form
-from sqlmodel import SQLModel, Session, select
+from fastapi import APIRouter, Form, HTTPException
+from sqlmodel import SQLModel, Session, select, delete
 
 from app.graph.agents.question_expert import question_expert, UPLOAD_DIR
 from app.schema.question import Project, Question, QuestionOption
@@ -27,8 +27,8 @@ async def process_pdf(
 
     file_ids = get_active_file_id(session_id)
     file_id = file_ids[0] if file_ids else None
-
-    latest_file = os.path.join(UPLOAD_DIR, f"{file_id}_{session_id}_latest.txt")
+    session_folder = os.path.join(UPLOAD_DIR, session_id)
+    latest_file = os.path.join(session_folder, f"{file_id}_{session_id}_latest.txt")
     if os.path.exists(latest_file):
         with open(latest_file, "r") as f:
             file_path = f.read().strip()
@@ -38,8 +38,9 @@ async def process_pdf(
     project_id = str(uuid.uuid4())
     project_data = {
         "id": project_id,
+        "session_id": session_id,
         "name": file_name,
-        "source_path": os.path.join(UPLOAD_DIR, f"{session_id}_latest.txt"),
+        "source_path": os.path.join(session_folder, f"{session_id}_latest.txt"),
     }
 
     # Lưu project vào database
@@ -156,3 +157,52 @@ def get_all_sessions():
             return {"sessions": unique_sessions}
     except Exception:
         pass
+
+
+@router.delete("/sessions/{session_id}")
+def delete_session_data(session_id: str):
+    from app.services.datasource import settings as ds_settings
+    from app.schema.upload import UploadFileStatus
+
+    engine = ds_settings._app_db_engine
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        session_projects = session.exec(
+            select(SessionProject).where(SessionProject.session_id == session_id)
+        ).all()
+        if not session_projects:
+            raise HTTPException(status_code=404, detail="Session not found")
+        projects = session.exec(
+            select(Project).where(
+                (Project.session_id == session_id) & (Project.id.is_not(None))
+            )
+        ).all()
+        project_ids = [p.id for p in projects]
+        questions = session.exec(
+            select(Question).where(Question.project_id.in_(project_ids))
+        ).all()
+        question_ids = [q.id for q in questions]
+        if question_ids:
+            session.exec(
+                delete(QuestionOption).where(
+                    QuestionOption.question_id.in_(question_ids)
+                )
+            )
+        if project_ids:
+            session.exec(delete(Question).where(Question.project_id.in_(project_ids)))
+        if project_ids:
+            session.exec(delete(Project).where(Project.session_id == session_id))
+        session.exec(
+            delete(SessionProject).where(SessionProject.session_id == session_id)
+        )
+        session.exec(
+            delete(UploadFileStatus).where(UploadFileStatus.session_id == session_id)
+        )
+        session.commit()
+        # Xóa folder chứa file của session
+        session_folder = os.path.join(UPLOAD_DIR, session_id)
+        if os.path.exists(session_folder):
+            import shutil
+
+            shutil.rmtree(session_folder)
+        return {"detail": f"Deleted all data for session_id: {session_id}"}
