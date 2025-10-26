@@ -13,6 +13,19 @@ Yêu cầu:
 Tài liệu nguồn:
 {documents}
     """
+    FEEDBACK_QUESTIONS_PROMPT = """
+Bạn là chuyên gia giải thích và trả lời chi tiết cho câu hỏi sau:  
+"{question}"
+
+Dựa hoàn toàn vào nội dung của **Tài liệu nguồn** bên dưới.  
+Hãy đảm bảo rằng câu trả lời:
+- Giải thích rõ ràng, chính xác, có logic.  
+- Dẫn chứng cụ thể từ tài liệu khi cần thiết.  
+- Không đưa ra thông tin ngoài tài liệu.
+
+**Tài liệu nguồn:**  
+{documents}
+"""
 
     EVALUATE_QUESTIONS_PROMPT = """
 Bạn là một giảng viên có chuyên môn trong lĩnh vực lập trình hướng đối tượng.

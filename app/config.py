@@ -21,6 +21,11 @@ class GlobalConfig(BaseSettings):
     CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
     CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
 
+    # Chat model vision (Openai)
+    CHAT_MODEL_VISION_KEY: Optional[str] = Field(default=None)
+    CHAT_MODEL_VISION: Optional[str] = Field(default="gpt-5-nano")
+    CHAT_MODEL_TEMPERATURE_VISION: Optional[float] = Field(default=0)
+
     EMBEDDING_KEY: Optional[str] = Field(default=None)
     EMBEDDING_MODEL: Optional[str] = Field(default="voyage-3-large")
     EMBEDDING_DIMS: Optional[int] = Field(default=1024)
