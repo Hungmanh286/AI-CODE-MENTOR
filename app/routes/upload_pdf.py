@@ -140,7 +140,7 @@ async def view_file(session_id: str, file_id: str):
 
 @router.post("/upload-crop")
 async def upload_cropped_image(
-    file: UploadFile = File(...), session_id: str = Form(...)
+    file: UploadFile = File(...), file_id: str = Form(...), session_id: str = Form(...)
 ):
     try:
         session_folder = os.path.join(UPLOAD_DIR, session_id)
@@ -149,7 +149,9 @@ async def upload_cropped_image(
         with open(file_path, "wb") as f:
             f.write(await file.read())
 
-        latest_file = os.path.join(session_folder, f"{session_id}_latest_crop.txt")
+        latest_file = os.path.join(
+            session_folder, f"{file_id}_{session_id}_latest_crop.txt"
+        )
         with open(latest_file, "w") as latest:
             latest.write(file_path)
     except Exception as e:
