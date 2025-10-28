@@ -16,6 +16,7 @@ from app.schema import MessageName
 from app.config import settings
 from app.graph.prompts import Prompts
 from app.graph.generate import generate_agent
+from app.services.datasource import get_active_file_id
 
 
 TOOLS = []
@@ -77,27 +78,33 @@ def get_human_message_content(state: State):
 
 # node : lấy ảnh crop và chuyển sang text
 # đồng thời xóa ảnh ở trong folder
+# xử lý nếu chọn nhiều file cùng lúc
 def parse_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
     session_folder = os.path.join(UPLOAD_DIR, session_id)
     os.makedirs(session_folder, exist_ok=True)
-    latest_file = os.path.join(session_folder, f"{session_id}_latest_crop.txt")
-    if os.path.exists(latest_file):
-        with open(latest_file, "r") as f:
-            image_path = f.read().strip()
-    else:
-        return {"documents": None}
-    try:
-        if not os.path.exists(image_path):
+
+    file_ids = get_active_file_id(session_id)
+    for file_id in file_ids:
+        latest_file = os.path.join(
+            session_folder, f"{file_id}_{session_id}_latest_crop.txt"
+        )
+        if os.path.exists(latest_file):
+            with open(latest_file, "r") as f:
+                image_path = f.read().strip()
+        else:
             return {"documents": None}
-        text = image_to_text(image_path)
-        # Xóa file ảnh sau khi chuyển sang text
-        if os.path.exists(image_path):
-            os.remove(image_path)
-        return {"documents": text}
-    except Exception as e:
-        print(f"Error converting image to text: {e}")
-        return {"documents": None}
+        try:
+            if not os.path.exists(image_path):
+                return {"documents": None}
+            text = image_to_text(image_path)
+            # Xóa file ảnh sau khi chuyển sang text
+            if os.path.exists(image_path):
+                os.remove(image_path)
+            return {"documents": text}
+        except Exception as e:
+            print(f"Error converting image to text: {e}")
+            return {"documents": None}
 
 
 # node điều kiện
