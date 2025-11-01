@@ -128,6 +128,7 @@ def get_questions_by_project(project_id: str):
             ).all()
             result.append(
                 {
+                    "id": q.id,
                     "question": q.question,
                     "type": q.type,
                     "difficulty": q.difficulty,
@@ -137,6 +138,36 @@ def get_questions_by_project(project_id: str):
                 }
             )
         return {"questions": result}
+
+
+@router.post("/add_answer/{question_id}")
+def add_answer_to_question(question_id: str, answer: int = Form(...)):
+    from app.services.datasource import settings as ds_settings
+
+    engine = ds_settings._app_db_engine
+    with Session(engine) as session:
+        question = session.get(Question, question_id)
+        if not question:
+            raise HTTPException(status_code=404, detail="Question not found")
+
+        # Cập nhật answer
+        question.answer = answer
+
+        # So sánh answer với correct_answer để tính score
+        if question.correct_answer is not None and answer == question.correct_answer:
+            question.score = 1
+        else:
+            question.score = 0
+
+        session.add(question)
+        session.commit()
+        session.refresh(question)
+        return {
+            "message": "Answer added successfully",
+            "question_id": question_id,
+            "answer": answer,
+            "score": question.score,
+        }
 
 
 @router.get("/sessions")

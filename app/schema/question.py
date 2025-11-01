@@ -24,6 +24,8 @@ class Question(SQLModel, table=True):
     difficulty: Optional[str] = None
     correct_answer: Optional[int] = None
     explanation: Optional[str] = None
+    answer: Optional[int] = None
+    score: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     project: Optional[Project] = Relationship(back_populates="questions")

@@ -225,3 +225,6 @@ if __name__ == "__main__":
 
     inputs = {"messages": [HumanMessage(content="4 nhân 9 bao nhiêu")]}
     print_stream(feedbacks_answer.stream(inputs, stream_mode="values"))
+
+
+
