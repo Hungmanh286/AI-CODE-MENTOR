@@ -26,6 +26,7 @@ app = FastAPI(
     redoc_url=None,
 )
 
+
 app.add_middleware(GZipMiddleware, minimum_size=10000)
 app.add_middleware(
     CORSMiddleware,
