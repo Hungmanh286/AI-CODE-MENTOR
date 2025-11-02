@@ -50,6 +50,11 @@ class GlobalConfig(BaseSettings):
     APP_USER: Optional[str] = Field()
     APP_PASSWORD: Optional[str] = Field()
 
+    # Langfuse
+    LANGFUSE_HOST: Optional[str] = Field(default="https://us.cloud.langfuse.com")
+    LANGFUSE_SECRET_KEY: Optional[str] = Field(default=None)
+    LANGFUSE_PUBLIC_KEY: Optional[str] = Field(default=None)
+
     # Authentication
     SECRET_KEY: Optional[str] = Field(default=None)
     TOKEN_EXPIRE_HOURS: Optional[int] = Field(default=87600)

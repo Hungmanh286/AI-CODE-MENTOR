@@ -4,6 +4,7 @@ from .progress_user import router as progress_user_router
 from .lesson import router as lesson_router
 from .upload_pdf import router as upload_pdf_router
 from .process_data import router as process_data_router
+from .history_chat import router as history_chat_router
 
 
 class Routers:
@@ -13,6 +14,7 @@ class Routers:
     lesson_router = lesson_router
     upload_pdf_router = upload_pdf_router
     process_data_router = process_data_router
+    history_chat_router = history_chat_router
 
 
 __all__ = ["Routers"]
