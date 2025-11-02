@@ -118,7 +118,7 @@ def check_pdf(state: State, config: RunnableConfig):
 
 # điều kiện 1
 # node 2: information_retriever
-def information_retriever_image(state: State, config: RunnableConfig) -> str:
+def information_retriever(state: State, config: RunnableConfig) -> str:
     query = get_human_message_content(state)
 
     collection_name = config["configurable"].get("thread_id")
@@ -141,8 +141,8 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
 
 # điều kiện 2
 # node 3 :
-def information_retriever(state: State, config: RunnableConfig) -> str:
-    query = get_human_message_content(state)
+def information_retriever_image(state: State, config: RunnableConfig) -> str:
+    query = state.get("documents", "")
 
     collection_name = config["configurable"].get("thread_id")
 
@@ -225,6 +225,3 @@ if __name__ == "__main__":
 
     inputs = {"messages": [HumanMessage(content="4 nhân 9 bao nhiêu")]}
     print_stream(feedbacks_answer.stream(inputs, stream_mode="values"))
-
-
-

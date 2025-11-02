@@ -95,20 +95,21 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
 @router.get("/session-files/{session_id}")
 async def get_files_by_session(session_id: str):
     """
-    Lấy tất cả file_id thuộc về session_id
+    Lấy tất cả file_id và file_name thuộc về session_id
     """
     try:
         engine = ds_settings._app_db_engine
         with Session(engine) as session:
             files = session.exec(
-                select(UploadFileStatus.file_id).where(
+                select(UploadFileStatus).where(
                     UploadFileStatus.session_id == session_id
                 )
             ).all()
-            return files
+            result = [{"file_id": f.file_id, "file_name": f.file_name} for f in files]
+            return result
     except Exception as e:
         print(f"Error retrieving files for session_id {session_id}: {e}")
-        return
+        return []
 
 
 @router.get("/view-file")
