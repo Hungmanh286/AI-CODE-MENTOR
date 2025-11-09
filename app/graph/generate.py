@@ -16,8 +16,8 @@ TOOLS = []
 
 try:
     model = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
-        model=settings.CHAT_MODEL,
+        api_key=settings.CHAT_MODEL_VISION_KEY,
+        model=settings.CHAT_MODEL_VISION,
         temperature=settings.CHAT_MODEL_TEMPERATURE,
         tags=["agent"],
     )

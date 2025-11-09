@@ -8,7 +8,6 @@ from langchain_core.messages import (
     AIMessage,
 )
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.prompts import PromptTemplate
 
 from app.graph.state import State
 from app.graph.prompts import Prompts
@@ -76,7 +75,7 @@ async def summarize_context(state: State, config: RunnableConfig):
     chunks = splitter.split_text(documents)
     summaries = []
 
-    prompt = PromptTemplate.from_template("""
+    prompt = Prompts.SUMMARIZE_PROMPT.format("""
 Tóm tắt đoạn văn sau bằng tiếng Việt, giữ lại thông tin quan trọng:
 ---
 {text}
