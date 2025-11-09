@@ -1,6 +1,128 @@
 class Prompts:
     """Class Prompt templates."""
 
+    SUMMARIZE_CHUNK_SUMMARY_PROMPT = """
+Bên dưới là một tài liệu:
+{document}
+
+Hãy viết một bản tóm tắt bao gồm toàn bộ các thông tin chính.
+Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
+    """
+
+    QUESTION_GENERATION_PROMPT = """
+hãy tạo câu hỏi cho tài liệu sau đây bao gồm 3 câu hỏi tốt và 1 câu hỏi không tốt: {chunk}
+"""
+
+    QUESTION_extractor_PROMPT = """
+xử lý câu hỏi các câu hỏi, loại bỏ trùng lặp, đảm bảo chỉ giữ lại
+các câu hỏi liên quan, đa dạng và không dư thừa.
+{good_questions}
+"""
+
+    ANSWER_GENERATION_PROMPT = """
+Hãy sinh ra các câu trả lời dạng multi choice cho các câu hỏi sau 
+đây dựa trên tài liệu: {chunk}\nDanh sách câu hỏi: {questions}\nTrả về json cho từng câu hỏi trong danh sách.
+"""
+
+    EVALUATE_QA_PROMPT = """
+Bạn là chuyên gia đánh giá câu hỏi sinh ra từ tài liệu.
+
+Nhiệm vụ:
+Đánh giá toàn bộ danh sách các cặp câu hỏi - đáp án dưới đây, được chia theo từng chunk_index.
+Mục tiêu là xác định câu hỏi nào "tốt" (good) và câu hỏi nào "chưa tốt" (bad) theo các tiêu chí:
+- Độ chính xác: câu hỏi phản ánh đúng nội dung chunk
+- Độ đầy đủ: bao quát thông tin quan trọng
+- Mức độ phù hợp: phù hợp với ngữ cảnh và độ khó của chunk
+
+
+Đầu ra:
+Hãy trả về **duy nhất một JSON hợp lệ**, có cấu trúc như sau:
+
+{{
+  "good_questions": {{
+      "<chunk_index>": ["<question_1>", "<question_2>", ...],
+      ...
+  }},
+  "bad_questions": {{
+      "<chunk_index>": ["<question_1>", "<question_2>", ...],
+      ...
+  }}
+}}
+
+Yêu cầu bắt buộc:
+- `chunk_index` phải là số nguyên, trùng với giá trị trong danh sách đầu vào.
+- Nếu một chunk không có câu hỏi tốt hoặc xấu, vẫn phải có key đó và list rỗng.
+- Tuyệt đối không thêm giải thích, mô tả, hay ký tự ngoài JSON.
+
+Dữ liệu đầu vào (danh sách cặp câu hỏi-đáp án theo chunk):
+{question_answers}
+"""
+
+    SUMMARIZE_CHUNK_SUMMARY_Citations_PROMPT = """
+Bên dưới là một tài liệu trong đó mỗi đoạn văn được gán một nhãn ở cuối ([n]) và được ngăn cách bằng dấu xuống dòng:
+{document}
+
+Hãy viết một bản tóm tắt bao gồm toàn bộ các thông tin chính.
+Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
+Sau mỗi câu trong bản tóm tắt, bạn cần gán nhãn cho câu đó để thể hiện nó tương ứng với đoạn văn nào trong tài liệu.
+Cụ thể, hãy tuân theo định dạng sau:
+<câu 1>. [n] <câu 2>. [m] ...
+
+"""
+    SUMMARIZE_CHUNK_SUMMARY_Extract_PROMPT = """
+Bên dưới là một tài liệu :
+{document }  
+"""
+
+    HMerge_SUMMARY_PROMPT = """
+Bên dưới là nhiều bản tóm tắt của các phần khác nhau trong một tài liệu:
+{very_document}
+
+Hãy gộp các bản tóm tắt đã cho thành một bản tóm tắt duy nhất bao gồm toàn bộ các thông tin chính.
+Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
+"""
+    HMerge_SUMMARY_Citations_PROMPT = """
+Bên dưới là nhiều bản tóm tắt của các phần khác nhau trong một tài liệu, trong đó mỗi câu trong bản tóm tắt đều có nhãn ở cuối ([1], [2], …) và được ngăn cách bằng dấu xuống dòng:
+{document}
+
+Hãy gộp các bản tóm tắt đã cho thành một bản tóm tắt duy nhất bao gồm toàn bộ các thông tin chính.
+Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
+Sau mỗi câu trong bản tóm tắt, bạn cần gán nhãn cho câu đó để thể hiện nó tương ứng với đoạn văn nào trong tài liệu gốc.
+Cụ thể, hãy tuân theo định dạng sau:
+<câu 1>. [n] <câu 2>. [m] ...
+"""
+    Extract_Retrieve_Support_PROMPT = """
+Bên dưới là nhiều bản tóm tắt của các phần khác nhau trong một tài liệu:
+{document}
+Bên dưới là các ngữ cảnh hỗ trợ tương ứng với những bản tóm tắt đã cho ở trên:
+{context}
+
+Hãy gộp các bản tóm tắt đã cho thành một bản tóm tắt duy nhất bao gồm toàn bộ các thông tin chính,
+và sử dụng các ngữ cảnh hỗ trợ để đảm bảo rằng bản tóm tắt gộp không chứa sai lệch về mặt nội dung.
+Phần nội dung chính của bản tóm tắt phải dựa hoàn toàn trên các bản tóm tắt đã cho,
+trong khi các ngữ cảnh hỗ trợ chỉ được dùng để kiểm chứng tính chính xác.
+Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu”, “ngữ cảnh” hoặc “bản tóm tắt”.
+    """
+    Cite_Support_PROMPT = """
+Bên dưới là nhiều bản tóm tắt của các phần khác nhau trong một tài liệu:
+{document}
+Bên dưới là các ngữ cảnh hỗ trợ tương ứng với những bản tóm tắt đã cho ở trên, trong đó mỗi ngữ cảnh được gán một nhãn ở cuối ([n]) và được ngăn cách bằng dấu xuống dòng:
+{context}
+
+Hãy gộp các bản tóm tắt đã cho thành một bản tóm tắt duy nhất bao gồm toàn bộ các thông tin chính, đồng thời sử dụng các ngữ cảnh hỗ trợ để đảm bảo rằng bản tóm tắt gộp không chứa sai lệch về mặt nội dung.
+Phần nội dung chính của bản tóm tắt phải dựa hoàn toàn trên các bản tóm tắt đã cho, trong khi các ngữ cảnh hỗ trợ chỉ được dùng để kiểm chứng tính chính xác.
+Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu”, “ngữ cảnh” hoặc “bản tóm tắt”.
+Sau mỗi câu trong bản tóm tắt, bạn cần gán nhãn cho câu đó để thể hiện nó tương ứng với ngữ cảnh hỗ trợ nào.
+Cụ thể, hãy tuân theo định dạng sau:
+<câu 1>. [n] <câu 2>. [m] ...
+    """
+
+    #     SUMMARIZE_PROMPT = """Bạn là một trợ lý AI giúp tóm tắt nội dung tài liệu dài thành các đoạn ngắn gọn.
+    # Hãy tóm tắt đoạn văn sau bằng tiếng Việt, giữ lại thông tin quan trọng:
+    # ---{text}
+    # ---Tóm tắt:
+    # """
+
     GENERATE_QUESTIONS_PROMPT = """
 Bạn là chuyên gia tạo câu hỏi giúp người dùng hiểu nội dung trong Tài liệu nguồn bên dưới.
 
@@ -29,11 +151,6 @@ Hãy đảm bảo rằng câu trả lời:
 
     EVALUATE_QUESTIONS_PROMPT = """
 Bạn là một giảng viên có chuyên môn trong lĩnh vực lập trình hướng đối tượng.
-
-Nhiệm vụ của bạn là **chọn ra 3 câu hỏi trắc nghiệm tốt nhất cho mỗi mục kiến thức** dựa trên nội dung tài liệu sau:
----
-{documents}
----
 
 Danh sách câu hỏi cần đánh giá:
 ---
