@@ -141,15 +141,18 @@ def question_node(state: QState, config: RunnableConfig):
         if bad_questions is not None:
             for chunk_index, bad_qs in bad_questions.items():
                 chunk = document_chunks[int(chunk_index)]
-                for bad_q in bad_qs:
-                    prompt = f"tạo lại câu hỏi tốt hơn cho tài liệu sau đây, tránh lặp lại câu hỏi đã có: {chunk} \n câu hỏi cần cải thiện: {bad_q}"
-                    response_msg = generate_agent.invoke(
-                        {"messages": [HumanMessage(content=prompt)]}, config=config
-                    )
-                    question = response_msg["messages"][-1].content
-                    if chunk_index not in good_questions:
-                        good_questions[chunk_index] = []
-                    good_questions[chunk_index].append(question)
+                prompt = Prompts.QUESTION_REGENERATION_PROMPT.format(
+                    chunk=chunk,
+                    bad_qs=bad_qs,
+                    good_questions=good_questions[chunk_index],
+                )
+                response_msg = generate_agent.invoke(
+                    {"messages": [HumanMessage(content=prompt)]}, config=config
+                )
+                question = response_msg["messages"][-1].content
+                if chunk_index not in good_questions:
+                    good_questions[chunk_index] = []
+                good_questions[chunk_index].append(question)
 
     return {"good_questions": good_questions, "document_chunks": document_chunks}
 

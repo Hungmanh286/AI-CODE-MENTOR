@@ -10,7 +10,25 @@ Trong phần tóm tắt, không được nhắc đến các từ như “tài li
     """
 
     QUESTION_GENERATION_PROMPT = """
-hãy tạo câu hỏi cho tài liệu sau đây bao gồm 3 câu hỏi tốt và 1 câu hỏi không tốt: {chunk}
+Bạn là chuyên gia tạo câu hỏi giúp người dùng hiểu nội dung trong Tài liệu nguồn bên dưới.
+
+Hãy tạo câu hỏi bao gồm 3 câu hỏi tốt và 2 câu hỏi không tốt
+
+Tài liệu nguồn:
+{chunk}
+"""
+    QUESTION_REGENERATION_PROMPT = """
+Bạn là chuyên gia tạo câu hỏi giúp người dùng hiểu nội dung trong Tài liệu nguồn bên dưới.
+Câu hỏi cần cải thiện: {bad_qs}
+
+
+Hãy tạo lại câu hỏi tốt hơn cho tài liệu sau đây, tránh lặp lại câu hỏi đã có: {good_questions}
+
+Lưu ý chỉ trả về các câu hỏi tốt nhất 
+
+Tài liệu nguồn:
+{chunk}
+
 """
 
     QUESTION_extractor_PROMPT = """
@@ -20,8 +38,18 @@ các câu hỏi liên quan, đa dạng và không dư thừa.
 """
 
     ANSWER_GENERATION_PROMPT = """
-Hãy sinh ra các câu trả lời dạng multi choice cho các câu hỏi sau 
-đây dựa trên tài liệu: {chunk}\nDanh sách câu hỏi: {questions}\nTrả về json cho từng câu hỏi trong danh sách.
+Hãy sinh ra các câu trả lời dạng multi choice cho các câu hỏi sau để giúp người học hiểu rõ hơn về nội dung trong đoạn tài liệu dưới đây.
+
+Danh sách câu hỏi: 
+{questions}
+
+Yêu cầu:
+- Trả về duy nhất một JSON hợp lệ là một list các object, mỗi object gồm các trường: "question", "options" (list 4 đáp án), "correct_answer" (chỉ số đáp án đúng), "explanation" (giải thích ngắn gọn).
+- Nếu không có câu hỏi nào thì trả về một list rỗng ([]).
+- Không thêm giải thích, mô tả, hoặc ký tự ngoài JSON.
+
+Tài liệu:
+{chunk}
 """
 
     EVALUATE_QA_PROMPT = """
@@ -52,7 +80,9 @@ Hãy trả về **duy nhất một JSON hợp lệ**, có cấu trúc như sau:
 Yêu cầu bắt buộc:
 - `chunk_index` phải là số nguyên, trùng với giá trị trong danh sách đầu vào.
 - Nếu một chunk không có câu hỏi tốt hoặc xấu, vẫn phải có key đó và list rỗng.
-- Tuyệt đối không thêm giải thích, mô tả, hay ký tự ngoài JSON.
+- Tuyệt đối không thêm giải thích, mô tả, hay ký tự ngoài JSON. 
+- Nếu tất cả các chunk index của bad questions không có câu hỏi nào thì trả về rỗng
+Lưu ý danh sách bad_questi
 
 Dữ liệu đầu vào (danh sách cặp câu hỏi-đáp án theo chunk):
 {question_answers}
