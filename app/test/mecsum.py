@@ -13,6 +13,7 @@ from langchain_core.messages import (
 
 from app.config import settings
 from app.graph.generate import generate_agent
+from app.graph.prompts import Prompts
 
 
 # sử dụng phương pháp merge bằng việc kết hợp giữa tóm tắt và tóm tắt trích xuất để tóm tắt
@@ -38,13 +39,6 @@ tracer = CallbackHandler(
 )
 
 # bước 1 : tóm tắt từng tài liệu (document summarizztion) cho mỗi đoạn
-SUMMARIZE_CHUNK_SUMMARY_PROMPT = """
-Bên dưới là một tài liệu:
-{document}
-
-Hãy viết một bản tóm tắt bao gồm toàn bộ các thông tin chính.
-Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
-"""
 
 
 def summarize_chunk(chunk_images: list, chunk_index: int) -> str:
@@ -61,7 +55,7 @@ def summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     content = [
         {
             "type": "input_text",
-            "text": SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
+            "text": Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
                 document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
             ),
         }
@@ -126,28 +120,6 @@ def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
 
 
 # bước 2 : Extractive Summarization cho mỗi đoạn (chọn ra các câu nổi bật nhất từ tài liệu nguồn)
-EXTRACTIVE_SUMMARIZE_PROMPT = """
-Bạn là một mô hình tóm tắt trích chọn (extractive summarizer) có khả năng đánh giá mức độ quan trọng của từng câu dựa trên ngữ cảnh và ý nghĩa thông tin.
-
-Bên dưới là một phần của tài liệu:
-{document}
-
-Hãy thực hiện các bước sau:
-
-1. **Chấm điểm quan trọng** cho từng câu trong tài liệu dựa trên:
-   - Mức độ chứa đựng thông tin trung tâm, kết luận hoặc phát hiện chính.
-   - Sự liên kết với chủ đề tổng thể của tài liệu.
-   - Mức độ độc lập và tự chứa (câu có thể hiểu mà không cần tham chiếu ra ngoài).
-
-2. **Chọn ra các câu nổi bật nhất** (khoảng 5–10 câu hoặc ít hơn nếu văn bản ngắn),
-   ưu tiên các câu có điểm quan trọng cao nhất, thể hiện được toàn bộ nội dung cốt lõi.
-
-3. **Giữ nguyên nội dung gốc của các câu** (không viết lại, không diễn giải, không tóm gọn).
-
-4. **Chỉ xuất ra danh sách các câu được chọn**, mỗi câu trên một dòng, theo đúng thứ tự xuất hiện trong tài liệu gốc.
-
-Đầu ra cuối cùng là tập hợp các câu quan trọng nhất của tài liệu.
-"""
 
 
 def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
@@ -164,7 +136,7 @@ def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     content = [
         {
             "type": "input_text",
-            "text": EXTRACTIVE_SUMMARIZE_PROMPT.format(
+            "text": Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(
                 document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
             ),
         }
@@ -216,25 +188,7 @@ def extractive_summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> l
     return summaries
 
 
-# bước 3 : merge các bản tóm tắt của tài liệu với nhau dựa vào 2 bước trên để để tạo final summarize
-
-Extract_Retrieve_Support_PROMPT = """
-Bên dưới là nhiều bản tóm tắt của các phần khác nhau trong một tài liệu:
-{document}
-\n 
-Bên dưới là các ngữ cảnh hỗ trợ tương ứng với những bản tóm tắt đã cho ở trên:
-{context}
-
-Hãy gộp các bản tóm tắt đã cho thành một bản tóm tắt duy nhất bao gồm toàn bộ các thông tin chính,
-và sử dụng các ngữ cảnh hỗ trợ để đảm bảo rằng bản tóm tắt gộp không chứa sai lệch về mặt nội dung.
-Phần nội dung chính của bản tóm tắt phải dựa hoàn toàn trên các bản tóm tắt đã cho,
-trong khi các ngữ cảnh hỗ trợ chỉ được dùng để kiểm chứng tính chính xác.
-Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu”, “ngữ cảnh” hoặc “bản tóm tắt”.
-    """
-
 # Node 1: Tóm tắt từng chunk
-
-
 def summarize_node(state: QState, config: RunnableConfig):
     file_path = state["file_path"]
     chunk_size = state.get("chunk_size", 3)
@@ -244,8 +198,6 @@ def summarize_node(state: QState, config: RunnableConfig):
 
 
 # Node 2: Extractive Summarization từng chunk
-
-
 def extractive_node(state: QState, config: RunnableConfig):
     file_path = state["file_path"]
     chunk_size = state.get("chunk_size", 3)
@@ -261,7 +213,9 @@ def merge_node(state: QState, config: RunnableConfig):
     # Chuẩn bị dữ liệu cho prompt
     document = "\n".join([s["summary"] for s in summaries])
     context = "\n".join([e["summary"] for e in extractive_summaries])
-    prompt = Extract_Retrieve_Support_PROMPT.format(document=document, context=context)
+    prompt = Prompts.Extract_Retrieve_Support_PROMPT.format(
+        document=document, context=context
+    )
 
     from langchain_core.messages import HumanMessage
 
@@ -274,9 +228,6 @@ def merge_node(state: QState, config: RunnableConfig):
         "messages": [AIMessage(content=content, name="final_summary")],
         "merge": content,
     }
-
-
-# Xây dựng workflow
 
 
 def build_pdf_summarize_workflow():

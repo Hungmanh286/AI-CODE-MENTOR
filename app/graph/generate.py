@@ -17,9 +17,8 @@ TOOLS = []
 try:
     model = init_llm(
         api_key=settings.CHAT_MODEL_VISION_KEY,
-        model=settings.CHAT_MODEL_VISION,
+        model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
-        model_provider="openai",
         tags=["agent"],
     )
 
