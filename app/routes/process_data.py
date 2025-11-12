@@ -5,7 +5,8 @@ import uuid
 from fastapi import APIRouter, Form, HTTPException
 from sqlmodel import SQLModel, Session, select, delete
 
-from app.graph.agents.question_expert import question_expert, UPLOAD_DIR
+from app.graph.agents.question_expert import question_expert, UPLOAD_DIR  # noqa
+from app.graph.agents.document_processing import document_processing_agent
 from app.schema.question import Project, Question, QuestionOption
 from app.services.datasource import insert_database
 from app.schema.question import SessionProject
@@ -19,10 +20,10 @@ async def process_pdf(
     session_id: str = Form(...),
 ):
     # Gọi question_expert để xử lý PDF và sinh câu hỏi
-    result = await question_expert.ainvoke(
+    result = await document_processing_agent.ainvoke(
         {}, {"configurable": {"thread_id": session_id}}
     )
-    evaluated_result = result["evaluation_result"]
+    evaluated_result = result["quizz"]
     questions_data = json.loads(evaluated_result)
 
     file_ids = get_active_file_id(session_id)
