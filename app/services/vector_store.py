@@ -1,5 +1,9 @@
 import os
+from openai import OpenAI
+from io import BytesIO
+import base64
 
+from pdf2image import convert_from_path
 from langchain_docling import DoclingLoader
 from langchain_docling.loader import ExportType
 from langchain_voyageai.embeddings import VoyageAIEmbeddings
@@ -14,6 +18,11 @@ embeddings = VoyageAIEmbeddings(
     model=settings.EMBEDDING_MODEL,
     output_dimension=settings.EMBEDDING_DIMS,
 )
+
+model = settings.CHAT_MODEL_VISION
+api_key = settings.CHAT_MODEL_VISION_KEY
+client = OpenAI(api_key=api_key)
+
 
 url = "http://localhost:6333"
 
@@ -47,8 +56,8 @@ def embedding_document(docs, session_id: str):
             ("###", "Header_3"),
         ],
     )
-    splits = [split for doc in docs for split in splitter.split_text(doc.page_content)]
-    
+    splits = [split for doc in docs for split in splitter.split_text(doc)]
+
     try:
         if collection_name not in existing_collections:
             vector_store = QdrantVectorStore.from_documents(
@@ -74,3 +83,73 @@ def embedding_document(docs, session_id: str):
         if splits:
             print("First split type:", type(splits[0]))
             print("First split content:", getattr(splits[0], "page_content", splits[0]))
+
+
+def parse_chunk(chunk_images: list) -> str:
+    """
+    Parse nội dung từ 1 chunk (nhóm các trang) từ PDF.
+
+    Args:
+        chunk_images: Danh sách các ảnh base64 trong chunk
+        chunk_index: Chỉ số của chunk
+
+    Returns:
+        Bản tóm tắt của chunk
+    """
+    content = [
+        {
+            "type": "input_text",
+            "text": "Chuyển ảnh sang văn bản Markdown. Giữ nguyên cấu trúc, các tiêu đề phải dùng đúng dấu #, ##, ### theo cấp độ heading trong tài liệu gốc. Không bỏ sót bất kỳ phần nào, không tự ý thay đổi nội dung. Đầu ra là văn bản Markdown chuẩn, mỗi header phải bắt đầu bằng dấu # đúng cấp độ.",
+        }
+    ]
+
+    for img_b64 in chunk_images:
+        content.append(
+            {
+                "type": "input_image",
+                "image_url": f"data:image/png;base64,{img_b64}",
+            }
+        )
+
+    response = client.responses.create(
+        model=model, input=[{"role": "user", "content": content}]
+    )
+
+    return response.output_text
+
+
+def parse_pdf_text2(file_path: str):
+    images = convert_from_path(file_path)
+    image_b64_list = []
+    for img in images:
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        img_b64 = base64.b64encode(buffered.getvalue()).decode()
+        image_b64_list.append(img_b64)
+
+    total_pages = len(image_b64_list)
+
+    if total_pages < 50:
+        chunk_size = 15
+    elif 50 <= total_pages <= 150:
+        chunk_size = 30
+    else:
+        chunk_size = 50
+
+    chunks = []
+    start = 0
+    while start < total_pages:
+        end = min(start + chunk_size, total_pages)
+        chunk = image_b64_list[start:end]
+        chunk_summary = parse_chunk(chunk)
+        chunks.append(chunk_summary)
+        start += chunk_size
+    # Kết hợp các chunk thành một chuỗi duy nhất, phân tách bằng 2 dòng trống
+    document_str = "\n\n".join(chunks)
+    return document_str
+
+
+if __name__ == "__main__":
+    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    doc = parse_pdf_text2(pdf_path)
+    embedding_document([doc], "test_session")

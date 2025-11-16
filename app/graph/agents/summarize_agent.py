@@ -87,10 +87,8 @@ def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
     Returns:
         Danh sách các bản tóm tắt của từng chunk
     """
-    # Convert PDF thành ảnh
     images = convert_from_path(file_path, dpi=200)
 
-    # Chuyển đổi ảnh sang base64
     image_b64_list = []
     for img in images:
         buffered = BytesIO()
@@ -120,8 +118,6 @@ def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
 
 
 # bước 2 : Extractive Summarization cho mỗi đoạn (chọn ra các câu nổi bật nhất từ tài liệu nguồn)
-
-
 def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     """
     Trích xuất các câu nổi bật nhất từ một chunk (nhóm các trang) của PDF.
@@ -210,7 +206,6 @@ def extractive_node(state: QState, config: RunnableConfig):
 def merge_node(state: QState, config: RunnableConfig):
     summaries = state["summaries"]
     extractive_summaries = state["extractive_summaries"]
-    # Chuẩn bị dữ liệu cho prompt
     document = "\n".join([s["summary"] for s in summaries])
     context = "\n".join([e["summary"] for e in extractive_summaries])
     prompt = Prompts.Extract_Retrieve_Support_PROMPT.format(
@@ -228,6 +223,29 @@ def merge_node(state: QState, config: RunnableConfig):
         "messages": [AIMessage(content=content, name="final_summary")],
         "merge": content,
     }
+
+
+def mind_map(state: QState, config: RunnableConfig):
+    # merge = state["merge"]
+    # prompt = Prompts.MIND_MAP_PROMPT.format(summary=merge)
+
+    response = client.responses.create(
+        model="gpt-5-mini",
+        input="Generate an image of gray tabby cat hugging an otter with an orange scarf",
+        tools=[{"type": "image_generation"}],
+    )
+
+    # Save the image to a file
+    image_data = [
+        output.result
+        for output in response.output
+        if output.type == "image_generation_call"
+    ]
+
+    if image_data:
+        image_base64 = image_data[0]
+        with open("/home/hungmanh/Documents/CodeMentor/app/data/otter.png", "wb") as f:
+            f.write(base64.b64decode(image_base64))
 
 
 def build_pdf_summarize_workflow():
@@ -249,23 +267,19 @@ if __name__ == "__main__":
 
     def print_stream(stream):
         for s in stream:
-            # Kiểm tra xem phần tử có khóa "messages" hay không
             message = s.get("messages", None)
             if message is None:
                 print("⚠️ Missing 'messages' key in stream item:", s)
                 continue
 
-            # Nếu message là tuple (thường từ LangGraph astream_events)
             if isinstance(message, tuple):
                 print("Tuple message:", message)
-            # Nếu là danh sách các message
             elif isinstance(message, list):
                 for m in message:
                     try:
                         m.pretty_print()
                     except AttributeError:
                         print(m)
-            # Nếu là object Message duy nhất
             else:
                 try:
                     message.pretty_print()
