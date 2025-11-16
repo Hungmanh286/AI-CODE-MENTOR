@@ -10,7 +10,7 @@ from sqlmodel import Session, select, delete
 from app.schema.upload import UploadFileStatus
 from app.services.datasource import insert_database
 from app.config import settings as ds_settings
-from app.services.vector_store import parse_pdf_text, embedding_document
+from app.services.vector_store import parse_pdf_text2, embedding_document
 
 router = APIRouter()
 UPLOAD_DIR = "/tmp/uploads"
@@ -73,16 +73,16 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
     if active:
         # Lưu docs
         file_path = os.path.join(session_folder, file_name)
-        docs = parse_pdf_text(file_path)
+        docs = parse_pdf_text2(file_path)
 
         docs_path = os.path.join(
             session_folder, f"{file_id}_{file_record.session_id}_docs.txt"
         )
         with open(docs_path, "w") as doc_file:
-            doc_file.write(str(docs[0].page_content))
+            doc_file.write(str(docs))
 
         # update vector store
-        embedding_document(docs, file_record.session_id)
+        embedding_document([docs], file_record.session_id)
 
         return {
             "file_id": file_id,

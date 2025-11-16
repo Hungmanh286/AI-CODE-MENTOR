@@ -1,7 +1,5 @@
-from io import BytesIO
+import os
 from openai import OpenAI
-import base64
-from pdf2image import convert_from_path
 import json
 import re
 
@@ -10,11 +8,13 @@ from langgraph.graph.message import MessagesState
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langfuse.callback import CallbackHandler
+from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 
 from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
+from app.services.datasource import get_active_file_id
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -41,79 +41,43 @@ tracer = CallbackHandler(
     host=settings.LANGFUSE_HOST,
 )
 
-input_path = "/home/hungmanh/Documents/CodeMentor/app/data/Bài 2_Các thành phần cơ sở của Java.pdf"
+UPLOAD_DIR = "/tmp/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 max_retry = 2
-
-
-def summarize_chunk(chunk_images: list, chunk_index: int) -> str:
-    """
-    Tóm tắt một chunk (nhóm các trang) từ PDF.
-
-    Args:
-        chunk_images: Danh sách các ảnh base64 trong chunk
-        chunk_index: Chỉ số của chunk
-
-    Returns:
-        Bản tóm tắt của chunk
-    """
-    content = [
-        {
-            "type": "input_text",
-            "text": Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
-                document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
-            ),
-        }
-    ]
-
-    for img_b64 in chunk_images:
-        content.append(
-            {
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{img_b64}",
-            }
-        )
-
-    response = client.responses.create(
-        model=model, input=[{"role": "user", "content": content}]
-    )
-
-    return response.output_text
 
 
 # node 1 : chunker
 def document_preprocessing(state: QState, config: RunnableConfig):
     """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks)."""
+    session_id = config["configurable"].get("thread_id")
+    file_ids = get_active_file_id(session_id)
 
-    images = convert_from_path(input_path)
-
-    image_b64_list = []
-    for img in images:
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_b64 = base64.b64encode(buffered.getvalue()).decode()
-        image_b64_list.append(img_b64)
-
-    total_pages = len(image_b64_list)
-
+    session_folder = os.path.join(UPLOAD_DIR, session_id)
     document_chunks = []
-    if total_pages < 50:
-        chunk_size = 15
-        overlap = 3
-    elif 50 <= total_pages <= 150:
-        chunk_size = 30
-        overlap = 7
-    else:
-        chunk_size = 50
-        overlap = 10
 
-    start = 0
-    while start < total_pages:
-        end = min(start + chunk_size, total_pages)
-        chunk = image_b64_list[start:end]
-        chunk_summary = summarize_chunk(chunk, start // chunk_size)
-        document_chunks.append(chunk_summary)
-        start += chunk_size - overlap
+    chunk_size = 10
+    for file_id in file_ids:
+        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
+        if os.path.exists(docs_file):
+            with open(docs_file, "r", encoding="utf-8") as f:
+                docs_content = f.read()
+            docs = [docs_content]
+            splitter = MarkdownHeaderTextSplitter(
+                headers_to_split_on=[
+                    ("#", "Header_1"),
+                    ("##", "Header_2"),
+                ],
+            )
+            splits = [split for doc in docs for split in splitter.split_text(doc)]
+            total_splits = len(splits)
+            # Gộp các split lại thành các chunk với chunk_size
+            for i in range(0, total_splits, chunk_size):
+                chunk_text = "\n".join(
+                    [split.page_content for split in splits[i : i + chunk_size]]
+                )
+                document_chunks.append(chunk_text)
 
     return {"document_chunks": document_chunks}
 
@@ -142,12 +106,13 @@ def question_node(state: QState, config: RunnableConfig):
                 check_questions[key] = []
             check_questions[key].append(question)
             idx += 1
+
     else:
         if bad_questions is not None:
             for chunk_index, bad_qs in bad_questions.items():
                 chunk = document_chunks[int(chunk_index)]
                 prompt = Prompts.QUESTION_REGENERATION_PROMPT.format(
-                    chunk=chunk, bad_qs=bad_qs, check_questions=good_questions
+                    chunk=chunk, bad_qs=bad_qs, good_questions=good_questions
                 )
                 response_msg = generate_agent.invoke(
                     {"messages": [HumanMessage(content=prompt)]}, config=config
@@ -201,7 +166,7 @@ def format_question_answer_dict(data: dict) -> str:
     formatted = ""
 
     for chunk_id, json_list in data.items():
-        formatted += f"📘 **Chương {chunk_id}**\n\n"
+        formatted += f"📘 **Chunk {chunk_id}**\n\n"
 
         for json_str in json_list:
             try:
@@ -214,11 +179,23 @@ def format_question_answer_dict(data: dict) -> str:
             for item in qa_items:
                 qid = item.get("id", "")
                 q = item.get("question", "").strip()
-                a = item.get("answer", "").strip()
+                options = item.get("options", [])
+                correct_answer = item.get("correct_answer", "").strip()
                 exp = item.get("explanation", "").strip()
 
                 formatted += f"**Câu {qid}:** {q}\n"
-                formatted += f"**Trả lời:** {a}\n"
+
+                # Hiển thị các lựa chọn nếu có
+                if options:
+                    formatted += "**Các lựa chọn:**\n"
+                    for opt in options:
+                        formatted += f"  {opt}\n"
+
+                # Hiển thị đáp án đúng
+                if correct_answer:
+                    formatted += f"**Đáp án đúng:** {correct_answer}\n"
+
+                # Hiển thị giải thích
                 if exp:
                     formatted += f"**Giải thích:** {exp}\n"
                 formatted += "\n"
@@ -234,15 +211,11 @@ def judge(state: QState, config: RunnableConfig):
 
     question_answers = state.get("question_answers", {})
     formatted_question_answers = format_question_answer_dict(question_answers)
-    print("QUESTION_ANSWER:", question_answers)
-
-    print("TYPE QUESTION_ANSWER:", type(question_answers))
 
     good_question_answers = state.get("good_question_answers", None)
-
     good_questions = state.get("good_questions", None)
-
     retry = state.get("retry_count", 0)
+
     prompt = Prompts.EVALUATE_QA_PROMPT.format(
         question_answers=formatted_question_answers
     )
@@ -257,32 +230,59 @@ def judge(state: QState, config: RunnableConfig):
         judgment = re.sub(r"```$", "", judgment.strip())
         judgment = judgment.strip()
 
-    result = json.loads(judgment)
+    try:
+        result = json.loads(judgment)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSONDecodeError: {e}")
+        print(f"Error at line {e.lineno}, column {e.colno}, position {e.pos}")
 
-    good_question_answer = result.get("good_question_answer", None)
+        judgment_fixed = re.sub(
+            r'\\(?![ntr"\\/bfu])',
+            r"\\\\",
+            judgment,
+        )
 
-    bad_questions = result.get("bad_questions", None)
+        try:
+            result = json.loads(judgment_fixed)
+        except json.JSONDecodeError as e2:
+            print(f"❌ Still failed after fix: {e2}")
+            print(
+                f"Content around error: {judgment_fixed[max(0, e2.pos - 100) : e2.pos + 100]}"
+            )
 
-    good_question = result.get("good_questions", None)
+            result = {
+                "good_question_answer": {},
+                "bad_questions": {},
+                "good_questions": {},
+            }
 
+    good_question_answer = result.get("good_question_answer", {})
+    bad_questions = result.get("bad_questions", {})
+    good_question = result.get("good_questions", {})
+
+    # Cập nhật good_questions
+    if good_questions is None:
+        good_questions = {}
     for k, v in good_question.items():
-        if good_questions is None:
-            good_questions = {}
         if k not in good_questions:
             good_questions[k] = []
-        good_questions[k].append(v)
-    retry += 1
+        if isinstance(v, list):
+            good_questions[k].extend(v)
+        else:
+            good_questions[k].append(v)
 
+    # Cập nhật good_question_answers
+    if good_question_answers is None:
+        good_question_answers = {}
     for k, v in good_question_answer.items():
-        if good_question_answers is None:
-            good_question_answers = {}
         if k not in good_question_answers:
             good_question_answers[k] = []
-        good_question_answers[k].append(v)
-    retry += 1
+        if isinstance(v, list):
+            good_question_answers[k].extend(v)
+        else:
+            good_question_answers[k].append(v)
 
-    print("good_question_answers:", good_question_answers)
-    print("good_questions:", good_questions)
+    retry += 1
 
     return {
         "bad_questions": bad_questions,
@@ -311,9 +311,11 @@ def validate(state: QState, config: RunnableConfig):
     """Xác nhận đầu ra cuối cùng."""
     question_answers = state.get("question_answers", None)
 
+    formatted_question_answers = format_question_answer_dict(question_answers)
+
     system_message = SystemMessage(
-        content=Prompts.EVALUATE_QUESTIONS_PROMPT.format(
-            questions=question_answers,
+        content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
+            questions=formatted_question_answers,
         )
     )
 
