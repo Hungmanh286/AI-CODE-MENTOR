@@ -1,7 +1,6 @@
+import os
 from openai import OpenAI
 import base64
-from pdf2image import convert_from_path
-from io import BytesIO
 
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
@@ -10,6 +9,7 @@ from langgraph.graph.message import MessagesState
 from langchain_core.messages import (
     AIMessage,
 )
+from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 from app.config import settings
 from app.graph.generate import generate_agent
@@ -38,166 +38,71 @@ tracer = CallbackHandler(
     host=settings.LANGFUSE_HOST,
 )
 
-# bước 1 : tóm tắt từng tài liệu (document summarizztion) cho mỗi đoạn
 
-
-def summarize_chunk(chunk_images: list, chunk_index: int) -> str:
-    """
-    Tóm tắt một chunk (nhóm các trang) từ PDF.
-
-    Args:
-        chunk_images: Danh sách các ảnh base64 trong chunk
-        chunk_index: Chỉ số của chunk
-
-    Returns:
-        Bản tóm tắt của chunk
-    """
-    content = [
-        {
-            "type": "input_text",
-            "text": Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
-                document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
-            ),
-        }
-    ]
-
-    for img_b64 in chunk_images:
-        content.append(
-            {
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{img_b64}",
-            }
-        )
-
-    response = client.responses.create(
-        model=model, input=[{"role": "user", "content": content}]
-    )
-
-    return response.output_text
-
-
-def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
-    """
-    Tóm tắt PDF theo từng chunk.
-
-    Args:
-        file_path: Đường dẫn đến file PDF
-        chunk_size: Số trang trong mỗi chunk
-
-    Returns:
-        Danh sách các bản tóm tắt của từng chunk
-    """
-    images = convert_from_path(file_path, dpi=200)
-
-    image_b64_list = []
-    for img in images:
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_b64 = base64.b64encode(buffered.getvalue()).decode()
-        image_b64_list.append(img_b64)
-
-    # Chia thành các chunks
-    summaries = []
-    total_pages = len(image_b64_list)
-
-    for i in range(0, total_pages, chunk_size):
-        chunk_images = image_b64_list[i : i + chunk_size]
-        chunk_summary = summarize_chunk(chunk_images, i // chunk_size)
-        summaries.append(
-            {
-                "chunk_index": i // chunk_size,
-                "pages": f"{i + 1}-{min(i + chunk_size, total_pages)}",
-                "summary": chunk_summary,
-            }
-        )
-        print(
-            f"Đã tóm tắt chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})"
-        )
-
-    return summaries
-
-
-# bước 2 : Extractive Summarization cho mỗi đoạn (chọn ra các câu nổi bật nhất từ tài liệu nguồn)
-def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
-    """
-    Trích xuất các câu nổi bật nhất từ một chunk (nhóm các trang) của PDF.
-
-    Args:
-        chunk_images: Danh sách các ảnh base64 trong chunk
-        chunk_index: Chỉ số của chunk
-
-    Returns:
-        Các câu nổi bật nhất từ chunk
-    """
-    content = [
-        {
-            "type": "input_text",
-            "text": Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(
-                document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
-            ),
-        }
-    ]
-    for img_b64 in chunk_images:
-        content.append(
-            {"type": "input_image", "image_url": f"data:image/png;base64,{img_b64}"}
-        )
-    response = client.responses.create(
-        model=model, input=[{"role": "user", "content": content}]
-    )
-    return response.output_text
-
-
-def extractive_summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
-    """
-    Trích xuất các câu nổi bật nhất từ PDF theo từng chunk.
-
-    Args:
-        file_path: Đường dẫn đến file PDF
-        chunk_size: Số trang trong mỗi chunk
-
-    Returns:
-        Danh sách các câu nổi bật nhất của từng chunk
-    """
-    images = convert_from_path(file_path, dpi=200)
-    image_b64_list = []
-    for img in images:
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_b64 = base64.b64encode(buffered.getvalue()).decode()
-        image_b64_list.append(img_b64)
-
-    summaries = []
-    total_pages = len(image_b64_list)
-    for i in range(0, total_pages, chunk_size):
-        chunk_images = image_b64_list[i : i + chunk_size]
-        chunk_summary = extractive_summarize_chunk(chunk_images, i // chunk_size)
-        summaries.append(
-            {
-                "chunk_index": i // chunk_size,
-                "pages": f"{i + 1}-{min(i + chunk_size, total_pages)}",
-                "summary": chunk_summary,
-            }
-        )
-        print(
-            f"Đã extractive summarize chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})"
-        )
-    return summaries
-
-
+# Tóm tắt văn bản :
 # Node 1: Tóm tắt từng chunk
 def summarize_node(state: QState, config: RunnableConfig):
-    file_path = state["file_path"]
-    chunk_size = state.get("chunk_size", 3)
-    summaries = summarize_pdf_by_chunks(file_path, chunk_size)
+    summarize_chunks = []
 
-    return {"summaries": summaries}
+    chunk_size = 10
+    docs_file = "/tmp/uploads/omjnc3k7jjfqv5alq2sqp/6g05dv1r34pda0l2aohqx_omjnc3k7jjfqv5alq2sqp_docs.txt"
+    if os.path.exists(docs_file):
+        with open(docs_file, "r", encoding="utf-8") as f:
+            docs_content = f.read()
+        docs = [docs_content]
+        splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[
+                ("#", "Header_1"),
+                ("##", "Header_2"),
+            ],
+        )
+        splits = [split for doc in docs for split in splitter.split_text(doc)]
+
+        total_splits = len(splits)
+
+        # Gộp các split lại thành các chunk với chunk_size
+        for i in range(0, total_splits, chunk_size):
+            chunk_text = "\n".join(
+                [split.page_content for split in splits[i : i + chunk_size]]
+            )
+            summarize_chunk = Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
+                document=chunk_text
+            )
+
+            summarize_chunks.append(summarize_chunk)
+
+    return {"summaries": summarize_chunks}
 
 
 # Node 2: Extractive Summarization từng chunk
 def extractive_node(state: QState, config: RunnableConfig):
-    file_path = state["file_path"]
-    chunk_size = state.get("chunk_size", 3)
-    extractive_summaries = extractive_summarize_pdf_by_chunks(file_path, chunk_size)
+    extractive_summaries = []
+    chunk_size = 10
+    docs_file = "/tmp/uploads/omjnc3k7jjfqv5alq2sqp/6g05dv1r34pda0l2aohqx_omjnc3k7jjfqv5alq2sqp_docs.txt"
+    if os.path.exists(docs_file):
+        with open(docs_file, "r", encoding="utf-8") as f:
+            docs_content = f.read()
+        docs = [docs_content]
+        splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[
+                ("#", "Header_1"),
+                ("##", "Header_2"),
+            ],
+        )
+        splits = [split for doc in docs for split in splitter.split_text(doc)]
+
+        total_splits = len(splits)
+
+        # Gộp các split lại thành các chunk với chunk_size
+        for i in range(0, total_splits, chunk_size):
+            chunk_text = "\n".join(
+                [split.page_content for split in splits[i : i + chunk_size]]
+            )
+            extractive_chunk = Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(
+                chunk_text=chunk_text
+            )
+
+            extractive_summaries.append(extractive_chunk)
 
     return {"extractive_summaries": extractive_summaries}
 
@@ -206,8 +111,12 @@ def extractive_node(state: QState, config: RunnableConfig):
 def merge_node(state: QState, config: RunnableConfig):
     summaries = state["summaries"]
     extractive_summaries = state["extractive_summaries"]
-    document = "\n".join([s["summary"] for s in summaries])
-    context = "\n".join([e["summary"] for e in extractive_summaries])
+    document = "\n".join(
+        [f"Chunk {i}:\n" + s["summary"] for i, s in enumerate(summaries)]
+    )
+    context = "\n".join(
+        [f"Chunk {i}:\n" + e["summary"] for i, e in enumerate(extractive_summaries)]
+    )
     prompt = Prompts.Extract_Retrieve_Support_PROMPT.format(
         document=document, context=context
     )
@@ -226,12 +135,11 @@ def merge_node(state: QState, config: RunnableConfig):
 
 
 def mind_map(state: QState, config: RunnableConfig):
-    # merge = state["merge"]
-    # prompt = Prompts.MIND_MAP_PROMPT.format(summary=merge)
+    merge = state.get("merge", "")
 
     response = client.responses.create(
         model="gpt-5-mini",
-        input="Generate an image of gray tabby cat hugging an otter with an orange scarf",
+        input="Tạo mind map từ nội dung sau:{merge}",
         tools=[{"type": "image_generation"}],
     )
 

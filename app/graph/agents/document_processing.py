@@ -14,7 +14,6 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter
 from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
-from app.services.datasource import get_active_file_id
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -51,33 +50,33 @@ max_retry = 2
 # node 1 : chunker
 def document_preprocessing(state: QState, config: RunnableConfig):
     """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks)."""
-    session_id = config["configurable"].get("thread_id")
-    file_ids = get_active_file_id(session_id)
+    # session_id = config["configurable"].get("thread_id")
+    # file_ids = get_active_file_id(session_id)
 
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
+    # session_folder = os.path.join(UPLOAD_DIR, session_id)
     document_chunks = []
 
     chunk_size = 10
-    for file_id in file_ids:
-        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
-        if os.path.exists(docs_file):
-            with open(docs_file, "r", encoding="utf-8") as f:
-                docs_content = f.read()
-            docs = [docs_content]
-            splitter = MarkdownHeaderTextSplitter(
-                headers_to_split_on=[
-                    ("#", "Header_1"),
-                    ("##", "Header_2"),
-                ],
+
+    docs_file = "/tmp/uploads/omjnc3k7jjfqv5alq2sqp/6g05dv1r34pda0l2aohqx_omjnc3k7jjfqv5alq2sqp_docs.txt"
+    if os.path.exists(docs_file):
+        with open(docs_file, "r", encoding="utf-8") as f:
+            docs_content = f.read()
+        docs = [docs_content]
+        splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[
+                ("#", "Header_1"),
+                ("##", "Header_2"),
+            ],
+        )
+        splits = [split for doc in docs for split in splitter.split_text(doc)]
+        total_splits = len(splits)
+        # Gộp các split lại thành các chunk với chunk_size
+        for i in range(0, total_splits, chunk_size):
+            chunk_text = "\n".join(
+                [split.page_content for split in splits[i : i + chunk_size]]
             )
-            splits = [split for doc in docs for split in splitter.split_text(doc)]
-            total_splits = len(splits)
-            # Gộp các split lại thành các chunk với chunk_size
-            for i in range(0, total_splits, chunk_size):
-                chunk_text = "\n".join(
-                    [split.page_content for split in splits[i : i + chunk_size]]
-                )
-                document_chunks.append(chunk_text)
+            document_chunks.append(chunk_text)
 
     return {"document_chunks": document_chunks}
 
@@ -140,9 +139,7 @@ def answer_node(state: QState, config: RunnableConfig):
 
     for idx, questions in check_questions.items():
         chunk = document_chunks[int(idx)]
-        formatted_prompt = "Danh sách câu hỏi:\n" + "\n".join(
-            [f"{i + 1}. {q}" for i, q in enumerate(questions)]
-        )
+        formatted_prompt = "\n".join([q for q in questions])
 
         prompt = Prompts.ANSWER_GENERATION_PROMPT.format(
             chunk=chunk, questions=formatted_prompt
@@ -159,6 +156,26 @@ def answer_node(state: QState, config: RunnableConfig):
     return {
         "question_answers": question_answers,
     }
+
+
+def format_dict_to_markdown(data: dict) -> str:
+    """Format dict Q&A thành chuỗi Markdown dễ đọc"""
+    formatted = ""
+    for chunk_id, items in data.items():
+        formatted += f"\n📘 **Chunk {chunk_id}**\n\n"
+        for item in items:
+            qid = item.get("id", "")
+            question = item.get("question", "")
+            options = item.get("options", [])
+            avg_score = item.get("average_score", "")
+            formatted += f"**Câu {qid}:** {question}\n"
+            if options:
+                formatted += "**Các lựa chọn:**\n"
+                for opt in options:
+                    formatted += f"  {opt}\n"
+            formatted += f"**Điểm trung bình:** {avg_score}\n\n"
+        formatted += "-" * 40 + "\n"
+    return formatted
 
 
 def format_question_answer_dict(data: dict) -> str:
@@ -233,7 +250,7 @@ def judge(state: QState, config: RunnableConfig):
     try:
         result = json.loads(judgment)
     except json.JSONDecodeError as e:
-        print(f"❌ JSONDecodeError: {e}")
+        print(f"JSONDecodeError: {e}")
         print(f"Error at line {e.lineno}, column {e.colno}, position {e.pos}")
 
         judgment_fixed = re.sub(
@@ -245,7 +262,7 @@ def judge(state: QState, config: RunnableConfig):
         try:
             result = json.loads(judgment_fixed)
         except json.JSONDecodeError as e2:
-            print(f"❌ Still failed after fix: {e2}")
+            print(f"Still failed after fix: {e2}")
             print(
                 f"Content around error: {judgment_fixed[max(0, e2.pos - 100) : e2.pos + 100]}"
             )
@@ -309,9 +326,20 @@ def should_continue(state: QState) -> str:
 # node 5 : đánh giá lại 1 lần nữa rồi cho đáp án cuối cùng
 def validate(state: QState, config: RunnableConfig):
     """Xác nhận đầu ra cuối cùng."""
-    question_answers = state.get("question_answers", None)
+    good_question_answers = state.get("good_question_answers", None)
+    question_answers = state.get("question_answers", {})
 
-    formatted_question_answers = format_question_answer_dict(question_answers)
+    # print("Good QA:", good_question_answers)
+    # print("TYPE:", type(good_question_answers))
+    # print("-----\n\n")
+    # print("All QA:", question_answers)
+    # print("TYPE:", type(question_answers))
+    # print("-----\n\n")
+
+    formatted_question_answers = format_dict_to_markdown(good_question_answers)
+
+    print("Formatted QA:", formatted_question_answers)
+    print("\n\n")
 
     system_message = SystemMessage(
         content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
