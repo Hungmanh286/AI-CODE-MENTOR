@@ -12,20 +12,25 @@ Trong phần tóm tắt, không được nhắc đến các từ như “tài li
 
     QUESTION_GENERATION_PROMPT = """
 Bạn là chuyên gia tạo câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng bằng java.
-Dựa trên tài liệu bên dưới, hãy tạo 10 câu hỏi trắc nghiệm khác nhau yêu cầu hiểu sâu, tư duy phản biện và phân tích chi tiết.
-Các câu hỏi cần vượt ra ngoài việc chỉ ghi nhớ thông tin đơn thuần, mà phải khai thác các kỹ năng tư duy bậc cao như phân tích (analysis),
-tổng hợp (synthesis) và đánh giá (evaluation).
 
-Lưu ý:
-Không được sử dụng cụm từ ý chính hoặc đoạn văn của tài liệu bên dưới trong phần thân câu hỏi.
-Thay vào đó, hãy đặt câu hỏi trực tiếp về nội dung hoặc khái niệm được mô tả trong tài liệu bên dưới.
-Chỉ trả về duy nhất các câu hỏi không được liệt kê các đáp án trắc nghiệm
+LƯU Ý:
+- Không sử dụng các cụm như “ý chính (main idea)” hoặc “đoạn văn (passages)” trong câu hỏi.
+- Không liệt kê đáp án trắc nghiệm. Chỉ trả về câu hỏi.
+- Không sinh nhiều hơn một câu hỏi trong cùng một câu.
+- Câu hỏi chỉ nên tập trung vào một khái niệm rõ ràng và không quá dài.
+- 10 câu hỏi phải khác nhau và không bị trùng ý.
 
-Ghi chú:
-Mỗi câu hỏi chỉ nên tập trung vào một khái niệm duy nhất.
-Không được đặt nhiều câu hỏi trong một.
-Câu hỏi không nên quá dài.
-
+CÁC BƯỚC THỰC HIỆN : 
+1. Xác định các khái niệm hoặc thuật ngữ quan trọng trong tài liệu, và hiểu rõ định nghĩa hoặc vai trò của chúng trong tài liệu nguồn bên dưới
+2. Xác định mối quan hệ giữa các khái niệm (so sánh, đối lập, liên kết, phụ thuộc) trong tài liệu nguồn bên dưới
+3. Xác định các ví dụ hoặc ứng dụng được nhắc đến trong tài liệu nguồn bên dưới 
+4. Hãy tạo 10 câu hỏi trắc nghiệm về lập trình hướng đối tượng Java, mỗi câu tập trung vào MỘT khái niệm duy nhất từ tài liệu dưới đây.
+Yêu cầu tư duy bậc cao cho 10 câu hỏi, bao gồm :
+- 4 câu: Phân tích (Analysis) – so sánh, tìm lỗi, giải thích hành vi  
+- 3 câu: Tổng hợp (Synthesis) – thiết kế, mở rộng, kết hợp  
+- 3 câu: Đánh giá (Evaluation) – chọn giải pháp tối ưu, đánh giá 
+5. Trả về danh sách các câu hỏi : [câu hỏi 1, câu hỏi 2, ...] không phải giải thích gì thêm
+ 
 Tài liệu nguồn:
 {chunk}
 """
@@ -76,8 +81,6 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
         "<lựa chọn C>",
         "<lựa chọn D>"
     ],
-    "correct_answer": "<lựa chọn đúng>",
-    "explanation": "<giải thích ngắn gọn tại sao lựa chọn đó đúng>"
   }},
   ...
 ]
@@ -125,15 +128,16 @@ PHÂN LOẠI:
 - good_question_answer: Các câu hỏi tốt với đầy đủ thông tin (id, question, options, correct_answer, explanation).
 
 CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC):
-{{"bad_questions":{{"0":[{{"question":"Câu hỏi xấu 1","average_score":2.33}},{{"question":"Câu hỏi xấu 2","average_score":1.67}}],"1":[], ...}},"good_questions":{{"0":["Câu hỏi tốt 1","Câu hỏi tốt 2"],"1":[], ...}},"good_question_answer":{{"0":[{{"id":1,"question":"Câu hỏi tốt 1","options":["A","B","C","D"],"correct_answer":"A","explanation":"Giải thích","average_score":3.33}},{{"id":2,"question":"Câu hỏi tốt 2","options":["A","B","C","D"],"correct_answer":"B","explanation":"Giải thích","average_score":3.67}}],"1":[], ...}}}}
+{{"bad_questions":{{"0":[{{"question":"Câu hỏi xấu 1","average_score":2.33}},{{"question":"Câu hỏi xấu 2","average_score":1.67}}],"1":[], ...}},"good_questions":{{"0":["Câu hỏi tốt 1","Câu hỏi tốt 2"],"1":[], ...}},"good_question_answer":{{"0":[{{"id":1,"question":"Câu hỏi tốt 1","options":["A","B","C","D"],"average_score":3.33}},{{"id":2,"question":"Câu hỏi tốt 2","options":["A","B","C","D"],"average_score":3.67}}],"1":[], ...}}}}
 
+GIẢI THÍCH :
+chunk_index là chỉ số của chunk trong tài liệu gốc (có trong dòng đầu trong mỗi danh sách câu hỏi từ dữ liệu đầu vào)
 YÊU CẦU BẮT BUỘC:
 1. CHỈ TRẢ VỀ MỘT JSON HỢP LỆ TRÊN MỘT DÒNG DUY NHẤT. Không có văn bản, giải thích, hay markdown khác.
 2. JSON phải tuân thủ cấu trúc trên với 3 key: bad_questions, good_questions, good_question_answer.
 3. Mỗi key phải chứa dict với chunk_index là string (ví dụ: "0", "1", "2").
 4. Nếu một chunk không có câu hỏi tốt hoặc xấu, trả về danh sách rỗng [] cho chunk đó.
 5. Tất cả chunk_index từ đầu vào phải xuất hiện trong cả 3 key của JSON đầu ra.
-6. Các trường question, explanation phải escape ký tự đặc biệt JSON (dấu ngoặc kép thành backslash quote, backslash thành double backslash).
 
 DỮ LIỆU ĐẦU VÀO:
 {question_answers}
@@ -199,29 +203,29 @@ Bạn phải trả về **duy nhất một danh sách JSON hợp lệ** (`[...]`
 Danh sách câu hỏi :
 {questions}
 """
-
     # Modules for summarization
     EXTRACTIVE_SUMMARIZE_PROMPT = """
-Bạn là một mô hình tóm tắt trích chọn (extractive summarizer) có khả năng đánh giá mức độ quan trọng của từng câu dựa trên ngữ cảnh và ý nghĩa thông tin.
+Bạn là chuyên gia tóm tắt trích xuất.
 
-Bên dưới là một phần của tài liệu:
-{document}
+Nhiệm vụ của bạn là tạo bản tóm tắt trích xuất cho chunk bên dưới 
+Tóm tắt trích xuất phải:
+• Chỉ chọn ra các câu xuất hiện nguyên văn trong chunk.
+• Không được viết lại, paraphrase, hoặc gộp câu.
+• Chỉ chọn các câu quan trọng nhất thể hiện ý chính.
+• Loại bỏ trùng lặp.
 
-Hãy thực hiện các bước sau:
+HƯỚNG DẪN:
+1. Xác định các câu quan trọng nhất thể hiện nội dung chính.
+2. Sao chép nguyên văn các câu này đúng như trong chunk.
+3. Trả về danh sách câu tóm tắt theo đúng thứ tự trong văn bản.
 
-1. **Chấm điểm quan trọng** cho từng câu trong tài liệu dựa trên:
-   - Mức độ chứa đựng thông tin trung tâm, kết luận hoặc phát hiện chính.
-   - Sự liên kết với chủ đề tổng thể của tài liệu.
-   - Mức độ độc lập và tự chứa (câu có thể hiểu mà không cần tham chiếu ra ngoài).
+ĐỊNH DẠNG TRẢ VỀ:
+Trả về bản tóm tắt trích xuất dưới dạng danh sách các câu, mỗi câu trên một dòng.
+Không giải thích gì thêm.
 
-2. **Chọn ra các câu nổi bật nhất** (khoảng 5–10 câu hoặc ít hơn nếu văn bản ngắn),
-   ưu tiên các câu có điểm quan trọng cao nhất, thể hiện được toàn bộ nội dung cốt lõi.
+Chunk: 
+{chunk_text}
 
-3. **Giữ nguyên nội dung gốc của các câu** (không viết lại, không diễn giải, không tóm gọn).
-
-4. **Chỉ xuất ra danh sách các câu được chọn**, mỗi câu trên một dòng, theo đúng thứ tự xuất hiện trong tài liệu gốc.
-
-Đầu ra cuối cùng là tập hợp các câu quan trọng nhất của tài liệu.
 """
 
     SUMMARIZE_CHUNK_SUMMARY_CIATATIONS_PROMPT = """

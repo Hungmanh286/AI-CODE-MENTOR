@@ -20,7 +20,7 @@ class GlobalConfig(BaseSettings):
     CHAT_MODEL_KEY: Optional[str] = Field(default=None)
     CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
     CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
-    
+
     # Chat mmind map
 
     # Chat model vision (Openai)
