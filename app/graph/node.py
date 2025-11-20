@@ -20,12 +20,17 @@ from app.graph.state import (
     State,
 )
 from app.graph.generate import generate_agent
+from app.graph.agents.document_processing import (
+    document_processing_tool,
+    document_summarize_tool,
+    answer_tool,
+)
 from app.graph.prompts import Prompts
 from app.schema import MessageName
 from app.config import settings
 # from app.graph.tools import retriever_tool
 
-TOOLS = []
+TOOLS = [document_processing_tool, document_summarize_tool, answer_tool]
 
 try:
     # LLM: Generate answer
@@ -52,15 +57,29 @@ except Exception as e:
 async def tool_calls_node(state: State, config: RunnableConfig):
     """Generate tool call and determine routing."""
     conversation_messages = filter_message(state)
+    user_query = conversation_messages[-1].content if conversation_messages else ""
+    prompt_tool_choice = f"""Bạn là một trợ lý AI thông minh. Nhiệm vụ của bạn là chọn đúng công cụ để xử lý yêu cầu của người dùng.
 
-    response = await llm_with_tools.ainvoke(conversation_messages, config)
+DANH SÁCH CÔNG CỤ:
+1. `using_to_create_questions`: CHỈ dùng khi người dùng yêu cầu TẠO câu hỏi, quiz, bài kiểm tra.
+2. `document_summarize_tool`: CHỈ dùng khi người dùng yêu cầu TÓM TẮT, tổng hợp nội dung tài liệu.
+3. `answer_tool`: Dùng cho TẤT CẢ các trường hợp khác (hỏi đáp, giải thích, tìm kiếm thông tin, chat thông thường).
+
+Yêu cầu của người dùng: "{user_query}"
+
+QUY TẮC:
+- Nếu yêu cầu chứa từ khóa "tóm tắt", "tổng hợp" -> Chọn `document_summarize_tool`.
+- Nếu yêu cầu chứa từ khóa "tạo câu hỏi", "quiz", "trắc nghiệm" -> Chọn `using_to_create_questions`.
+- Nếu là câu hỏi thông thường, yêu cầu giải thích, hoặc không rõ ràng -> BẮT BUỘC chọn `answer_tool`.
+
+Hãy chọn công cụ phù hợp nhất ngay bây giờ."""
+    response = await llm_with_tools.ainvoke(
+        [HumanMessage(content=prompt_tool_choice)], config
+    )
     response.name = MessageName.agent
-
-    query = conversation_messages[-1].content if conversation_messages else ""
-
+    query = user_query
     try:
         tool_calls_kwargs = response.additional_kwargs
-
         if "tool_calls" in tool_calls_kwargs:
             arguments = json.loads(
                 tool_calls_kwargs.get("tool_calls", [])[0]["function"]["arguments"]

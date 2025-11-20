@@ -9,11 +9,19 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langfuse.callback import CallbackHandler
 from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langchain.tools import tool
 
 
 from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
+from app.routes.process_data import process_pdf
+from app.routes.notify import (
+    sse_event_queues,
+)
+from app.graph.agents.summarize_agent import pdf_summarize_agent
+from app.graph.agents.feedbacks_answer import feedbacks_answer
+from app.services.datasource import get_active_file_id
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -21,16 +29,16 @@ client = OpenAI(api_key=api_key)
 
 
 class QState(MessagesState):
-    document_chunks: list[str] | None
-    questions: list[str] | None
-    question_answers: str | None
-    judged_answers: list[str] | None
-    retry_count: int | None
-    good_questions: list[str] | None
-    check_questions: str | None
-    bad_questions: str | None
-    good_question_answers: list[str] | None
-    quizz: list[str] | None
+    document_chunks: list[str] | None = None
+    questions: list[str] | None = None
+    question_answers: str | None = None
+    judged_answers: list[str] | None = None
+    retry_count: int | None = None
+    good_questions: list[str] | None = None
+    check_questions: str | None = None
+    bad_questions: str | None = None
+    good_question_answers: list[str] | None = None
+    quizz: list[str] | None = None
 
 
 tracer = CallbackHandler(
@@ -50,33 +58,33 @@ max_retry = 2
 # node 1 : chunker
 def document_preprocessing(state: QState, config: RunnableConfig):
     """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks)."""
-    # session_id = config["configurable"].get("thread_id")
-    # file_ids = get_active_file_id(session_id)
+    session_id = config["configurable"].get("thread_id")
+    file_ids = get_active_file_id(session_id)
 
-    # session_folder = os.path.join(UPLOAD_DIR, session_id)
+    session_folder = os.path.join(UPLOAD_DIR, session_id)
     document_chunks = []
 
     chunk_size = 10
-
-    docs_file = "/tmp/uploads/omjnc3k7jjfqv5alq2sqp/6g05dv1r34pda0l2aohqx_omjnc3k7jjfqv5alq2sqp_docs.txt"
-    if os.path.exists(docs_file):
-        with open(docs_file, "r", encoding="utf-8") as f:
-            docs_content = f.read()
-        docs = [docs_content]
-        splitter = MarkdownHeaderTextSplitter(
-            headers_to_split_on=[
-                ("#", "Header_1"),
-                ("##", "Header_2"),
-            ],
-        )
-        splits = [split for doc in docs for split in splitter.split_text(doc)]
-        total_splits = len(splits)
-        # Gộp các split lại thành các chunk với chunk_size
-        for i in range(0, total_splits, chunk_size):
-            chunk_text = "\n".join(
-                [split.page_content for split in splits[i : i + chunk_size]]
+    for file_id in file_ids:
+        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
+        if os.path.exists(docs_file):
+            with open(docs_file, "r", encoding="utf-8") as f:
+                docs_content = f.read()
+            docs = [docs_content]
+            splitter = MarkdownHeaderTextSplitter(
+                headers_to_split_on=[
+                    ("#", "Header_1"),
+                    ("##", "Header_2"),
+                ],
             )
-            document_chunks.append(chunk_text)
+            splits = [split for doc in docs for split in splitter.split_text(doc)]
+            total_splits = len(splits)
+            # Gộp các split lại thành các chunk với chunk_size
+            for i in range(0, total_splits, chunk_size):
+                chunk_text = "\n".join(
+                    [split.page_content for split in splits[i : i + chunk_size]]
+                )
+                document_chunks.append(chunk_text)
 
     return {"document_chunks": document_chunks}
 
@@ -327,19 +335,8 @@ def should_continue(state: QState) -> str:
 def validate(state: QState, config: RunnableConfig):
     """Xác nhận đầu ra cuối cùng."""
     good_question_answers = state.get("good_question_answers", None)
-    question_answers = state.get("question_answers", {})
-
-    # print("Good QA:", good_question_answers)
-    # print("TYPE:", type(good_question_answers))
-    # print("-----\n\n")
-    # print("All QA:", question_answers)
-    # print("TYPE:", type(question_answers))
-    # print("-----\n\n")
 
     formatted_question_answers = format_dict_to_markdown(good_question_answers)
-
-    print("Formatted QA:", formatted_question_answers)
-    print("\n\n")
 
     system_message = SystemMessage(
         content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
@@ -373,6 +370,80 @@ workflow.add_conditional_edges(
 workflow.add_edge("validate", END)
 
 document_processing_agent = workflow.compile()
+
+
+@tool("using_to_create_questions")
+async def document_processing_tool(query: str, config: RunnableConfig):
+    """
+    Công cụ tạo câu hỏi trắc nghiệm từ tài liệu.
+    Sử dụng khi người dùng yêu cầu tạo câu hỏi, bài kiểm tra, hoặc quiz từ tài liệu PDF đã tải lên.
+
+    Args:
+        query (str): Câu truy vấn của người dùng.
+        config (RunnableConfig): Cấu hình chứa session_id.
+    """
+    session_id = config["configurable"].get("thread_id")
+    if not session_id:
+        return "session_id không hợp lệ."
+
+    # Ensure a queue exists for this session (client may not have connected yet)
+    if session_id not in sse_event_queues:
+        import asyncio
+
+        sse_event_queues[session_id] = asyncio.Queue()
+        print(f"[DocumentProcessing] Created SSE queue for session_id: {session_id}")
+
+    try:
+        # Directly await the async process_pdf (no thread pool needed)
+        await process_pdf(
+            session_id, document_processing_agent=document_processing_agent
+        )
+        queue = sse_event_queues.get(session_id)
+        if queue:
+            await queue.put("done")
+            print("SSE event sent to", session_id)
+        else:
+            print("SSE queue not found for session_id:", session_id)
+        return "Đã tạo câu hỏi thành công từ tài liệu."
+    except Exception as e:
+        print(f"[DocumentProcessing] Error during processing: {e}")
+        queue = sse_event_queues.get(session_id)
+        if queue:
+            await queue.put(f"error: {str(e)}")
+
+
+@tool("document_summarize_tool")
+async def document_summarize_tool(query: str, config: RunnableConfig):
+    """
+    Công cụ tóm tắt nội dung tài liệu.
+    Sử dụng khi người dùng yêu cầu tóm tắt, tổng hợp nội dung, hoặc rút gọn thông tin từ tài liệu PDF đã tải lên.
+
+    Args:
+        query (str): Câu truy vấn của người dùng.
+        config (RunnableConfig): Cấu hình chứa session_id.
+    """
+    response_msg = await pdf_summarize_agent.ainvoke(
+        {"messages": [HumanMessage(content="Tóm tắt tài liệu")]}, config=config
+    )
+    content = response_msg["messages"][-1].content
+    return {"message": content}
+
+
+@tool("answer_tool")
+async def answer_tool(query: str, config: RunnableConfig):
+    """
+    Công cụ trả lời câu hỏi hoặc giải thích nội dung cụ thể trong tài liệu.
+    Sử dụng khi người dùng hỏi về một chi tiết cụ thể, yêu cầu giải thích một đoạn văn, hoặc hỏi đáp thông thường dựa trên tài liệu.
+
+    Args:
+        query (str): Nội dung câu hỏi hoặc đoạn văn bản cần giải thích.
+        config (RunnableConfig): Cấu hình chứa session_id.
+    """
+    response_msg = await feedbacks_answer.ainvoke(
+        {"messages": [HumanMessage(content=query)]}, config=config
+    )
+    content = response_msg["messages"][-1].content
+    return {"message": content}
 
 
 if __name__ == "__main__":

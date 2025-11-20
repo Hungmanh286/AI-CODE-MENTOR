@@ -38,9 +38,9 @@ def build_workflow():
 
     workflow.add_edge(START, MessageName.agent)
     workflow.add_edge(MessageName.agent, "tools")
-    workflow.add_edge("tools", "documents_node")
-    workflow.add_edge("documents_node", MessageName.answer)
-    workflow.add_edge(MessageName.answer, END)
+    workflow.add_edge("tools", END)
+    # workflow.add_edge("documents_node", MessageName.answer)
+    # workflow.add_edge(MessageName.answer, END)
 
     return workflow
 
