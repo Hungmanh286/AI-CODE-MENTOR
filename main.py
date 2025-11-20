@@ -58,7 +58,7 @@ app.include_router(Routers.lesson_router, prefix="", tags=["Lesson"])
 app.include_router(Routers.upload_pdf_router, prefix="", tags=["UploadPDF"])
 app.include_router(Routers.process_data_router, prefix="", tags=["ProcessData"])
 app.include_router(Routers.history_chat_router, prefix="", tags=["HistoryChat"])
-
+app.include_router(Routers.notify_router, prefix="", tags=["Notify"])
 if __name__ == "__main__":
     import uvicorn
 

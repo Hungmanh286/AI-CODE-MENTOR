@@ -1,4 +1,6 @@
 import os
+
+#
 import base64
 
 from openai import OpenAI
@@ -6,9 +8,11 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
-from langchain_core.messages import SystemMessage
 from langchain_core.messages import (
     AIMessage,
+    HumanMessage,
+    SystemMessage,
+    trim_messages,
 )
 
 from app.graph.state import State
@@ -17,6 +21,9 @@ from app.config import settings
 from app.graph.prompts import Prompts
 from app.graph.generate import generate_agent
 from app.services.datasource import get_active_file_id
+from app.graph.state import (
+    get_conversation_messages,
+)
 
 
 TOOLS = []
@@ -162,9 +169,19 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
     return {"docs": docs}
 
 
+# Step 3: Extract documents from tool messages
+def documents_node(state: State) -> dict:
+    """Add documents to state."""
+    docs = state.get("docs", [])
+    for doc in docs:
+        print(doc["page_content"])
+    documents = "\n".join(item["page_content"] for item in docs)
+    return {"documents": documents}
+
+
 async def answer_node(state: State, config: RunnableConfig):
     """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
-    documents = state.get("docs", [])
+    documents = state.get("documents", [])
     question = get_human_message_content(state)
 
     # Tạo system prompt
@@ -174,8 +191,20 @@ async def answer_node(state: State, config: RunnableConfig):
             question=question,
         )
     )
+    full_conversation_messages = get_conversation_messages(
+        state, aimessage_name=[MessageName.answer]
+    )
+    conversation_messages = trim_messages(
+        full_conversation_messages,
+        strategy="last",
+        token_counter=len,
+        max_tokens=settings.HISTORY_CONTEXT_LEN,
+        start_on=HumanMessage,
+        end_on=(HumanMessage, AIMessage),
+        include_system=False,
+    )
 
-    prompt = {"messages": [system_message]}
+    prompt = {"messages": [system_message] + conversation_messages}
 
     response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
@@ -191,6 +220,7 @@ def build_feedbacks_workflow():
     workflow.add_node("information_retriever", information_retriever)
     workflow.add_node("information_retriever_image", information_retriever_image)
     workflow.add_node(MessageName.feedbacks_answer, answer_node)
+    workflow.add_node("documents", documents_node)
 
     workflow.add_conditional_edges(
         "parse_pdf",
@@ -201,8 +231,9 @@ def build_feedbacks_workflow():
         },
     )
     workflow.add_edge(START, "parse_pdf")
-    workflow.add_edge("information_retriever", MessageName.feedbacks_answer)
-    workflow.add_edge("information_retriever_image", MessageName.feedbacks_answer)
+    workflow.add_edge("information_retriever", "documents")
+    workflow.add_edge("information_retriever_image", "documents")
+    workflow.add_edge("documents", MessageName.feedbacks_answer)
     workflow.add_edge(MessageName.feedbacks_answer, END)
 
     return workflow

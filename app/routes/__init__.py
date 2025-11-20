@@ -5,6 +5,7 @@ from .lesson import router as lesson_router
 from .upload_pdf import router as upload_pdf_router
 from .process_data import router as process_data_router
 from .history_chat import router as history_chat_router
+from .notify import router as notify_router
 
 
 class Routers:
@@ -15,6 +16,7 @@ class Routers:
     upload_pdf_router = upload_pdf_router
     process_data_router = process_data_router
     history_chat_router = history_chat_router
+    notify_router = notify_router
 
 
 __all__ = ["Routers"]

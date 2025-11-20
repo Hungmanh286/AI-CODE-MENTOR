@@ -8,7 +8,8 @@ from langfuse.callback import CallbackHandler
 from langchain_core.runnables.config import RunnableConfig
 
 from app.graph.agents.question_expert import question_expert, UPLOAD_DIR  # noqa
-from app.graph.agents.document_processing import document_processing_agent
+
+# from app.graph.agents.document_processing import document_processing_agent
 from app.schema.question import Project, Question, QuestionOption
 from app.services.datasource import insert_database
 from app.schema.question import SessionProject
@@ -24,10 +25,8 @@ tracer = CallbackHandler(
     host=settings.LANGFUSE_HOST,
 )
 
-
-@router.post("/process")
 async def process_pdf(
-    session_id: str = Form(...),
+    session_id: str, document_processing_agent=None
 ):
     # Gọi question_expert để xử lý PDF và sinh câu hỏi
     config = RunnableConfig(configurable={"thread_id": session_id}, callbacks=[tracer])
