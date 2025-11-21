@@ -22,6 +22,7 @@ from app.routes.notify import (
 from app.graph.agents.summarize_agent import pdf_summarize_agent
 from app.graph.agents.feedbacks_answer import feedbacks_answer
 from app.services.datasource import get_active_file_id
+from app.services.minio_client import minio_client
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -48,9 +49,6 @@ tracer = CallbackHandler(
     host=settings.LANGFUSE_HOST,
 )
 
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 max_retry = 2
 
@@ -61,30 +59,34 @@ def document_preprocessing(state: QState, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
     file_ids = get_active_file_id(session_id)
 
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
     document_chunks = []
-
     chunk_size = 10
+    
     for file_id in file_ids:
-        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
-        if os.path.exists(docs_file):
-            with open(docs_file, "r", encoding="utf-8") as f:
-                docs_content = f.read()
-            docs = [docs_content]
-            splitter = MarkdownHeaderTextSplitter(
-                headers_to_split_on=[
-                    ("#", "Header_1"),
-                    ("##", "Header_2"),
-                ],
-            )
-            splits = [split for doc in docs for split in splitter.split_text(doc)]
-            total_splits = len(splits)
-            # Gộp các split lại thành các chunk với chunk_size
-            for i in range(0, total_splits, chunk_size):
-                chunk_text = "\n".join(
-                    [split.page_content for split in splits[i : i + chunk_size]]
+        # Đọc docs từ MinIO (trong folder session)
+        docs_minio_path = f"{session_id}/{file_id}_docs.txt"
+        
+        if minio_client.file_exists(docs_minio_path):
+            docs_data = minio_client.download_data(docs_minio_path)
+            if docs_data:
+                docs_content = docs_data.decode("utf-8")
+                docs = [docs_content]
+                
+                splitter = MarkdownHeaderTextSplitter(
+                    headers_to_split_on=[
+                        ("#", "Header_1"),
+                        ("##", "Header_2"),
+                    ],
                 )
-                document_chunks.append(chunk_text)
+                splits = [split for doc in docs for split in splitter.split_text(doc)]
+                total_splits = len(splits)
+                
+                # Gộp các split lại thành các chunk với chunk_size
+                for i in range(0, total_splits, chunk_size):
+                    chunk_text = "\n".join(
+                        [split.page_content for split in splits[i : i + chunk_size]]
+                    )
+                    document_chunks.append(chunk_text)
 
     return {"document_chunks": document_chunks}
 

@@ -63,6 +63,13 @@ class GlobalConfig(BaseSettings):
     ALGORITHM: Optional[str] = Field(default="HS256")
     ACCOUNT_FILE: Optional[Path] = Field(default=Path("app/config/user.json"))
 
+    # MinIO Storage
+    MINIO_ENDPOINT: Optional[str] = Field(default="localhost:9000")
+    MINIO_ACCESS_KEY: Optional[str] = Field(default="admin")
+    MINIO_SECRET_KEY: Optional[str] = Field(default="admin123")
+    MINIO_SECURE: Optional[bool] = Field(default=False)
+    MINIO_BUCKET: Optional[str] = Field(default="mybucket")
+
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()
     _tracing_env: dict = PrivateAttr()

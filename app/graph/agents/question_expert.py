@@ -15,10 +15,9 @@ from app.graph.generate import generate_agent
 from app.chatmodel import init_llm
 from app.config import settings
 from app.services.datasource import get_active_file_id
+from app.services.minio_client import minio_client
 
 
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 converter = DocumentConverter()
 
 
@@ -49,15 +48,20 @@ async def extract_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
     file_ids = get_active_file_id(session_id)
     all_texts = []
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
+    
     for file_id in file_ids:
-        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
-        if os.path.exists(docs_file):
-            with open(docs_file, "r", encoding="utf-8") as f:
-                text = f.read().strip()
+        # Đọc docs từ MinIO (trong folder session)
+        docs_minio_path = f"{session_id}/{file_id}_docs.txt"
+        
+        if minio_client.file_exists(docs_minio_path):
+            docs_data = minio_client.download_data(docs_minio_path)
+            if docs_data:
+                text = docs_data.decode("utf-8").strip()
                 all_texts.append(text)
+    
     if not all_texts:
         return {"documents": None}
+    
     big_text = "\n\n".join(all_texts)
     return {"documents": big_text}
 

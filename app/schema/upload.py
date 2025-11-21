@@ -9,3 +9,4 @@ class UploadFileStatus(SQLModel, table=True):
     session_id: str
     file_name: str
     active: bool = Field(default=False)
+    has_processed: bool = False

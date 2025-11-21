@@ -24,12 +24,10 @@ from app.services.datasource import get_active_file_id
 from app.graph.state import (
     get_conversation_messages,
 )
+from app.services.minio_client import minio_client
 
 
 TOOLS = []
-
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 embeddings = VoyageAIEmbeddings(
@@ -88,26 +86,31 @@ def get_human_message_content(state: State):
 # xử lý nếu chọn nhiều file cùng lúc
 def parse_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
-    os.makedirs(session_folder, exist_ok=True)
 
     file_ids = get_active_file_id(session_id)
     for file_id in file_ids:
-        latest_file = os.path.join(
-            session_folder, f"{file_id}_{session_id}_latest_crop.txt"
-        )
-        if os.path.exists(latest_file):
-            with open(latest_file, "r") as f:
-                image_path = f.read().strip()
-        else:
+        # Tìm ảnh crop từ MinIO
+        crop_files = minio_client.list_files(prefix=f"{session_id}/crop_{file_id}")
+        
+        if not crop_files:
             return {"documents": None}
+        
+        # Lấy file crop đầu tiên
+        crop_minio_path = crop_files[0]
+        
         try:
-            if not os.path.exists(image_path):
+            # Download ảnh về tạm
+            temp_image_path = f"/tmp/crop_{file_id}.png"
+            if not minio_client.download_file(crop_minio_path, temp_image_path):
                 return {"documents": None}
-            text = image_to_text(image_path)
-            # Xóa file ảnh sau khi chuyển sang text
-            if os.path.exists(image_path):
-                os.remove(image_path)
+            
+            # Chuyển ảnh sang text
+            text = image_to_text(temp_image_path)
+            
+            # Xóa file tạm và file trên MinIO
+            if os.path.exists(temp_image_path):
+                os.remove(temp_image_path)
+            minio_client.delete_file(crop_minio_path)
             return {"documents": text}
         except Exception as e:
             print(f"Error converting image to text: {e}")

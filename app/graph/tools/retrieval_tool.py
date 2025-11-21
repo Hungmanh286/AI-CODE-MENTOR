@@ -13,9 +13,9 @@ from langgraph.graph import START, END
 
 from app.graph.state import State
 from app.config import settings
+from app.services.minio_client import minio_client
+from app.services.datasource import get_active_file_id
 
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 converter = DocumentConverter()
 
 
@@ -38,35 +38,52 @@ embeddings = VoyageAIEmbeddings(
 )
 url = "http://localhost:6333"
 
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 # step 1 : node chunk pdf
 def parse_and_chunk_pdf(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
-
-    latest_file = os.path.join(UPLOAD_DIR, f"{session_id}_latest.txt")
-    print(f"Looking for latest file at: {latest_file}")
-    if os.path.exists(latest_file):
-        with open(latest_file, "r") as f:
-            source_path = f.read().strip()
-    else:
+    
+    # Lấy file từ database
+    file_ids = get_active_file_id(session_id)
+    if not file_ids:
+        return {"documents": None}
+    
+    file_id = file_ids[0]
+    
+    # Lấy thông tin file từ database
+    from app.schema.upload import UploadFileStatus
+    from sqlmodel import Session, select
+    
+    engine = settings._app_db_engine
+    with Session(engine) as session:
+        file_record = session.exec(
+            select(UploadFileStatus).where(UploadFileStatus.file_id == file_id)
+        ).first()
+        if not file_record:
+            return {"documents": None}
+        
+        filename = file_record.file_name
+        minio_path = f"{session_id}/{filename}"
+    
+    # Download file từ MinIO về tạm
+    temp_local_path = f"/tmp/parse_{filename}"
+    if not minio_client.download_file(minio_path, temp_local_path):
         return {"documents": None}
 
     try:
-        if not os.path.exists(source_path):
-            return {"documents": None}
-
         converter = DocumentConverter()
-        doc = converter.convert(source_path).document
+        doc = converter.convert(temp_local_path).document
         markdown_text = doc.export_to_markdown()
+        
+        # Xóa file tạm
+        os.remove(temp_local_path)
     except Exception as e:
         print(f"Error converting document: {e}")
+        if os.path.exists(temp_local_path):
+            os.remove(temp_local_path)
         return {"documents": None}
 
     # --- Tự động trích xuất topic ---
-    filename = os.path.basename(source_path)
     base_name = os.path.splitext(filename)[0]
 
     # Tìm "Bài X - ..." trong tên file
