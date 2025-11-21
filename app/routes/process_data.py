@@ -7,13 +7,12 @@ from sqlmodel import SQLModel, Session, select, delete
 from langfuse.callback import CallbackHandler
 from langchain_core.runnables.config import RunnableConfig
 
-from app.graph.agents.question_expert import question_expert, UPLOAD_DIR  # noqa
-
-# from app.graph.agents.document_processing import document_processing_agent
+from app.graph.agents.question_expert import question_expert
 from app.schema.question import Project, Question, QuestionOption
 from app.services.datasource import insert_database
 from app.schema.question import SessionProject
 from app.services.datasource import get_active_file_id
+from app.services.minio_client import minio_client
 from app.config import settings
 
 router = APIRouter()
@@ -34,14 +33,18 @@ async def process_pdf(
     evaluated_result = result["quizz"]
     questions_data = json.loads(evaluated_result)
 
+    # Lấy thông tin file từ database
     file_ids = get_active_file_id(session_id)
     file_id = file_ids[0] if file_ids else None
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
-    latest_file = os.path.join(session_folder, f"{file_id}_{session_id}_latest.txt")
-    if os.path.exists(latest_file):
-        with open(latest_file, "r") as f:
-            file_path = f.read().strip()
-        file_name = os.path.basename(file_path)
+    
+    # Lấy tên file từ database thay vì từ local file
+    from app.schema.upload import UploadFileStatus
+    engine = settings._app_db_engine
+    with Session(engine) as session:
+        file_record = session.exec(
+            select(UploadFileStatus).where(UploadFileStatus.file_id == file_id)
+        ).first()
+        file_name = file_record.file_name if file_record else "unknown.pdf"
 
     # Tạo project mới
     project_id = str(uuid.uuid4())
@@ -49,7 +52,7 @@ async def process_pdf(
         "id": project_id,
         "session_id": session_id,
         "name": file_name,
-        "source_path": os.path.join(session_folder, f"{session_id}_latest.txt"),
+        "source_path": f"{session_id}/{file_name}",  # Lưu path trên MinIO
     }
 
     # Lưu project vào database
@@ -235,14 +238,28 @@ def delete_session_data(session_id: str):
         session.exec(
             delete(SessionProject).where(SessionProject.session_id == session_id)
         )
+        # Lấy danh sách files trước khi xóa trong DB
+        files_to_delete = session.exec(
+            select(UploadFileStatus).where(UploadFileStatus.session_id == session_id)
+        ).all()
+        
         session.exec(
             delete(UploadFileStatus).where(UploadFileStatus.session_id == session_id)
         )
         session.commit()
-        # Xóa folder chứa file của session
-        session_folder = os.path.join(UPLOAD_DIR, session_id)
-        if os.path.exists(session_folder):
-            import shutil
-
-            shutil.rmtree(session_folder)
+        
+        # Xóa tất cả file của session trên MinIO
+        for file_record in files_to_delete:
+            # Xóa file PDF
+            minio_path = f"{session_id}/{file_record.file_name}"
+            minio_client.delete_file(minio_path)
+            
+            # Xóa file docs (trong folder session)
+            docs_path = f"{session_id}/{file_record.file_id}_docs.txt"
+            minio_client.delete_file(docs_path)
+        
+        # Xóa toàn bộ folder session (bao gồm crop images và các file khác)
+        all_session_files = minio_client.list_files(prefix=f"{session_id}/")
+        for file_path in all_session_files:
+            minio_client.delete_file(file_path)
         return {"detail": f"Deleted all data for session_id: {session_id}"}

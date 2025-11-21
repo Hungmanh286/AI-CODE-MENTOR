@@ -84,6 +84,41 @@ def embedding_document(docs, session_id: str):
             print("First split type:", type(splits[0]))
             print("First split content:", getattr(splits[0], "page_content", splits[0]))
 
+prompt = """Chuyển đổi hình ảnh tài liệu sang Markdown theo quy trình:
+
+**BƯỚC 1 - PHÂN TÍCH**: Quan sát toàn bộ, xác định bố cục, các phần: tiêu đề, văn bản, bảng, hình ảnh, cấu trúc phân cấp.
+
+**BƯỚC 2 - TIÊU ĐỀ**: Dựa vào font size/độ đậm/vị trí xác định cấp độ:
+- # cấp 1 (lớn nhất) → ## cấp 2 → ### cấp 3 → #### cấp 4
+- Giữ nguyên thứ tự phân cấp như gốc
+
+**BƯỚC 3 - BẢNG** (quan trọng):
+- Nhận diện: đường kẻ lưới, dữ liệu hàng/cột, header row
+- Format Markdown: `| Cột 1 | Cột 2 |` → `|:-----|:-----:|` (separator) → data rows
+- Căn chỉnh: `:---` trái, `:---:` giữa, `---:` phải
+- Đọc TẤT CẢ dữ liệu, không bỏ sót. Nếu merge cells phức tạp → dùng HTML table
+
+Ví dụ:
+| Tên | Tuổi | Địa chỉ |
+|:----|:----:|--------:|
+| Nguyễn A | 25 | Hà Nội |
+
+**BƯỚC 4 - HÌNH ẢNH/BIỂU ĐỒ**:
+- Format: `![Mô tả chi tiết nội dung]`
+- Mô tả ĐẦY ĐỦ: loại biểu đồ, dữ liệu chính, xu hướng. VD: `![Biểu đồ cột doanh thu Q1-Q4: 100M, 150M, 120M, 180M]`
+
+**BƯỚC 5 - VĂN BẢN**: Đọc TẤT CẢ, giữ nguyên định dạng (bullet `-`, numbered `1.`, **bold**, *italic*, `code`), không thêm/bớt nội dung.
+
+**BƯỚC 6 - KIỂM TRA**: Đã xử lý tất cả? Bảng đúng format? Hình ảnh mô tả đầy đủ? Tiêu đề đúng cấp? Không bỏ sót?
+
+**NGUYÊN TẮC**: 
+KHÔNG bỏ sót nội dung
+KHÔNG tự ý thay đổi, chỉ chuyển format
+GIỮ NGUYÊN cấu trúc phân cấp
+XỬ LÝ ĐẦY ĐỦ bảng (tất cả hàng/cột)
+MÔ TẢ HÌNH ẢNH chi tiết (không chung chung)
+
+Bắt đầu xử lý."""
 
 def parse_chunk(chunk_images: list) -> str:
     """
@@ -99,7 +134,7 @@ def parse_chunk(chunk_images: list) -> str:
     content = [
         {
             "type": "input_text",
-            "text": "Chuyển ảnh sang văn bản Markdown. Giữ nguyên cấu trúc, các tiêu đề phải dùng đúng dấu #, ##, ### theo cấp độ heading trong tài liệu gốc. Không bỏ sót bất kỳ phần nào, không tự ý thay đổi nội dung. Đầu ra là văn bản Markdown chuẩn, mỗi header phải bắt đầu bằng dấu # đúng cấp độ.",
+            "text": prompt
         }
     ]
 

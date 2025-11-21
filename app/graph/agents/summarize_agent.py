@@ -14,6 +14,7 @@ from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
 from app.services.datasource import get_active_file_id
+from app.services.minio_client import minio_client
 
 
 # sử dụng phương pháp merge bằng việc kết hợp giữa tóm tắt và tóm tắt trích xuất để tóm tắt
@@ -38,9 +39,6 @@ tracer = CallbackHandler(
     host=settings.LANGFUSE_HOST,
 )
 
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
 
 # Tóm tắt văn bản :
 # Node 1: Tóm tắt từng chunk
@@ -50,34 +48,36 @@ def summarize_node(state: QState, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
     file_ids = get_active_file_id(session_id)
 
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
-
     chunk_size = 10
     for file_id in file_ids:
-        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
-        if os.path.exists(docs_file):
-            with open(docs_file, "r", encoding="utf-8") as f:
-                docs_content = f.read()
-            docs = [docs_content]
-            splitter = MarkdownHeaderTextSplitter(
-                headers_to_split_on=[
-                    ("#", "Header_1"),
-                    ("##", "Header_2"),
-                ],
-            )
-            splits = [split for doc in docs for split in splitter.split_text(doc)]
-            total_splits = len(splits)
-
-            # Gộp các split lại thành các chunk với chunk_size
-            for i in range(0, total_splits, chunk_size):
-                chunk_text = "\n".join(
-                    [split.page_content for split in splits[i : i + chunk_size]]
+        # Đọc docs từ MinIO (trong folder session)
+        docs_minio_path = f"{session_id}/{file_id}_docs.txt"
+        
+        if minio_client.file_exists(docs_minio_path):
+            docs_data = minio_client.download_data(docs_minio_path)
+            if docs_data:
+                docs_content = docs_data.decode("utf-8")
+                docs = [docs_content]
+                
+                splitter = MarkdownHeaderTextSplitter(
+                    headers_to_split_on=[
+                        ("#", "Header_1"),
+                        ("##", "Header_2"),
+                    ],
                 )
-                summarize_chunk = Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
-                    document=chunk_text
-                )
+                splits = [split for doc in docs for split in splitter.split_text(doc)]
+                total_splits = len(splits)
 
-                summarize_chunks.append(summarize_chunk)
+                # Gộp các split lại thành các chunk với chunk_size
+                for i in range(0, total_splits, chunk_size):
+                    chunk_text = "\n".join(
+                        [split.page_content for split in splits[i : i + chunk_size]]
+                    )
+                    summarize_chunk = Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
+                        document=chunk_text
+                    )
+
+                    summarize_chunks.append(summarize_chunk)
 
     return {"summaries": summarize_chunks}
 
@@ -89,14 +89,15 @@ def extractive_node(state: QState, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
     file_ids = get_active_file_id(session_id)
 
-    session_folder = os.path.join(UPLOAD_DIR, session_id)
-
     for file_id in file_ids:
-        docs_file = os.path.join(session_folder, f"{file_id}_{session_id}_docs.txt")
-        if os.path.exists(docs_file):
-            with open(docs_file, "r", encoding="utf-8") as f:
-                docs_content = f.read()
-            docs = [docs_content]
+        # Đọc docs từ MinIO (trong folder session)
+        docs_minio_path = f"{session_id}/{file_id}_docs.txt"
+        
+        if minio_client.file_exists(docs_minio_path):
+            docs_data = minio_client.download_data(docs_minio_path)
+            if docs_data:
+                docs_content = docs_data.decode("utf-8")
+                docs = [docs_content]
             splitter = MarkdownHeaderTextSplitter(
                 headers_to_split_on=[
                     ("#", "Header_1"),

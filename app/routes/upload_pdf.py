@@ -11,12 +11,9 @@ from app.schema.upload import UploadFileStatus
 from app.services.datasource import insert_database
 from app.config import settings as ds_settings
 from app.services.vector_store import parse_pdf_text2, embedding_document
+from app.services.minio_client import minio_client
 
 router = APIRouter()
-UPLOAD_DIR = "/tmp/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-# nên tạo mỗi session sẽ là 1 folder để lúc xóa cả chỉ cần xóa folder đó là xong
 
 
 # TODO : lưu đọc vào file
@@ -27,18 +24,17 @@ async def upload_pdf(
     file_id: str = Form(...),
 ):
     try:
-        session_folder = os.path.join(UPLOAD_DIR, session_id)
-        os.makedirs(session_folder, exist_ok=True)
-
-        file_path = os.path.join(session_folder, file.filename)
-        with open(file_path, "wb") as f:
+        file_path = f"{session_id}/{file.filename}"
+        temp_local_path = f"/tmp/{file.filename}"
+        
+        # Ghi file tạm
+        with open(temp_local_path, "wb") as f:
             f.write(await file.read())
-
-        # Lưu đường dẫn file để hiển thị ảnh
-        image_path = os.path.join(session_folder, f"{file_id}_{session_id}_latest.txt")
-        with open(image_path, "w") as image_file:
-            image_file.write(file_path)
-
+        
+        # Upload lên MinIO
+        minio_client.upload_file(temp_local_path, file_path)
+        os.remove(temp_local_path)
+        
         # Lưu thông tin file vào bảng UploadFileStatus
         file_status_data = {
             "file_id": file_id,
@@ -47,7 +43,6 @@ async def upload_pdf(
             "active": False,
         }
         insert_database(file_status_data, UploadFileStatus)
-
         return {"file_path": file_path, "message": "File uploaded successfully."}
     except Exception as e:
         return {"error": str(e)}
@@ -56,7 +51,7 @@ async def upload_pdf(
 @router.put("/update-file-active")
 async def update_file_active(file_id: str = Form(...), active: bool = Form(...)):
     """
-    Cập nhật trạng thái active của file theo file_id
+    Cập nhật trạng thái active của file theo file_id. Chỉ thực hiện lưu docs và update vector store khi active chuyển từ False sang True lần đầu tiên (has_processed=False).
     """
     engine = ds_settings._app_db_engine
     with Session(engine) as session:
@@ -65,31 +60,48 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
         ).first()
         if not file_record:
             return {"error": f"File with file_id {file_id} not found"}
+        
         file_record.active = active
+        print(f"Before update: has_processed={file_record.has_processed}")
         session.add(file_record)
         session.commit()
+        
         file_name = file_record.file_name
-    session_folder = os.path.join(UPLOAD_DIR, file_record.session_id)
-    if active:
-        # Lưu docs
-        file_path = os.path.join(session_folder, file_name)
-        docs = parse_pdf_text2(file_path)
-
-        docs_path = os.path.join(
-            session_folder, f"{file_id}_{file_record.session_id}_docs.txt"
-        )
-        with open(docs_path, "w") as doc_file:
-            doc_file.write(str(docs))
-
-        # update vector store
-        embedding_document([docs], file_record.session_id)
-
-        return {
-            "file_id": file_id,
-            "active": active,
-            "file_name": file_name,
-            "message": "File status updated successfully.",
-        }
+        minio_path = f"{file_record.session_id}/{file_name}"
+        
+        # Download file từ MinIO về tạm để xử lý
+        temp_local_path = f"/tmp/{file_name}"
+        minio_client.download_file(minio_path, temp_local_path)
+        
+        if file_record.active and not file_record.has_processed:
+            file_record.has_processed = True
+            docs = parse_pdf_text2(temp_local_path)
+            
+            # Upload docs lên MinIO trong folder session
+            docs_minio_path = f"{file_record.session_id}/{file_id}_docs.txt"
+            temp_docs_path = f"/tmp/{file_id}_docs.txt"
+            with open(temp_docs_path, "w", encoding="utf-8") as doc_file:
+                doc_file.write(str(docs))
+            
+            minio_client.upload_file(temp_docs_path, docs_minio_path)
+            embedding_document([docs], file_record.session_id)
+            
+            os.remove(temp_docs_path)
+            session.add(file_record)
+            session.commit()
+        
+        os.remove(temp_local_path)
+        
+        # Lấy giá trị has_processed TRONG session trước khi session đóng
+        has_processed = file_record.has_processed
+    
+    return {
+        "file_id": file_id,
+        "active": active,
+        "file_name": file_name,
+        "has_processed": has_processed,
+        "message": "File status updated successfully.",
+    }
 
 
 @router.get("/session-files/{session_id}")
@@ -115,26 +127,41 @@ async def get_files_by_session(session_id: str):
 @router.get("/view-file")
 async def view_file(session_id: str, file_id: str):
     try:
-        session_folder = os.path.join(UPLOAD_DIR, session_id)
-        latest_file = os.path.join(session_folder, f"{file_id}_{session_id}_latest.txt")
-        if not os.path.exists(latest_file):
-            return {"error": "File not found."}
-        with open(latest_file, "r", encoding="utf-8") as f:
-            pdf_path = f.read().strip()
-        if not os.path.exists(pdf_path):
-            return {"error": "PDF file not found."}
-        # Chuyển PDF sang ảnh (lấy tất cả các trang)
-        images = convert_from_path(pdf_path)
-        if not images:
-            return {"error": "No image generated from PDF."}
-        img_base64_list = []
-        for img in images:
-            img_byte_arr = BytesIO()
-            img.save(img_byte_arr, format="PNG")
-            img_byte_arr = img_byte_arr.getvalue()
-            img_base64 = base64.b64encode(img_byte_arr).decode("utf-8")
-            img_base64_list.append(img_base64)
-        return JSONResponse({"images_base64": img_base64_list})
+        # Lấy thông tin file từ database
+        engine = ds_settings._app_db_engine
+        with Session(engine) as session:
+            file_record = session.exec(
+                select(UploadFileStatus).where(UploadFileStatus.file_id == file_id)
+            ).first()
+            if not file_record:
+                return {"error": "File not found in database."}
+            
+            file_name = file_record.file_name
+            minio_path = f"{session_id}/{file_name}"
+            
+            # Download file từ MinIO về tạm
+            temp_local_path = f"/tmp/view_{file_name}"
+            if not minio_client.download_file(minio_path, temp_local_path):
+                return {"error": "PDF file not found in MinIO."}
+            
+            # Chuyển PDF sang ảnh (lấy tất cả các trang)
+            images = convert_from_path(temp_local_path)
+            if not images:
+                os.remove(temp_local_path)
+                return {"error": "No image generated from PDF."}
+            
+            img_base64_list = []
+            for img in images:
+                img_byte_arr = BytesIO()
+                img.save(img_byte_arr, format="PNG")
+                img_byte_arr = img_byte_arr.getvalue()
+                img_base64 = base64.b64encode(img_byte_arr).decode("utf-8")
+                img_base64_list.append(img_base64)
+            
+            # Xóa file tạm
+            os.remove(temp_local_path)
+            
+            return JSONResponse({"images_base64": img_base64_list})
     except Exception as e:
         return {"error": str(e)}
 
@@ -144,17 +171,19 @@ async def upload_cropped_image(
     file: UploadFile = File(...), file_id: str = Form(...), session_id: str = Form(...)
 ):
     try:
-        session_folder = os.path.join(UPLOAD_DIR, session_id)
-        os.makedirs(session_folder, exist_ok=True)
-        file_path = os.path.join(session_folder, file.filename)
-        with open(file_path, "wb") as f:
+        # Upload ảnh crop lên MinIO
+        crop_minio_path = f"{session_id}/crop_{file_id}_{file.filename}"
+        temp_local_path = f"/tmp/crop_{file.filename}"
+        
+        # Ghi file tạm
+        with open(temp_local_path, "wb") as f:
             f.write(await file.read())
-
-        latest_file = os.path.join(
-            session_folder, f"{file_id}_{session_id}_latest_crop.txt"
-        )
-        with open(latest_file, "w") as latest:
-            latest.write(file_path)
+        
+        # Upload lên MinIO
+        minio_client.upload_file(temp_local_path, crop_minio_path)
+        os.remove(temp_local_path)
+        
+        return {"message": "Cropped image uploaded successfully.", "path": crop_minio_path}
     except Exception as e:
         return {"error": str(e)}
 
@@ -172,28 +201,26 @@ async def delete_file_by_id(file_id: str):
             ).first()
             if not file_record:
                 return {"error": f"File with file_id {file_id} not found"}
-            session_folder = os.path.join(UPLOAD_DIR, file_record.session_id)
-            # Xóa file PDF
-            file_path = os.path.join(session_folder, file_record.file_name)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            # Xóa latest.txt
-            latest_file = os.path.join(
-                session_folder, f"{file_id}_{file_record.session_id}_latest.txt"
-            )
-            if os.path.exists(latest_file):
-                os.remove(latest_file)
-            # Xóa docs.txt
-            docs_file = os.path.join(
-                session_folder, f"{file_id}_{file_record.session_id}_docs.txt"
-            )
-            if os.path.exists(docs_file):
-                os.remove(docs_file)
+            
+            # Xóa file PDF trên MinIO
+            minio_path = f"{file_record.session_id}/{file_record.file_name}"
+            minio_client.delete_file(minio_path)
+            
+            # Xóa docs.txt trên MinIO (trong folder session)
+            docs_minio_path = f"{file_record.session_id}/{file_id}_docs.txt"
+            minio_client.delete_file(docs_minio_path)
+            
+            # Xóa ảnh crop nếu có
+            crop_files = minio_client.list_files(prefix=f"{file_record.session_id}/crop_{file_id}")
+            for crop_file in crop_files:
+                minio_client.delete_file(crop_file)
+            
             # Xóa bản ghi trong DB
             session.exec(
                 delete(UploadFileStatus).where(UploadFileStatus.file_id == file_id)
             )
             session.commit()
+        
         return {"message": f"Deleted file and related files for file_id: {file_id}"}
     except Exception as e:
         return {"error": str(e)}
