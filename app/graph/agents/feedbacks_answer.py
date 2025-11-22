@@ -44,9 +44,7 @@ def encode_image(image_path):
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 
-# Path to your image
 def image_to_text(image_path):
-    # Getting the Base64 string
     client = OpenAI(api_key=settings.CHAT_MODEL_VISION_KEY)
     base64_image = encode_image(image_path)
 
@@ -89,25 +87,16 @@ def parse_pdf_text(state: State, config: RunnableConfig):
 
     file_ids = get_active_file_id(session_id)
     for file_id in file_ids:
-        # Tìm ảnh crop từ MinIO
         crop_files = minio_client.list_files(prefix=f"{session_id}/crop_{file_id}")
-        
         if not crop_files:
             return {"documents": None}
-        
-        # Lấy file crop đầu tiên
         crop_minio_path = crop_files[0]
-        
+
         try:
-            # Download ảnh về tạm
             temp_image_path = f"/tmp/crop_{file_id}.png"
             if not minio_client.download_file(crop_minio_path, temp_image_path):
                 return {"documents": None}
-            
-            # Chuyển ảnh sang text
             text = image_to_text(temp_image_path)
-            
-            # Xóa file tạm và file trên MinIO
             if os.path.exists(temp_image_path):
                 os.remove(temp_image_path)
             minio_client.delete_file(crop_minio_path)
@@ -176,8 +165,6 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
 def documents_node(state: State) -> dict:
     """Add documents to state."""
     docs = state.get("docs", [])
-    for doc in docs:
-        print(doc["page_content"])
     documents = "\n".join(item["page_content"] for item in docs)
     return {"documents": documents}
 
@@ -208,7 +195,6 @@ async def answer_node(state: State, config: RunnableConfig):
     )
 
     prompt = {"messages": [system_message] + conversation_messages}
-
     response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
     return {

@@ -1,4 +1,3 @@
-import os
 from openai import OpenAI
 import json
 import re
@@ -40,6 +39,7 @@ class QState(MessagesState):
     bad_questions: str | None = None
     good_question_answers: list[str] | None = None
     quizz: list[str] | None = None
+    query: str | None = None
 
 
 tracer = CallbackHandler(
@@ -58,20 +58,20 @@ def document_preprocessing(state: QState, config: RunnableConfig):
     """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks)."""
     session_id = config["configurable"].get("thread_id")
     file_ids = get_active_file_id(session_id)
-
+    query = state.get("query", None)
     document_chunks = []
     chunk_size = 10
-    
+
     for file_id in file_ids:
         # Đọc docs từ MinIO (trong folder session)
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
-        
+
         if minio_client.file_exists(docs_minio_path):
             docs_data = minio_client.download_data(docs_minio_path)
             if docs_data:
                 docs_content = docs_data.decode("utf-8")
                 docs = [docs_content]
-                
+
                 splitter = MarkdownHeaderTextSplitter(
                     headers_to_split_on=[
                         ("#", "Header_1"),
@@ -80,7 +80,7 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                 )
                 splits = [split for doc in docs for split in splitter.split_text(doc)]
                 total_splits = len(splits)
-                
+
                 # Gộp các split lại thành các chunk với chunk_size
                 for i in range(0, total_splits, chunk_size):
                     chunk_text = "\n".join(
@@ -88,7 +88,7 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     )
                     document_chunks.append(chunk_text)
 
-    return {"document_chunks": document_chunks}
+    return {"document_chunks": document_chunks, "query": query}
 
 
 # node 2 : generate question
@@ -98,6 +98,7 @@ def question_node(state: QState, config: RunnableConfig):
     check_questions = {}
     good_questions = state.get("good_questions", None)
     bad_questions = state.get("bad_questions", None)
+    query = state.get("query", None)
 
     document_chunks = state.get("document_chunks", [])
     retry_count = state.get("retry_count", 0)
@@ -105,7 +106,7 @@ def question_node(state: QState, config: RunnableConfig):
     idx = 0
     if retry_count == 0:
         for chunk in document_chunks:
-            prompt = Prompts.QUESTION_GENERATION_PROMPT.format(chunk=chunk)
+            prompt = Prompts.QUESTION_GENERATION_PROMPT.format(chunk=chunk, query=query)
             response_msg = generate_agent.invoke(
                 {"messages": [HumanMessage(content=prompt)]}, config=config
             )
@@ -339,10 +340,11 @@ def validate(state: QState, config: RunnableConfig):
     good_question_answers = state.get("good_question_answers", None)
 
     formatted_question_answers = format_dict_to_markdown(good_question_answers)
+    query = state.get("query", None)
 
     system_message = SystemMessage(
         content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
-            questions=formatted_question_answers,
+            questions=formatted_question_answers, query=query
         )
     )
 
@@ -381,7 +383,7 @@ async def document_processing_tool(query: str, config: RunnableConfig):
     Sử dụng khi người dùng yêu cầu tạo câu hỏi, bài kiểm tra, hoặc quiz từ tài liệu PDF đã tải lên.
 
     Args:
-        query (str): Câu truy vấn của người dùng.
+        query (str): Câu truy vấn của người dùng
         config (RunnableConfig): Cấu hình chứa session_id.
     """
     session_id = config["configurable"].get("thread_id")
@@ -398,7 +400,7 @@ async def document_processing_tool(query: str, config: RunnableConfig):
     try:
         # Directly await the async process_pdf (no thread pool needed)
         await process_pdf(
-            session_id, document_processing_agent=document_processing_agent
+            session_id, document_processing_agent=document_processing_agent, query=query
         )
         queue = sse_event_queues.get(session_id)
         if queue:
