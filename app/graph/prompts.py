@@ -10,45 +10,86 @@ Hãy viết một bản tóm tắt bao gồm toàn bộ các thông tin chính.
 Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
     """
 
+    MARK_DOWN_PROMPT = """Bạn là chuyên gia chuyển tài liệu từ hình ảnh sang Markdown.
+## HƯỚNG DẪN
+### 1. Tiêu đề
+- Xác định cấp độ dựa trên font size, độ đậm, vị trí
+- Dùng #, ##, ###, #### theo đúng thứ bậc (không nhảy cấp)
+
+### 2. Văn bản
+- Chuyển đầy đủ, giữ nguyên: bullet, numbering, **bold**, *italic*, `code`
+- Giữ nguyên thứ tự đoạn văn
+
+### 3. Bảng
+- Chuyển sang markdown table format: | Header | Header |
+- Nếu bảng quá phức tạp, mô tả cấu trúc và dữ liệu chính
+
+### 4. Hình ảnh/Biểu đồ
+- Ghi nhãn nếu có (VD: "Hình 1: Tên hình")
+- Mô tả chi tiết: loại biểu đồ, trục, dữ liệu nổi bật, xu hướng/kết luận chính
+- Format: `[Mô tả: ...]`
+
+## NGUYÊN TẮC BẮT BUỘC
+- KHÔNG bỏ sót nội dung
+- KHÔNG thêm/sửa nội dung gốc
+- GIỮ NGUYÊN cấu trúc logic của tài liệu
+"""
+
     QUESTION_GENERATION_PROMPT = """
-Bạn là chuyên gia tạo câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng bằng java.
+Bạn là chuyên gia tạo câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng bằng Java.
+
+CÁC BƯỚC THỰC HIỆN:
+1. Xác định các khái niệm hoặc thuật ngữ quan trọng trong tài liệu và hiểu rõ định nghĩa hoặc vai trò của chúng.
+2. Xác định mối quan hệ giữa các khái niệm (so sánh, đối lập, liên kết, phụ thuộc) trong tài liệu nguồn.
+3. Xác định các ví dụ hoặc ứng dụng được nhắc đến trong tài liệu.
+4. Mỗi câu hỏi phải tập trung vào MỘT khái niệm duy nhất trong tài liệu nguồn bên dưới.
+
+YÊU CẦU SỐ LƯỢNG CÂU HỎI VÀ MỨC ĐỘ TƯ DUY:
+- Phân tích nội dung {query} để xác định số lượng câu hỏi và mức độ :
+  • Nếu nêu rõ số lượng câu hỏi hoặc loại câu hỏi cần sinh thì thực hiện đúng theo yêu cầu.
+  • Nếu chỉ mô tả chung chung (ví dụ: “tạo câu hỏi”, “sinh câu hỏi”)thì áp dụng cấu hình mặc định sau:
+Mặc định tạo 10 câu hỏi trắc nghiệm về lập trình hướng đối tượng Java, với phân bố tư duy:
+- 4 câu tư duy Phân tích (Analysis): so sánh, tìm lỗi, giải thích hành vi
+- 3 câu tư duy Tổng hợp (Synthesis): thiết kế, mở rộng, kết hợp
+- 3 câu tư duy Đánh giá (Evaluation): lựa chọn giải pháp tối ưu hoặc đánh giá tình huống
+
+YÊU CẦU ĐẦU RA:
+- Trả về danh sách câu hỏi theo dạng: [câu hỏi 1, câu hỏi 2, ...]
+- Không giải thích gì thêm.
+- Mỗi câu hỏi phải độc lập, không trùng ý, không lặp ý.
 
 LƯU Ý:
-- Không sử dụng các cụm như “ý chính (main idea)” hoặc “đoạn văn (passages)” trong câu hỏi.
-- Không liệt kê đáp án trắc nghiệm. Chỉ trả về câu hỏi.
-- Không sinh nhiều hơn một câu hỏi trong cùng một câu.
-- Câu hỏi chỉ nên tập trung vào một khái niệm rõ ràng và không quá dài.
-- 10 câu hỏi phải khác nhau và không bị trùng ý.
+- Không dùng các cụm như “ý chính (main idea)” hoặc “đoạn văn (passages)” trong câu hỏi.
+- Không liệt kê đáp án trắc nghiệm; chỉ trả về câu hỏi.
+- Không sinh hai câu hỏi trong cùng một câu.
+- Câu hỏi phải ngắn gọn, tập trung vào một khái niệm rõ ràng.
+- Có 1–2 câu hỏi yêu cầu đọc hiểu hoặc phân tích code.
+- Tất cả câu hỏi phải khác nhau và không bị trùng ý.
 
-CÁC BƯỚC THỰC HIỆN : 
-1. Xác định các khái niệm hoặc thuật ngữ quan trọng trong tài liệu, và hiểu rõ định nghĩa hoặc vai trò của chúng trong tài liệu nguồn bên dưới
-2. Xác định mối quan hệ giữa các khái niệm (so sánh, đối lập, liên kết, phụ thuộc) trong tài liệu nguồn bên dưới
-3. Xác định các ví dụ hoặc ứng dụng được nhắc đến trong tài liệu nguồn bên dưới 
-4. Hãy tạo 10 câu hỏi trắc nghiệm về lập trình hướng đối tượng Java, mỗi câu tập trung vào MỘT khái niệm duy nhất từ tài liệu dưới đây.
-Yêu cầu tư duy bậc cao cho 10 câu hỏi, bao gồm :
-- 4 câu: Phân tích (Analysis) – so sánh, tìm lỗi, giải thích hành vi  
-- 3 câu: Tổng hợp (Synthesis) – thiết kế, mở rộng, kết hợp  
-- 3 câu: Đánh giá (Evaluation) – chọn giải pháp tối ưu, đánh giá 
-5. Trả về danh sách các câu hỏi : [câu hỏi 1, câu hỏi 2, ...] không phải giải thích gì thêm
- 
-Tài liệu nguồn:
+TÀI LIỆU NGUỒN:
 {chunk}
 """
 
     QUESTION_REGENERATION_PROMPT = """
-Bạn là chuyên gia cải thiện câu hỏi
-Câu hỏi cần cải thiện: 
+Bạn là chuyên gia biên soạn câu hỏi trắc nghiệm chất lượng cao.
+Nhiệm vụ:
+- Tạo 5 câu hỏi mới, rõ ràng, đúng trọng tâm, chất lượng cao.
+- Dựa trên nhóm câu hỏi kém chất lượng sau và cải thiện chúng:
 {bad_qs}
 
-Hãy tạo lại câu hỏi tốt hơn cho tài liệu sau đây, tránh lặp lại câu hỏi đã có: 
+- Tuyệt đối không trùng lặp hoặc tạo lại các câu hỏi đã có:
 {good_questions}
 
-Yêu cầu:
-- Chỉ liệt kê các câu hỏi, không giải thích, không thêm định dạng hoặc số thứ tự, không thêm văn bản nào ngoài câu hỏi.
+Yêu cầu bắt buộc:
+- Chỉ trả về các câu hỏi, không kèm giải thích, không đánh số, không thêm bất kỳ văn bản nào ngoài câu hỏi.
+- Mỗi câu hỏi phải tập trung vào một khái niệm duy nhất, ngắn gọn và dễ hiểu.
+- Không hỏi những câu kiểu “ý chính (main idea)” hoặc “đoạn văn (passages)”.
+- Không liệt kê đáp án trắc nghiệm.
+- Trong tổng số câu hỏi, phải có 1–2 câu hỏi yêu cầu phân tích hoặc đọc hiểu code.
+- Tất cả 5 câu hỏi phải hoàn toàn khác nhau và không trùng ý.
 
 Tài liệu nguồn:
 {chunk}
-
 """
 
     #     QUESTION_extractor_PROMPT = """
@@ -58,7 +99,7 @@ Tài liệu nguồn:
     # """
 
     ANSWER_GENERATION_PROMPT = """
-Bạn là chuyên gia tạo các lựa chọn trắc nghiệm cho môn lập trình hướng đối tượng bằng java.
+Bạn là chuyên gia tạo các lựa chọn trắc nghiệm cho môn lập trình .
 Hãy sinh ra các lựa chọn trắc nghiệm dạng có 4 lựa chọn lựa chọn dựa vào danh sách câu hỏi và tài liệu bên dưới.
 
 Yêu cầu:
@@ -94,7 +135,7 @@ Tài liệu:\n
 """
 
     EVALUATE_QA_PROMPT = """
-Bạn là một chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng.
+Bạn là một chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm cho môn lập trình .
 
 NHIỆM VỤ:
 - Bước 1: Đánh giá từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 3 tiêu chí bên dưới.
@@ -144,66 +185,30 @@ DỮ LIỆU ĐẦU VÀO:
 """
 
     EVALUATE_AND_SELECT_PROMPT = """
-Bạn là một giảng viên chuyên môn về lập trình hướng đối tượng.
+Bạn là một giảng viên chuyên môn về lập trình.
 
-### NHIỆM VỤ:
-- Bước 1: Đánh giá (nội bộ) từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 2 TIÊU CHÍ ĐÁNH GIÁ (Bloom và Hấp dẫn).
-- Bước 2: Đối với MỖI CHUNK, thực hiện "QUY TRÌNH CHỌN LỌC" bên dưới để tạo ra một danh sách các câu hỏi được chọn cho chunk đó.
-- Bước 3: Trả về một JSON duy nhất theo đúng CẤU TRÚC JSON ĐẦU RA.
+NHIỆM VỤ:
+- Chuẩn hoá danh sách câu hỏi trong DỮ LIỆU ĐẦU VÀO.
+- Phân tích {query} để xác định số lượng câu hỏi:
+    • Nếu đề cập rõ số lượng thì sử dụng đúng số đó.
+    • Nếu không đề cập thì mặc định 10 câu hỏi.
 
-### TIÊU CHÍ ĐÁNH GIÁ CHI TIẾT (Thang 1-4):
+YÊU CẦU BẮT BUỘC:
+- TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ])
+- KHÔNG THÊM markdown, backticks, giải thích hay text nào khác
+- Mỗi câu hỏi phải có đầy đủ 7 trường: id, type, difficulty, question, options, correct_answer, explanation
 
-1.  **Mức độ nhận thức (Bloom’s Taxonomy):**
-    * 4: yêu cầu tư duy bậc cao (phân tích, tổng hợp, đánh giá)
-    * 3: yêu cầu vận dụng hoặc hiểu khái niệm
-    * 2: yêu cầu hiểu cơ bản hoặc ghi nhớ có ý nghĩa
-    * 1: chỉ yêu cầu ghi nhớ máy móc
+CẤU TRÚC JSON (VÍ DỤ):
+[{{"id":"q1","type":"multiple_choice","difficulty":"medium","question":"Câu hỏi?","options":["A","B","C","D"],"correct_answer":0,"explanation":"Giải thích"}}]
 
-2.  **Mức độ hấp dẫn (Engagement Level):**
-    * 4: rất hấp dẫn, kích thích tư duy
-    * 3: hấp dẫn nhưng không thật sự độc đáo
-    * 2: tương đối hấp dẫn nhưng đơn giản
-    * 1: không thú vị, ít hấp dẫn
-
-### QUY TRÌNH CHỌN LỌC (Áp dụng cho từng chunk độc lập):
-Bạn phải chọn một tập hợp câu hỏi từ mỗi chunk đáp ứng **ĐỒNG THỜI** 2 điều kiện:
-
-1.  **Điều kiện Điểm hấp dẫn:** CHỈ bao gồm các câu hỏi có `engagement_score` >= 2.
-2.  **Điều kiện Độ phủ nhận thức:** Tập hợp được chọn PHẢI chứa **ít nhất một (1) câu hỏi** cho **MỖI MỨC** `cognitive_score` (tức là ít nhất một câu điểm 1, một câu điểm 2, một câu điểm 3, VÀ một câu điểm 4).
-
-**QUY TẮC XỬ LÝ (cho mỗi chunk):**
-- Bước A (Nội bộ): Đánh giá tất cả câu hỏi trong chunk.
-- Bước B (Nội bộ): Lọc ra "danh sách ứng viên" của chunk (câu có `engagement_score >= 2`).
-- Bước C (Lựa chọn): Từ "danh sách ứng viên", chọn một tập hợp cuối cùng đảm bảo độ phủ nhận thức (1, 2, 3, 4).
-- Bước D (Trả về): Trả về tập hợp ở Bước C.
-- **Nếu không thể** tạo được một danh sách đáp ứng cả hai điều kiện cho một chunk (ví dụ: chunk "0" không có câu `cognitive_score = 4` nào đạt `engagement_score >= 2`), hãy trả về một danh sách rỗng `[]` cho chunk đó.
-
-### Cấu trúc dữ liệu đầu ra:
-Bạn phải trả về **duy nhất một danh sách JSON hợp lệ** (`[...]`) gồm các object đại diện cho từng câu hỏi **ĐÃ ĐƯỢC CHỌN LỌC**, với đầy đủ các trường:
-
-1. "id": mã định danh duy nhất (ví dụ: "q1")
-2. "type": loại câu hỏi (ví dụ: "multiple_choice")
-3. "difficulty": mức độ khó
-4. "question": nội dung câu hỏi
-5. "options": danh sách 4 lựa chọn A/B/C/D
-6. "correct_answer": chỉ số (0–3) của đáp án đúng trong "options"
-7. "explanation": giải thích ngắn gọn cho đáp án đúng
-8. **"cognitive_score"**: điểm Bloom (1–4)
-9. **"engagement_score"**: điểm hấp dẫn (1–4)
-
-### Ví dụ đúng chuẩn (Ví dụ này minh họa cấu trúc, kết quả thực tế phải tuân thủ Mục 3):
-[{{"id":"q1","type":"multiple_choice","difficulty":"medium","question":"Tính đóng gói là gì?","options":["A","B","C","D"],"correct_answer":0,"explanation":"Giải thích","cognitive_score":2,"engagement_score":2}}]
-
-
-### Yêu cầu bắt buộc:
-- Trả về **chính xác một danh sách JSON hợp lệ** (có thể là danh sách rỗng `[]` nếu không đáp ứng điều kiện).
-- **Không** thêm mô tả, markdown, nhận xét hay bất kỳ văn bản nào ngoài JSON.
-- Mỗi object phải bao gồm đầy đủ các trường được liệt kê.
-
-Danh sách câu hỏi :
+Danh sách câu hỏi đầu vào:
 {questions}
+
+CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC:
 """
+
     # Modules for summarization
+
     EXTRACTIVE_SUMMARIZE_PROMPT = """
 Bạn là chuyên gia tóm tắt trích xuất.
 
@@ -311,15 +316,31 @@ Tài liệu nguồn:
     """
 
     FEEDBACK_QUESTIONS_PROMPT = """
-Bạn là chuyên gia giải thích và trả lời chi tiết cho câu hỏi sau:  
-"{question}"
+Bạn là chuyên gia giải thích và trả lời câu hỏi dựa trên tài liệu được cung cấp.
 
-Dựa hoàn toàn vào nội dung của **Tài liệu nguồn** bên dưới.  
-Hãy đảm bảo rằng câu trả lời:
-- Giải thích rõ ràng, chính xác, có logic.  
-- Dẫn chứng cụ thể từ tài liệu khi cần thiết.  
-- Không đưa ra thông tin ngoài tài liệu.
+### CÂU HỎI:
+{question}
 
-**Tài liệu nguồn:**  
+### HƯỚNG DẪN TRẢ LỜI:
+
+**Nếu câu hỏi LIÊN QUAN đến tài liệu nguồn:**
+- Giải thích rõ ràng, đầy đủ, có logic
+- Trích dẫn hoặc diễn giải chính xác từ tài liệu
+- Chỉ sử dụng thông tin có trong tài liệu, không thêm kiến thức bên ngoài
+
+**Nếu câu hỏi KHÔNG LIÊN QUAN hoặc nằm ngoài phạm vi tài liệu:**
+- Từ chối trả lời một cách lịch sự
+- Giải thích ngắn gọn lý do (tài liệu không đề cập đến nội dung này)
+- Gợi ý người dùng đặt câu hỏi phù hợp hơn với nội dung tài liệu
+
+**Ví dụ từ chối:**
+"Xin lỗi, câu hỏi này nằm ngoài phạm vi tài liệu được cung cấp. Tài liệu hiện tại tập trung vào [chủ đề X]. Bạn có thể đặt câu hỏi liên quan đến nội dung này để tôi hỗ trợ tốt hơn."
+
+### NGUYÊN TẮC BẮT BUỘC:
+- KHÔNG suy đoán hoặc bịa thông tin
+- KHÔNG sử dụng kiến thức ngoài tài liệu nguồn
+- KHÔNG trả lời các câu hỏi về chủ đề không được đề cập trong tài liệu
+
+### TÀI LIỆU NGUỒN:
 {documents}
 """

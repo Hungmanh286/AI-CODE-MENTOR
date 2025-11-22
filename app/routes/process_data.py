@@ -1,4 +1,3 @@
-import os
 import json
 import uuid
 
@@ -7,7 +6,6 @@ from sqlmodel import SQLModel, Session, select, delete
 from langfuse.callback import CallbackHandler
 from langchain_core.runnables.config import RunnableConfig
 
-from app.graph.agents.question_expert import question_expert
 from app.schema.question import Project, Question, QuestionOption
 from app.services.datasource import insert_database
 from app.schema.question import SessionProject
@@ -24,21 +22,21 @@ tracer = CallbackHandler(
     host=settings.LANGFUSE_HOST,
 )
 
-async def process_pdf(
-    session_id: str, document_processing_agent=None
-):
+
+async def process_pdf(session_id: str, query: str, document_processing_agent=None):
     # Gọi question_expert để xử lý PDF và sinh câu hỏi
     config = RunnableConfig(configurable={"thread_id": session_id}, callbacks=[tracer])
-    result = await document_processing_agent.ainvoke({}, config)
+    result = await document_processing_agent.ainvoke({"query": query}, config)
     evaluated_result = result["quizz"]
     questions_data = json.loads(evaluated_result)
 
     # Lấy thông tin file từ database
     file_ids = get_active_file_id(session_id)
     file_id = file_ids[0] if file_ids else None
-    
+
     # Lấy tên file từ database thay vì từ local file
     from app.schema.upload import UploadFileStatus
+
     engine = settings._app_db_engine
     with Session(engine) as session:
         file_record = session.exec(
@@ -98,12 +96,21 @@ async def process_pdf(
 
 
 @router.post("/create-session")
-def create_session(session_id: str = Form(...), project_id: str = Form(None)):
-    session_project_data = {"session_id": session_id, "project_id": project_id}
+def create_session(
+    session_id: str = Form(...),
+    project_id: str = Form(None),
+    session_name: str = Form(...),
+):
+    session_project_data = {
+        "session_id": session_id,
+        "project_id": project_id,
+        "session_name": session_name,
+    }
     insert_database(session_project_data, SessionProject)
     return {
         "message": "Session created successfully",
         "session_id": session_id,
+        "session_name": session_name,
         "project_id": project_id,
     }
 
@@ -194,12 +201,17 @@ def get_all_sessions():
         SQLModel.metadata.create_all(engine)
 
         with Session(engine) as session:
-            sessions = session.exec(select(SessionProject.session_id)).all()
-            # Loại bỏ trùng lặp
-            unique_sessions = list(set(sessions))
-            return {"sessions": unique_sessions}
-    except Exception:
-        pass
+            sessions = session.exec(select(SessionProject)).all()
+            session_list = [
+                {"session_id": s.session_id, "session_name": s.session_name}
+                for s in sessions
+            ]
+            unique_sessions = {s["session_id"]: s for s in session_list}.values()
+
+            return {"sessions": list(unique_sessions)}
+    except Exception as e:
+        print(f"Error getting sessions: {e}")
+        return {"sessions": []}
 
 
 @router.delete("/sessions/{session_id}")
@@ -242,22 +254,22 @@ def delete_session_data(session_id: str):
         files_to_delete = session.exec(
             select(UploadFileStatus).where(UploadFileStatus.session_id == session_id)
         ).all()
-        
+
         session.exec(
             delete(UploadFileStatus).where(UploadFileStatus.session_id == session_id)
         )
         session.commit()
-        
+
         # Xóa tất cả file của session trên MinIO
         for file_record in files_to_delete:
             # Xóa file PDF
             minio_path = f"{session_id}/{file_record.file_name}"
             minio_client.delete_file(minio_path)
-            
+
             # Xóa file docs (trong folder session)
             docs_path = f"{session_id}/{file_record.file_id}_docs.txt"
             minio_client.delete_file(docs_path)
-        
+
         # Xóa toàn bộ folder session (bao gồm crop images và các file khác)
         all_session_files = minio_client.list_files(prefix=f"{session_id}/")
         for file_path in all_session_files:
