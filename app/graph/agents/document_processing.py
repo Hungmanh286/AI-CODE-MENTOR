@@ -53,6 +53,66 @@ tracer = CallbackHandler(
 max_retry = 2
 
 
+def format_dict_to_markdown(data: dict) -> str:
+    """Format dict Q&A thành chuỗi Markdown dễ đọc"""
+    formatted = ""
+    for chunk_id, items in data.items():
+        formatted += f"\n📘 **Chunk {chunk_id}**\n\n"
+        for item in items:
+            qid = item.get("id", "")
+            question = item.get("question", "")
+            options = item.get("options", [])
+            avg_score = item.get("average_score", "")
+            formatted += f"**Câu {qid}:** {question}\n"
+            if options:
+                formatted += "**Các lựa chọn:**\n"
+                for opt in options:
+                    formatted += f"  {opt}\n"
+            formatted += f"**Điểm trung bình:** {avg_score}\n\n"
+        formatted += "-" * 40 + "\n"
+    return formatted
+
+
+def format_question_answer_dict(data: dict) -> str:
+    """
+    Format dict chứa list JSON Q&A thành văn bản đẹp (Markdown),
+    phù hợp với cấu trúc dữ liệu KHÔNG có correct_answer/explanation.
+    """
+    formatted = ""
+
+    for chunk_id, json_list in data.items():
+        formatted += f"**Chunk {chunk_id}**\n\n"
+
+        for json_str in json_list:
+            try:
+                qa_items = json.loads(json_str)
+            except json.JSONDecodeError as e:
+                formatted += f"⚠️ Lỗi parse JSON: {e}\n\n"
+                continue
+
+            for item in qa_items:
+                qid = item.get("id", "")
+                q = item.get("question", "").strip()
+                options = item.get("options", [])
+                related_passage = item.get("related_passage", "").strip()
+
+                formatted += f"###Câu {qid}: {q}\n"
+
+                if options:
+                    formatted += "**Các lựa chọn:**\n"
+                    for opt in options:
+                        formatted += f"- {opt}\n"
+
+                if related_passage:
+                    formatted += f"\n**Đoạn văn liên quan:**\n{related_passage}\n"
+
+                formatted += "\n---\n\n"
+
+        formatted += "\n" + "=" * 100 + "\n\n"
+
+    return formatted
+
+
 # node 1 : chunker
 def document_preprocessing(state: QState, config: RunnableConfig):
     """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks)."""
@@ -60,7 +120,7 @@ def document_preprocessing(state: QState, config: RunnableConfig):
     file_ids = get_active_file_id(session_id)
     query = state.get("query", None)
     document_chunks = []
-    chunk_size = 10
+    chunk_size = 5
 
     for file_id in file_ids:
         # Đọc docs từ MinIO (trong folder session)
@@ -144,17 +204,12 @@ def question_node(state: QState, config: RunnableConfig):
 def answer_node(state: QState, config: RunnableConfig):
     """Sinh ra các đáp án cho các câu hỏi dựa trên các đoạn tài liệu đã tóm tắt."""
     check_questions = state.get("check_questions", {})
-
-    document_chunks = state.get("document_chunks", [])
     question_answers = {}
 
     for idx, questions in check_questions.items():
-        chunk = document_chunks[int(idx)]
-        formatted_prompt = "\n".join([q for q in questions])
+        formatted_prompt = f"Chunk {idx}\n" + "\n".join([q for q in questions])
 
-        prompt = Prompts.ANSWER_GENERATION_PROMPT.format(
-            chunk=chunk, questions=formatted_prompt
-        )
+        prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
         response_msg = generate_agent.invoke(
             {"messages": [HumanMessage(content=prompt)]}, config=config
         )
@@ -169,75 +224,12 @@ def answer_node(state: QState, config: RunnableConfig):
     }
 
 
-def format_dict_to_markdown(data: dict) -> str:
-    """Format dict Q&A thành chuỗi Markdown dễ đọc"""
-    formatted = ""
-    for chunk_id, items in data.items():
-        formatted += f"\n📘 **Chunk {chunk_id}**\n\n"
-        for item in items:
-            qid = item.get("id", "")
-            question = item.get("question", "")
-            options = item.get("options", [])
-            avg_score = item.get("average_score", "")
-            formatted += f"**Câu {qid}:** {question}\n"
-            if options:
-                formatted += "**Các lựa chọn:**\n"
-                for opt in options:
-                    formatted += f"  {opt}\n"
-            formatted += f"**Điểm trung bình:** {avg_score}\n\n"
-        formatted += "-" * 40 + "\n"
-    return formatted
-
-
-def format_question_answer_dict(data: dict) -> str:
-    """Format dict chứa list JSON Q&A thành văn bản đẹp (Markdown)"""
-    formatted = ""
-
-    for chunk_id, json_list in data.items():
-        formatted += f"📘 **Chunk {chunk_id}**\n\n"
-
-        for json_str in json_list:
-            try:
-                qa_items = json.loads(json_str)
-            except json.JSONDecodeError as e:
-                formatted += f"⚠️ Lỗi parse JSON: {e}\n\n"
-                continue
-
-            # Duyệt qua từng item
-            for item in qa_items:
-                qid = item.get("id", "")
-                q = item.get("question", "").strip()
-                options = item.get("options", [])
-                correct_answer = item.get("correct_answer", "").strip()
-                exp = item.get("explanation", "").strip()
-
-                formatted += f"**Câu {qid}:** {q}\n"
-
-                # Hiển thị các lựa chọn nếu có
-                if options:
-                    formatted += "**Các lựa chọn:**\n"
-                    for opt in options:
-                        formatted += f"  {opt}\n"
-
-                # Hiển thị đáp án đúng
-                if correct_answer:
-                    formatted += f"**Đáp án đúng:** {correct_answer}\n"
-
-                # Hiển thị giải thích
-                if exp:
-                    formatted += f"**Giải thích:** {exp}\n"
-                formatted += "\n"
-
-        formatted += "\n" + "-" * 100 + "\n\n"
-
-    return formatted
-
-
 # node 3 : đánh giá chất lượng câu hỏi, nếu chưa tốt quay lại bước 2
 def judge(state: QState, config: RunnableConfig):
     """Đánh giá chất lượng cặp question và answer, phân loại good/bad."""
 
     question_answers = state.get("question_answers", {})
+
     formatted_question_answers = format_question_answer_dict(question_answers)
 
     good_question_answers = state.get("good_question_answers", None)

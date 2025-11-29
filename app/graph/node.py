@@ -72,7 +72,7 @@ QUY TẮC:
 - Nếu yêu cầu chứa từ khóa "tạo câu hỏi", "quiz", "trắc nghiệm" -> Chọn `using_to_create_questions`.
 - Nếu là câu hỏi thông thường, yêu cầu giải thích, hoặc không rõ ràng -> BẮT BUỘC chọn `answer_tool`.
 
-Hãy chọn công cụ phù hợp nhất ngay bây giờ."""
+Hãy chọn công cụ phù hợp nhất, nếu không chắc chắn mặc định sử dụng answer_tool"""
     response = await llm_with_tools.ainvoke(
         [HumanMessage(content=prompt_tool_choice)], config
     )
