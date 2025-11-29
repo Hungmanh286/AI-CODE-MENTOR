@@ -35,6 +35,7 @@ class State(MessagesState):
     evaluation_result: str | None
     questions: List[Question]
     selected_answers: List[str]
+    selected_text: str | None
 
 
 def get_conversation_messages(

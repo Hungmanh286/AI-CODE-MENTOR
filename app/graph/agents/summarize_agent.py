@@ -17,8 +17,6 @@ from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
 
 
-# sử dụng phương pháp merge bằng việc kết hợp giữa tóm tắt và tóm tắt trích xuất để tóm tắt
-# long document
 class QState(MessagesState):
     file_path: str | None
     chunk_size: int | None
@@ -121,7 +119,6 @@ def extractive_node(state: QState, config: RunnableConfig):
 
     return {"extractive_summaries": extractive_summaries}
 
-
 # Node 3: Merge hai kết quả
 def merge_node(state: QState, config: RunnableConfig):
     summaries = state["summaries"]
@@ -145,7 +142,6 @@ def merge_node(state: QState, config: RunnableConfig):
         "messages": [AIMessage(content=content, name="final_summary")],
         "merge": content,
     }
-
 
 # def mind_map(state: QState, config: RunnableConfig):
 #     merge = state.get("merge", "")

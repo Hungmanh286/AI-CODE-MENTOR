@@ -158,7 +158,7 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
     for doc in retrieved_docs:
         doc_obj = doc.model_dump()
         docs.append(doc_obj)
-    return {"docs": docs}
+    return {"docs": docs, "selected_text": query}
 
 
 # Step 3: Extract documents from tool messages
@@ -173,12 +173,13 @@ async def answer_node(state: State, config: RunnableConfig):
     """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
     documents = state.get("documents", [])
     question = get_human_message_content(state)
-
+    selected_text = state.get("selected_text", "")
     # Tạo system prompt
     system_message = SystemMessage(
         content=Prompts.FEEDBACK_QUESTIONS_PROMPT.format(
             documents=documents,
             question=question,
+            selected_text=selected_text,
         )
     )
     full_conversation_messages = get_conversation_messages(

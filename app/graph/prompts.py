@@ -35,8 +35,11 @@ Trong phần tóm tắt, không được nhắc đến các từ như “tài li
 - GIỮ NGUYÊN cấu trúc logic của tài liệu
 """
 
+    # trả về danh sách 10 câu hỏi 3 mức độ : dễ, vận dụng, vận dụng cao
     QUESTION_GENERATION_PROMPT = """
 Bạn là chuyên gia tạo câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng bằng Java.
+Hãy tạo câu hỏi trắc nghiệm đòi hỏi hiểu sâu, tư duy phản biện, và phân tích chi tiết dựa vào tài liệu nguồn bên dưới
+Các câu hỏi không chỉ ghi nhớ thông tin đơn thuần, mà còn hướng đến các mức tư duy cao hơn như phân tích, tổng hợp, và đánh giá.
 
 CÁC BƯỚC THỰC HIỆN:
 1. Xác định các khái niệm hoặc thuật ngữ quan trọng trong tài liệu và hiểu rõ định nghĩa hoặc vai trò của chúng.
@@ -44,22 +47,16 @@ CÁC BƯỚC THỰC HIỆN:
 3. Xác định các ví dụ hoặc ứng dụng được nhắc đến trong tài liệu.
 4. Mỗi câu hỏi phải tập trung vào MỘT khái niệm duy nhất trong tài liệu nguồn bên dưới.
 
-YÊU CẦU SỐ LƯỢNG CÂU HỎI VÀ MỨC ĐỘ TƯ DUY:
-- Phân tích nội dung {query} để xác định số lượng câu hỏi và mức độ :
-  • Nếu nêu rõ số lượng câu hỏi hoặc loại câu hỏi cần sinh thì thực hiện đúng theo yêu cầu.
-  • Nếu chỉ mô tả chung chung (ví dụ: “tạo câu hỏi”, “sinh câu hỏi”)thì áp dụng cấu hình mặc định sau:
-Mặc định tạo 10 câu hỏi trắc nghiệm về lập trình hướng đối tượng Java, với phân bố tư duy:
-- 4 câu tư duy Phân tích (Analysis): so sánh, tìm lỗi, giải thích hành vi
-- 3 câu tư duy Tổng hợp (Synthesis): thiết kế, mở rộng, kết hợp
-- 3 câu tư duy Đánh giá (Evaluation): lựa chọn giải pháp tối ưu hoặc đánh giá tình huống
+YÊU CẦU SỐ LƯỢNG CÂU HỎI : 5 câu dễ, 7 câu vận dụng, 3 câu vận dụng cao.
 
 YÊU CẦU ĐẦU RA:
-- Trả về danh sách câu hỏi theo dạng: [câu hỏi 1, câu hỏi 2, ...]
+- Trả về danh sách JSON với cấu trúc: [{{"question": "câu hỏi", "related_passage": "đoạn văn liên quan"}}, ...]
 - Không giải thích gì thêm.
 - Mỗi câu hỏi phải độc lập, không trùng ý, không lặp ý.
+- "related_passage" phải là đoạn văn nguyên văn từ tài liệu nguồn có liên quan trực tiếp đến câu hỏi.
 
 LƯU Ý:
-- Không dùng các cụm như “ý chính (main idea)” hoặc “đoạn văn (passages)” trong câu hỏi.
+- Không dùng các cụm như "ý chính (main idea)" hoặc "đoạn văn (passages)" trong câu hỏi.
 - Không liệt kê đáp án trắc nghiệm; chỉ trả về câu hỏi.
 - Không sinh hai câu hỏi trong cùng một câu.
 - Câu hỏi phải ngắn gọn, tập trung vào một khái niệm rõ ràng.
@@ -99,7 +96,7 @@ Tài liệu nguồn:
     # """
 
     ANSWER_GENERATION_PROMPT = """
-Bạn là chuyên gia tạo các lựa chọn trắc nghiệm cho môn lập trình .
+Bạn là chuyên gia tạo các lựa chọn trắc nghiệm cho môn lập trình dựa vào danh sách các câu hỏi và đoạn văn liên quan đến câu hỏi tương ứng bên dưới
 Hãy sinh ra các lựa chọn trắc nghiệm dạng có 4 lựa chọn lựa chọn dựa vào danh sách câu hỏi và tài liệu bên dưới.
 
 Yêu cầu:
@@ -111,6 +108,7 @@ Yêu cầu:
   • Phản ánh những hiểu lầm hoặc lỗi tư duy thường gặp, nhưng không được mâu thuẫn hoặc sai lệch hoàn toàn với nội dung.
 
 Lưu ý:
+related_passage phải giữ đúng nguyên văn đoạn văn liên quan đến câu hỏi.
 Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON với cấu trúc sau:
 [
   {{
@@ -122,20 +120,20 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
         "<lựa chọn C>",
         "<lựa chọn D>"
     ],
+    "related_passage": "<đoạn văn liên quan>",
   }},
   ...
 ]
+Giải thích từ khóa về danh sách câu hỏi : 
+question : là nội dung câu hỏi
+related_passage : là đoạn văn liên quan đến câu hỏi đó 
 
 Danh sách câu hỏi:\n
 {questions}
-
-Tài liệu:\n
-{chunk}
-
 """
 
     EVALUATE_QA_PROMPT = """
-Bạn là một chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm cho môn lập trình .
+Bạn là một chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm cho môn lập trình dựa vào danh sách câu hỏi và đoạn văn liên quan đến câu hỏi đó ở bên dưới
 
 NHIỆM VỤ:
 - Bước 1: Đánh giá từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 3 tiêu chí bên dưới.
@@ -183,7 +181,7 @@ YÊU CẦU BẮT BUỘC:
 DỮ LIỆU ĐẦU VÀO:
 {question_answers}
 """
-
+    # Lưu ý :
     EVALUATE_AND_SELECT_PROMPT = """
 Bạn là một giảng viên chuyên môn về lập trình.
 
@@ -192,6 +190,7 @@ NHIỆM VỤ:
 - Phân tích {query} để xác định số lượng câu hỏi:
     • Nếu đề cập rõ số lượng thì sử dụng đúng số đó.
     • Nếu không đề cập thì mặc định 10 câu hỏi.
+LƯU Ý : Nếu có nhiều chunk thì phải có ít nhất 3 câu hỏi từ mỗi chunk.
 
 YÊU CẦU BẮT BUỘC:
 - TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ])
@@ -314,16 +313,20 @@ Yêu cầu:
 Tài liệu nguồn:
 {documents}
     """
-
+    # phải lấy được context của ảnh để trả lời câu hỏi
     FEEDBACK_QUESTIONS_PROMPT = """
-Bạn là chuyên gia giải thích và trả lời câu hỏi dựa trên tài liệu được cung cấp.
+Bạn là chuyên gia trả lời câu hỏi dựa trên tài liệu được cung cấp.
 
 ### CÂU HỎI:
 {question}
+### VÙNG/ĐOẠN TRONG TÀI LIỆU ĐƯỢC CHỌN(nếu có):
+{selected_text}
 
-### HƯỚNG DẪN TRẢ LỜI:
+### CÁC BƯỚC THỰC HIỆN :
 
-**Nếu câu hỏi LIÊN QUAN đến tài liệu nguồn:**
+-Phân tích kỹ câu hỏi để xác định câu hỏi của người dùng
+
+**Nếu câu hỏi LIÊN QUAN đến tài liệu nguồn hoặc yêu cầu giải thích một vùng/đoạn trong tài liệu**
 - Giải thích rõ ràng, đầy đủ, có logic
 - Trích dẫn hoặc diễn giải chính xác từ tài liệu
 - Chỉ sử dụng thông tin có trong tài liệu, không thêm kiến thức bên ngoài
