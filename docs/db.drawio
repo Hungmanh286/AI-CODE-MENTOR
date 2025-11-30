@@ -1,0 +1,304 @@
+<mxfile host="app.diagrams.net" modified="2025-11-23T00:00:00.000Z" agent="CodeMentor ERD" version="22.0.0">
+  <diagram name="CodeMentor Database ERD" id="e7e014a7-5840-1c2e-5031-d8a46d1fe8dd">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" background="none" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- User Table -->
+        <mxCell id="user-table" value="&lt;b&gt;USER&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="200" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-1" value="🔑 PK: id (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="user-table">
+          <mxGeometry y="30" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-2" value="🔸 UK: user_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="user-table">
+          <mxGeometry y="60" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-3" value="🔸 UK: user_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="user-table">
+          <mxGeometry y="90" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-4" value="email (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="user-table">
+          <mxGeometry y="120" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-5" value="full_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="user-table">
+          <mxGeometry y="150" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-6" value="hashed_password (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="user-table">
+          <mxGeometry y="180" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="user-7" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="user-table">
+          <mxGeometry y="210" width="200" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Sessions Table -->
+        <mxCell id="sessions-table" value="&lt;b&gt;SESSIONS&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="340" y="40" width="220" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="sessions-1" value="🔑 PK: session_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="sessions-table">
+          <mxGeometry y="30" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sessions-2" value="🔗 FK: user_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="sessions-table">
+          <mxGeometry y="60" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sessions-3" value="session_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="sessions-table">
+          <mxGeometry y="90" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sessions-4" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="sessions-table">
+          <mxGeometry y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="sessions-5" value="CASCADE DELETE from User" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontSize=10;" vertex="1" parent="sessions-table">
+          <mxGeometry y="150" width="220" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Projects Table -->
+        <mxCell id="projects-table" value="&lt;b&gt;PROJECTS&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="640" y="40" width="220" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects-1" value="🔑 PK: id (UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="projects-table">
+          <mxGeometry y="30" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects-2" value="🔗 FK: session_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="projects-table">
+          <mxGeometry y="60" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects-3" value="name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="projects-table">
+          <mxGeometry y="90" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects-4" value="source_path (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="projects-table">
+          <mxGeometry y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects-5" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="projects-table">
+          <mxGeometry y="150" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects-6" value="CASCADE DELETE from Session" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontSize=10;" vertex="1" parent="projects-table">
+          <mxGeometry y="180" width="220" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Questions Table -->
+        <mxCell id="questions-table" value="&lt;b&gt;QUESTIONS&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="920" y="40" width="220" height="360" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-1" value="🔑 PK: id (UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="questions-table">
+          <mxGeometry y="30" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-2" value="🔗 FK: project_id (UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="questions-table">
+          <mxGeometry y="60" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-3" value="question_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="90" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-4" value="question (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-5" value="type (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="150" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-6" value="difficulty (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="180" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-7" value="correct_answer (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="210" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-8" value="explanation (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="240" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-9" value="answer, score (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="questions-table">
+          <mxGeometry y="270" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-10" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="questions-table">
+          <mxGeometry y="300" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="questions-11" value="CASCADE DELETE from Project" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontSize=10;" vertex="1" parent="questions-table">
+          <mxGeometry y="330" width="220" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Question Options Table -->
+        <mxCell id="options-table" value="&lt;b&gt;QUESTION_OPTIONS&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="920" y="440" width="220" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="options-1" value="🔑 PK: id (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="options-table">
+          <mxGeometry y="30" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="options-2" value="🔗 FK: question_id (UUID)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="options-table">
+          <mxGeometry y="60" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="options-3" value="option_index (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="options-table">
+          <mxGeometry y="90" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="options-4" value="option_text (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="options-table">
+          <mxGeometry y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="options-5" value="CASCADE DELETE from Question" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontSize=10;" vertex="1" parent="options-table">
+          <mxGeometry y="150" width="220" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Upload File Status Table -->
+        <mxCell id="files-table" value="&lt;b&gt;UPLOAD_FILE_STATUS&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="340" y="280" width="220" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-1" value="🔑 PK: id (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="files-table">
+          <mxGeometry y="30" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-2" value="🔸 UK: file_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="files-table">
+          <mxGeometry y="60" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-3" value="🔗 FK: session_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="files-table">
+          <mxGeometry y="90" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-4" value="file_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="files-table">
+          <mxGeometry y="120" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-5" value="active, has_processed (BOOL)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="files-table">
+          <mxGeometry y="150" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-6" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="files-table">
+          <mxGeometry y="180" width="220" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="files-7" value="CASCADE DELETE from Session" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontSize=10;" vertex="1" parent="files-table">
+          <mxGeometry y="210" width="220" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Lesson Table -->
+        <mxCell id="lesson-table" value="&lt;b&gt;LESSON&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="40" y="360" width="240" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-1" value="🔑 PK: id (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="lesson-table">
+          <mxGeometry y="30" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-2" value="🔸 UK: lesson_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="lesson-table">
+          <mxGeometry y="60" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-3" value="description (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="lesson-table">
+          <mxGeometry y="90" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-4" value="content (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="lesson-table">
+          <mxGeometry y="120" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-5" value="multiple_choice_exercises (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="lesson-table">
+          <mxGeometry y="150" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-6" value="practice_exercises (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="lesson-table">
+          <mxGeometry y="180" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson-7" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="lesson-table">
+          <mxGeometry y="210" width="240" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Progress User Table -->
+        <mxCell id="progress-table" value="&lt;b&gt;PROGRESSUSER&lt;/b&gt;" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="40" y="660" width="240" height="270" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-1" value="🔑 PK: id (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=1" vertex="1" parent="progress-table">
+          <mxGeometry y="30" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-2" value="🔗 FK: user_id (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="progress-table">
+          <mxGeometry y="60" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-3" value="🔗 FK: lesson_id (INT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#d79b00;" vertex="1" parent="progress-table">
+          <mxGeometry y="90" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-4" value="lesson_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="progress-table">
+          <mxGeometry y="120" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-5" value="user_name (VARCHAR)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="progress-table">
+          <mxGeometry y="150" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-6" value="progress (TEXT)" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;" vertex="1" parent="progress-table">
+          <mxGeometry y="180" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-7" value="created_at, updated_at" style="text;strokeColor=none;fillColor=#f5f5f5;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="progress-table">
+          <mxGeometry y="210" width="240" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="progress-8" value="CASCADE DELETE from User &amp; Lesson" style="text;strokeColor=none;fillColor=#fff2cc;align=left;verticalAlign=middle;spacingLeft=4;spacingRight=4;overflow=hidden;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;rotatable=0;whiteSpace=wrap;html=1;fontStyle=2;fontSize=10;" vertex="1" parent="progress-table">
+          <mxGeometry y="240" width="240" height="30" as="geometry"/>
+        </mxCell>
+
+        <!-- Relationships -->
+        <!-- User to Sessions -->
+        <mxCell id="rel-user-sessions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="user-2" target="sessions-2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rel-label-1" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-user-sessions">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Sessions to Projects -->
+        <mxCell id="rel-sessions-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="sessions-1" target="projects-2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rel-label-2" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-sessions-projects">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Projects to Questions -->
+        <mxCell id="rel-projects-questions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="projects-1" target="questions-2">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rel-label-3" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-projects-questions">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Questions to Options -->
+        <mxCell id="rel-questions-options" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="questions-table" target="options-table">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rel-label-4" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-questions-options">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Sessions to Files -->
+        <mxCell id="rel-sessions-files" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="sessions-table" target="files-table">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rel-label-5" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-sessions-files">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- User to Progress -->
+        <mxCell id="rel-user-progress" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="user-2" target="progress-2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="10" y="115"/>
+              <mxPoint x="10" y="705"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel-label-6" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-user-progress">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint x="-12" as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Lesson to Progress -->
+        <mxCell id="rel-lesson-progress" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="lesson-table" target="progress-table">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="rel-label-7" value="1:N" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=14;fontStyle=1" vertex="1" connectable="0" parent="rel-lesson-progress">
+          <mxGeometry x="-0.1" y="2" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Title -->
+        <mxCell id="title" value="&lt;h1&gt;CodeMentor Database ERD (Improved)&lt;/h1&gt;&lt;p&gt;✅ Foreign Keys with CASCADE&lt;br&gt;✅ No Data Redundancy&lt;br&gt;✅ Proper Relationships&lt;br&gt;✅ Timestamps on all tables&lt;/p&gt;" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;spacing=5;spacingTop=-20;whiteSpace=wrap;overflow=hidden;rounded=0;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="340" y="560" width="500" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="&lt;b&gt;LEGEND:&lt;/b&gt;&lt;br&gt;🔑 = Primary Key&lt;br&gt;🔗 = Foreign Key&lt;br&gt;🔸 = Unique Key&lt;br&gt;1:N = One-to-Many&lt;br&gt;CASCADE = Auto Delete" style="text;html=1;strokeColor=#666666;fillColor=#f5f5f5;spacing=5;whiteSpace=wrap;overflow=hidden;rounded=0;fontSize=11;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="640" y="440" width="220" height="150" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,155 @@
+<mxfile host="app.diagrams.net" modified="2024-01-01T00:00:00.000Z" agent="draw.io" version="22.0.0">
+  <diagram name="Question Lifecycle State Machine" id="question-lifecycle">
+    <mxGraphModel dx="1434" dy="844" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="State Machine - Question Lifecycle (QGen Pipeline)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="320" y="40" width="530" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Initial State -->
+        <mxCell id="initial-state" value="" style="ellipse;fillColor=#000000;strokeColor=none;html=1;" vertex="1" parent="1">
+          <mxGeometry x="570" y="110" width="30" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Draft State -->
+        <mxCell id="draft-state" value="Draft" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="525" y="190" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Evaluating State -->
+        <mxCell id="evaluating-state" value="Evaluating" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="525" y="310" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Refine State -->
+        <mxCell id="refine-state" value="Refine" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="280" y="430" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Approved State -->
+        <mxCell id="approved-state" value="Approved" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="770" y="430" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Delivered State -->
+        <mxCell id="delivered-state" value="Delivered" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="770" y="570" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Discarded State -->
+        <mxCell id="discarded-state" value="Discarded" style="rounded=1;whiteSpace=wrap;html=1;fontSize=14;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="280" y="570" width="120" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- Final States -->
+        <mxCell id="final-state-1" value="" style="ellipse;html=1;shape=doubleEllipse;fillColor=#000000;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="815" y="690" width="30" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="final-state-2" value="" style="ellipse;html=1;shape=doubleEllipse;fillColor=#000000;strokeColor=#000000;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="325" y="690" width="30" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Transitions -->
+        
+        <!-- Initial to Draft -->
+        <mxCell id="trans-initial" value="" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="initial-state" target="draft-state">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="585" y="140" as="sourcePoint" />
+            <mxPoint x="585" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Draft to Evaluating -->
+        <mxCell id="trans1" value="JudgeAgent checks quality" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="draft-state" target="evaluating-state">
+          <mxGeometry x="0.2" y="20" relative="1" as="geometry">
+            <mxPoint x="585" y="250" as="sourcePoint" />
+            <mxPoint x="585" y="310" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Evaluating to Refine -->
+        <mxCell id="trans2" value="Low-quality" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="evaluating-state" target="refine-state">
+          <mxGeometry x="0.3" y="20" relative="1" as="geometry">
+            <mxPoint x="525" y="340" as="sourcePoint" />
+            <mxPoint x="400" y="430" as="targetPoint" />
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="450" y="340" />
+              <mxPoint x="340" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Evaluating to Approved -->
+        <mxCell id="trans3" value="High-quality" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="evaluating-state" target="approved-state">
+          <mxGeometry x="0.3" y="20" relative="1" as="geometry">
+            <mxPoint x="645" y="340" as="sourcePoint" />
+            <mxPoint x="770" y="430" as="targetPoint" />
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="720" y="340" />
+              <mxPoint x="830" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Refine to Evaluating -->
+        <mxCell id="trans4" value="Re-evaluated" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="refine-state" target="evaluating-state">
+          <mxGeometry x="0.3" y="20" relative="1" as="geometry">
+            <mxPoint x="400" y="460" as="sourcePoint" />
+            <mxPoint x="525" y="370" as="targetPoint" />
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="220" y="460" />
+              <mxPoint x="220" y="340" />
+              <mxPoint x="525" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Refine to Discarded -->
+        <mxCell id="trans5" value="Unrecoverable issue" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="refine-state" target="discarded-state">
+          <mxGeometry x="0.2" y="20" relative="1" as="geometry">
+            <mxPoint x="340" y="490" as="sourcePoint" />
+            <mxPoint x="340" y="570" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Approved to Delivered -->
+        <mxCell id="trans6" value="Added to final question set" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="approved-state" target="delivered-state">
+          <mxGeometry x="0.2" y="20" relative="1" as="geometry">
+            <mxPoint x="830" y="490" as="sourcePoint" />
+            <mxPoint x="830" y="570" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Delivered to Final -->
+        <mxCell id="trans7" value="" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="delivered-state" target="final-state-1">
+          <mxGeometry x="0.2" y="20" relative="1" as="geometry">
+            <mxPoint x="830" y="630" as="sourcePoint" />
+            <mxPoint x="830" y="690" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Discarded to Final -->
+        <mxCell id="trans8" value="" style="endArrow=block;endFill=1;html=1;edgeStyle=orthogonalEdgeStyle;strokeWidth=2;" edge="1" parent="1" source="discarded-state" target="final-state-2">
+          <mxGeometry x="0.2" y="20" relative="1" as="geometry">
+            <mxPoint x="340" y="630" as="sourcePoint" />
+            <mxPoint x="340" y="690" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
