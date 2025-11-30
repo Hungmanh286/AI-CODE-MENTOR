@@ -77,16 +77,63 @@ def format_question_answer_dict(data: dict) -> str:
     """
     Format dict chứa list JSON Q&A thành văn bản đẹp (Markdown),
     phù hợp với cấu trúc dữ liệu KHÔNG có correct_answer/explanation.
+    Xử lý cả trường hợp JSON bị stringify nhiều lần.
     """
     formatted = ""
+    
+    def parse_nested_json(value):
+        """
+        Parse JSON đệ quy để xử lý trường hợp bị stringify nhiều lần.
+        Xử lý cả markdown code fence (```json ... ```).
+        Trả về list các câu hỏi cuối cùng.
+        """
+        current = value
+        
+        # Nếu là string, thử parse
+        while isinstance(current, str):
+            # Loại bỏ markdown code fence nếu có
+            if current.strip().startswith("```"):
+                # Xóa code fence đầu (```json hoặc ```)
+                current = re.sub(r'^```(?:json)?\s*\n', '', current.strip())
+                # Xóa code fence cuối (```)
+                current = re.sub(r'\n```\s*$', '', current.strip())
+                current = current.strip()
+            
+            try:
+                current = json.loads(current)
+            except json.JSONDecodeError:
+                # Không parse được nữa, dừng lại
+                break
+        
+        # Nếu là list với 1 phần tử duy nhất là string, tiếp tục parse
+        while isinstance(current, list) and len(current) == 1 and isinstance(current[0], str):
+            try:
+                # Loại bỏ markdown code fence nếu có
+                temp = current[0]
+                if temp.strip().startswith("```"):
+                    temp = re.sub(r'^```(?:json)?\s*\n', '', temp.strip())
+                    temp = re.sub(r'\n```\s*$', '', temp.strip())
+                    temp = temp.strip()
+                
+                current = json.loads(temp)
+            except json.JSONDecodeError:
+                break
+        
+        # Đảm bảo kết quả là list
+        if isinstance(current, list):
+            return current
+        elif isinstance(current, dict):
+            return [current]
+        else:
+            return []
 
     for chunk_id, json_list in data.items():
         formatted += f"**Chunk {chunk_id}**\n\n"
 
         for json_str in json_list:
             try:
-                qa_items = json.loads(json_str)
-            except json.JSONDecodeError as e:
+                qa_items = parse_nested_json(json_str)
+            except Exception as e:
                 formatted += f"⚠️ Lỗi parse JSON: {e}\n\n"
                 continue
 
@@ -173,6 +220,8 @@ def document_preprocessing(state: QState, config: RunnableConfig):
 # node 2 : generate question
 def question_node(state: QState, config: RunnableConfig):
     """Sinh câu hỏi tự động từ chunks đã tóm tắt."""
+    session_id = config["configurable"].get("thread_id")
+    queue = sse_event_queues.get(session_id)
 
     check_questions = {}
     good_questions = state.get("good_questions", None)
@@ -184,7 +233,20 @@ def question_node(state: QState, config: RunnableConfig):
 
     idx = 0
     if retry_count == 0:
+        total = len(document_chunks)
         for chunk in document_chunks:
+            # Gửi progress event để giữ SSE connection sống
+            if queue:
+                try:
+                    queue.put_nowait(
+                        {
+                            "type": "progress",
+                            "message": f"Đang tạo câu hỏi {idx + 1}/{total}...",
+                        }
+                    )
+                except Exception as e:
+                    print(f"[SSE] Warning: Could not send progress: {e}")
+
             prompt = Prompts.QUESTION_GENERATION_PROMPT.format(chunk=chunk, query=query)
             response_msg = generate_agent.invoke(
                 {"messages": [HumanMessage(content=prompt)]}, config=config
@@ -199,6 +261,18 @@ def question_node(state: QState, config: RunnableConfig):
     else:
         if bad_questions is not None:
             for chunk_index, bad_qs in bad_questions.items():
+                # Gửi progress event
+                if queue:
+                    try:
+                        queue.put_nowait(
+                            {
+                                "type": "progress",
+                                "message": f"Đang tạo lại câu hỏi cho chunk {chunk_index}...",
+                            }
+                        )
+                    except Exception as e:
+                        print(f"[SSE] Warning: Could not send progress: {e}")
+
                 chunk = document_chunks[int(chunk_index)]
                 prompt = Prompts.QUESTION_REGENERATION_PROMPT.format(
                     chunk=chunk, bad_qs=bad_qs, good_questions=good_questions
@@ -221,10 +295,28 @@ def question_node(state: QState, config: RunnableConfig):
 # node 3 : answer generate
 def answer_node(state: QState, config: RunnableConfig):
     """Sinh ra các đáp án cho các câu hỏi dựa trên các đoạn tài liệu đã tóm tắt."""
+    session_id = config["configurable"].get("thread_id")
+    queue = sse_event_queues.get(session_id)
+
     check_questions = state.get("check_questions", {})
     question_answers = {}
 
+    total = len(check_questions)
+    current = 0
+
     for idx, questions in check_questions.items():
+        # Gửi progress event để giữ SSE connection sống
+        if queue:
+            try:
+                queue.put_nowait(
+                    {
+                        "type": "progress",
+                        "message": f"Đang tạo đáp án {current + 1}/{total}...",
+                    }
+                )
+            except Exception as e:
+                print(f"[SSE] Warning: Could not send progress: {e}")
+
         formatted_prompt = f"Chunk {idx}\n" + "\n".join([q for q in questions])
 
         prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
@@ -236,6 +328,7 @@ def answer_node(state: QState, config: RunnableConfig):
         if chunk_idx not in question_answers:
             question_answers[chunk_idx] = []
         question_answers[chunk_idx].append(question_answer)
+        current += 1
 
     return {
         "question_answers": question_answers,
@@ -407,23 +500,42 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         sse_event_queues[session_id] = asyncio.Queue()
         print(f"[DocumentProcessing] Created SSE queue for session_id: {session_id}")
 
+    queue = sse_event_queues.get(session_id)
+
     try:
-        # Directly await the async process_pdf (no thread pool needed)
-        await process_pdf(
+        # Send start event
+        if queue:
+            await queue.put({"type": "start", "message": "Bắt đầu xử lý tài liệu..."})
+            print(f"[DocumentProcessing] SSE 'start' event sent to {session_id}")
+
+        # Process
+        print(f"[DocumentProcessing] Starting process_pdf for session_id: {session_id}")
+        result = await process_pdf(
             session_id, document_processing_agent=document_processing_agent, query=query
         )
-        queue = sse_event_queues.get(session_id)
+        print(f"[DocumentProcessing] process_pdf completed for session_id: {session_id}")
+        print(f"[DocumentProcessing] Result: {result}")
+
+        # Send done event - CRITICAL for client to auto-display project
+        # Client expects: event.data === "done" (string, not JSON object)
         if queue:
-            await queue.put("done")
-            print("SSE event sent to", session_id)
+            await queue.put("done")  # Send string "done", not dict
+            print(f"[DocumentProcessing] ✅ SSE 'done' event (string) sent to {session_id}")
         else:
-            print("SSE queue not found for session_id:", session_id)
+            print(f"[DocumentProcessing] ❌ SSE queue not found for session_id: {session_id}")
+
         return "Đã tạo câu hỏi thành công từ tài liệu."
+
     except Exception as e:
-        print(f"[DocumentProcessing] Error during processing: {e}")
-        queue = sse_event_queues.get(session_id)
+        print(f"[DocumentProcessing] ❌ Error during processing: {e}")
+        import traceback
+        traceback.print_exc()
         if queue:
-            await queue.put(f"error: {str(e)}")
+            try:
+                await queue.put({"type": "error", "message": str(e)})
+            except Exception:
+                pass
+        raise
 
 
 @tool("document_summarize_tool")

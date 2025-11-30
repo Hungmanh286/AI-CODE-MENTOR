@@ -1,0 +1,349 @@
+<mxfile host="app.diagrams.net" modified="2025-11-24T12:00:00.000Z" agent="CodeMentor" version="22.0.0">
+  <diagram name="Learning Session Lifecycle" id="session-lifecycle">
+    <mxGraphModel dx="1800" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1600">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- Title -->
+        <mxCell id="title" value="&lt;h1&gt;State Machine - Learning Session Lifecycle (Extended 3 Modules)&lt;/h1&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="500" y="20" width="800" height="40" as="geometry"/>
+        </mxCell>
+        
+        <!-- Initial State -->
+        <mxCell id="init" value="" style="ellipse;fillColor=#000000;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="870" y="100" width="30" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Main States -->
+        <mxCell id="session-init" value="SessionInitialized" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="820" y="170" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="doc-processing" value="DocumentProcessing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="820" y="260" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="chunk-stored" value="ChunkStored" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="820" y="350" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- Error State -->
+        <mxCell id="failed" value="Failed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="600" y="350" width="100" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- Branch 1: Question Generation Pipeline -->
+        <mxCell id="gen-questions" value="GeneratingQuestions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="500" y="460" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="eval-questions" value="EvaluatingQuestions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="500" y="550" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="refine-questions" value="RefiningQuestions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="500" y="640" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="question-ready" value="QuestionSetReady" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="500" y="730" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="practicing" value="Practicing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="500" y="820" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="completed" value="Completed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="500" y="910" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- Branch 2: Mind Map Generation -->
+        <mxCell id="mindmap-gen" value="MindMapGenerating" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="820" y="460" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="mindmap-ready" value="MindMapReady" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="820" y="550" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="mindmap-review" value="MindMapReviewing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="820" y="640" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="mindmap-edit" value="MindMapEditing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="820" y="730" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="mindmap-export" value="MindMapExported" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="820" y="820" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- Branch 3: Document Q&A Module -->
+        <mxCell id="qa-ready" value="QAModuleReady" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="1140" y="460" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="asking" value="AskingQuestion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="1140" y="550" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="answering" value="Answering" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="1140" y="640" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="qa-review" value="QAReview" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12" vertex="1" parent="1">
+          <mxGeometry x="1140" y="730" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- Common End State -->
+        <mxCell id="archived" value="Archived" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="820" y="1000" width="130" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- Final State -->
+        <mxCell id="final" value="" style="ellipse;html=1;shape=mxgraph.flowchart.terminator;strokeWidth=3;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="870" y="1100" width="30" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Transitions -->
+        
+        <!-- Initial to SessionInitialized -->
+        <mxCell id="trans1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="init" target="session-init">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- SessionInitialized to DocumentProcessing -->
+        <mxCell id="trans2" value="File uploaded" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10" edge="1" parent="1" source="session-init" target="doc-processing">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- DocumentProcessing to Failed -->
+        <mxCell id="trans3" value="OCR/Parsing error" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#B85450;dashed=1" edge="1" parent="1" source="doc-processing" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="750" y="310"/>
+              <mxPoint x="650" y="310"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- DocumentProcessing to ChunkStored -->
+        <mxCell id="trans4" value="Chunks + metadata saved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10" edge="1" parent="1" source="doc-processing" target="chunk-stored">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- Branch 1: Question Generation Pipeline -->
+        <mxCell id="trans5" value="Start QG module" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#9673A6" edge="1" parent="1" source="chunk-stored" target="gen-questions">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="750" y="410"/>
+              <mxPoint x="570" y="410"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9673A6" edge="1" parent="1" source="gen-questions" target="eval-questions">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9673A6" edge="1" parent="1" source="eval-questions" target="refine-questions">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9673A6" edge="1" parent="1" source="refine-questions" target="question-ready">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans9" value="Learner starts answering" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#9673A6" edge="1" parent="1" source="question-ready" target="practicing">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans10" value="All answers submitted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#9673A6" edge="1" parent="1" source="practicing" target="completed">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans11" value="Session saved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#9673A6" edge="1" parent="1" source="completed" target="archived">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="570" y="960"/>
+              <mxPoint x="570" y="1025"/>
+              <mxPoint x="885" y="1025"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Branch 2: Mind Map Generation -->
+        <mxCell id="trans12" value="Start Mind Map module" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#D79B00" edge="1" parent="1" source="chunk-stored" target="mindmap-gen">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans13" value="Mind map created" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#D79B00" edge="1" parent="1" source="mindmap-gen" target="mindmap-ready">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans14" value="User views mind map" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#D79B00" edge="1" parent="1" source="mindmap-ready" target="mindmap-review">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans15" value="User edits mind map" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#D79B00" edge="1" parent="1" source="mindmap-review" target="mindmap-edit">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans16" value="Export as PNG/PDF/JSON" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#D79B00" edge="1" parent="1" source="mindmap-edit" target="mindmap-export">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#D79B00" edge="1" parent="1" source="mindmap-export" target="archived">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- Branch 3: Document Q&A Module -->
+        <mxCell id="trans18" value="Start Q&amp;A module" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#0066CC" edge="1" parent="1" source="chunk-stored" target="qa-ready">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="950" y="410"/>
+              <mxPoint x="1205" y="410"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans19" value="User asks a question" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#0066CC" edge="1" parent="1" source="qa-ready" target="asking">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans20" value="System retrieves and answers" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#0066CC" edge="1" parent="1" source="asking" target="answering">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans21" value="User reviews answer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#0066CC" edge="1" parent="1" source="answering" target="qa-review">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trans22" value="End Q&amp;A session" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;fontColor=#0066CC" edge="1" parent="1" source="qa-review" target="archived">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="1205" y="800"/>
+              <mxPoint x="1205" y="1025"/>
+              <mxPoint x="885" y="1025"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Error Handling -->
+        <mxCell id="trans23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#B85450;dashed=1" edge="1" parent="1" source="gen-questions" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="450" y="520"/>
+              <mxPoint x="450" y="375"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#B85450;dashed=1" edge="1" parent="1" source="mindmap-gen" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="750" y="520"/>
+              <mxPoint x="650" y="520"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans25" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#B85450;dashed=1" edge="1" parent="1" source="qa-ready" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="1205" y="520"/>
+              <mxPoint x="1205" y="375"/>
+              <mxPoint x="700" y="375"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#B85450;dashed=1" edge="1" parent="1" source="practicing" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="450" y="870"/>
+              <mxPoint x="450" y="375"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#B85450;dashed=1" edge="1" parent="1" source="mindmap-edit" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="750" y="800"/>
+              <mxPoint x="650" y="800"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="trans28" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontColor=#B85450;dashed=1" edge="1" parent="1" source="asking" target="failed">
+          <mxGeometry x="-0.2" y="15" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="1205" y="620"/>
+              <mxPoint x="1205" y="375"/>
+              <mxPoint x="700" y="375"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Archived to SessionInitialized (Restart) -->
+        <mxCell id="trans29" value="Restart or new session" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;fontSize=10;dashed=1" edge="1" parent="1" source="archived" target="session-init">
+          <mxGeometry x="-0.5" y="25" relative="1" as="geometry">
+            <mxPoint as="offset"/>
+            <Array as="points">
+              <mxPoint x="885" y="1080"/>
+              <mxPoint x="885" y="195"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Archived to Final -->
+        <mxCell id="trans30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="1" source="archived" target="final">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- Legend and Notes -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="50" y="1200" width="1700" height="300" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="legend-title" value="&lt;b&gt;LEARNING SESSION LIFECYCLE - 3 MODULES&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="70" y="1210" width="500" height="20" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="legend-content" value="&lt;b&gt;Initial Flow:&lt;/b&gt;&#10;SessionInitialized → DocumentProcessing → ChunkStored&#10;&#10;&lt;b&gt;Module 1: Question Generation Pipeline (Purple)&lt;/b&gt;&#10;ChunkStored → GeneratingQuestions → EvaluatingQuestions → RefiningQuestions → QuestionSetReady → Practicing → Completed → Archived&#10;&#10;&lt;b&gt;Module 2: Mind Map Generation (Orange)&lt;/b&gt;&#10;ChunkStored → MindMapGenerating → MindMapReady → MindMapReviewing → MindMapEditing → MindMapExported → Archived&#10;&#10;&lt;b&gt;Module 3: Document Q&amp;A Module (Green)&lt;/b&gt;&#10;ChunkStored → QAModuleReady → AskingQuestion → Answering → QAReview → Archived&#10;&#10;&lt;b&gt;Error Handling (Red, Dashed):&lt;/b&gt;&#10;Failed state can be reached from: DocumentProcessing, GeneratingQuestions, MindMapGenerating, QAModuleReady, Practicing, MindMapEditing, AskingQuestion" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;spacing=3;" vertex="1" parent="1">
+          <mxGeometry x="70" y="1240" width="800" height="220" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="workflow-note" value="Workflow Features:&#10;&#10;1. Three parallel learning paths&#10;   from ChunkStored state&#10;&#10;2. All paths converge at&#10;   Archived state&#10;&#10;3. Comprehensive error handling&#10;   from multiple states&#10;&#10;4. Session can restart from&#10;   Archived to SessionInitialized&#10;&#10;5. Document processing is&#10;   prerequisite for all modules" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="900" y="1240" width="200" height="180" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="state-colors" value="State Color Coding:&#10;&#10;🟢 Green: SessionInitialized, Q&amp;A Module&#10;   (Initial and Q&amp;A states)&#10;&#10;🟡 Yellow: DocumentProcessing&#10;   (Processing state)&#10;&#10;🔵 Blue: ChunkStored&#10;   (Branch point)&#10;&#10;🟣 Purple: Question Generation&#10;   (QG pipeline)&#10;&#10;🟠 Orange: Mind Map Generation&#10;   (Mind map flow)&#10;&#10;🔴 Red: Failed&#10;   (Error state)&#10;&#10;⚪ Gray: Archived&#10;   (End state)" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="1240" width="200" height="220" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="transitions-note" value="Transition Types:&#10;&#10;Solid lines: Normal flow&#10;Dashed lines: Error paths&#10;   and restart paths&#10;&#10;Color coding matches&#10;module colors for&#10;easy identification&#10;&#10;All modules are&#10;independent and can&#10;run in parallel" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="1240" width="200" height="180" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="module-details" value="Module Details:&#10;&#10;QG Pipeline:&#10;- Multi-stage refinement&#10;- Quality evaluation&#10;- Practice mode&#10;&#10;Mind Map:&#10;- AI generation&#10;- User editing&#10;- Multi-format export&#10;&#10;Q&amp;A Module:&#10;- Real-time answering&#10;- Context retrieval&#10;- Answer review" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1590" y="1240" width="140" height="180" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+

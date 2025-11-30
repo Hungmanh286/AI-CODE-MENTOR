@@ -131,6 +131,7 @@ Yêu cầu:
 Lưu ý:
 related_passage phải giữ đúng nguyên văn đoạn văn liên quan đến câu hỏi.
 Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON với cấu trúc sau:
+[
 {{
     "id": <số nguyên>,
     "question": "<nội dung câu hỏi>",
@@ -143,6 +144,7 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
     "related_passage": "<đoạn văn liên quan>",
 }},
   ...
+]
 Giải thích từ khóa về danh sách câu hỏi : 
 question : là nội dung câu hỏi
 related_passage : là đoạn văn liên quan đến câu hỏi đó 
@@ -208,7 +210,9 @@ Bạn là một giảng viên chuyên môn về lập trình.
 NHIỆM VỤ:
 - Chuẩn hoá danh sách câu hỏi trong DỮ LIỆU ĐẦU VÀO.
 - Phân tích {query} để xác định số lượng câu hỏi:
-    • Nếu đề cập rõ số lượng thì sử dụng đúng số đó.
+    • Nếu đề cập rõ số lượng thì sử dụng đúng số đó:
+        - nếu trong danh sách câu hỏi đầu vào ko đủ thì phải bổ sung thêm cho đủ
+        - nếu trong danh sách đầu vào mà thừa thì phải lọc cho đủ
     • Nếu không đề cập thì mặc định 10 câu hỏi.
 LƯU Ý : Nếu có nhiều chunk thì phải có ít nhất 3 câu hỏi từ mỗi chunk.
 
