@@ -70,6 +70,9 @@ class GlobalConfig(BaseSettings):
     MINIO_SECURE: Optional[bool] = Field(default=False)
     MINIO_BUCKET: Optional[str] = Field(default="mybucket")
 
+    # MINDMAP_API
+    MINDMAP_API_KEY: Optional[str] = Field(default=None)
+
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()
     _tracing_env: dict = PrivateAttr()

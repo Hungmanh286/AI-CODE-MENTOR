@@ -9,30 +9,51 @@ Bên dưới là một tài liệu:
 Hãy viết một bản tóm tắt bao gồm toàn bộ các thông tin chính.
 Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
     """
+    MIND_MAP_PROMPT = """
+Bạn là chuyên gia thiết kế sơ đồ tư duy (mind map) từ tài liệu được cung cấp.
+Yêu cầu: trình bày theo phong cách hiện đại, tối giản, sử dụng tông màu sáng, nền trắng, bố cục rõ ràng, dễ đọc và trực quan.
 
-    MARK_DOWN_PROMPT = """Bạn là chuyên gia chuyển tài liệu từ hình ảnh sang Markdown.
-## HƯỚNG DẪN
-### 1. Tiêu đề
-- Xác định cấp độ dựa trên font size, độ đậm, vị trí
-- Dùng #, ##, ###, #### theo đúng thứ bậc (không nhảy cấp)
+Tài liệu nguồn:
+{merge}
+"""
+    MARK_DOWN_PROMPT = """
+Bạn là hệ thống OCR Markdown. Bạn KHÔNG phải là trợ lý hội thoại. 
+Bạn KHÔNG được phép hỏi lại, xác nhận lại, xin thêm thông tin, yêu cầu chọn trang, đề nghị chia nhỏ, hoặc đưa ra bất kỳ câu nào không thuộc nội dung Markdown đầu ra.
 
-### 2. Văn bản
-- Chuyển đầy đủ, giữ nguyên: bullet, numbering, **bold**, *italic*, `code`
-- Giữ nguyên thứ tự đoạn văn
+GIỚI HẠN CỐ ĐỊNH:
+- Tài liệu người dùng cung cấp LUÔN nằm trong giới hạn tối đa 30 trang.
+- Bạn KHÔNG được phép viện lý do “tài liệu dài”, “quá nhiều trang”, “khó xử lý”, hoặc gợi ý xử lý từng phần. 
+- Bạn phải xử lý toàn bộ nội dung trong một lần duy nhất.
 
-### 3. Bảng
-- Chuyển sang markdown table format: | Header | Header |
-- Nếu bảng quá phức tạp, mô tả cấu trúc và dữ liệu chính
+CHẾ ĐỘ BẮT BUỘC:
+- Bạn chỉ được thực thi một hành động duy nhất: CHUYỂN NGUYÊN VĂN toàn bộ dữ liệu được cung cấp sang Markdown.
+- KHÔNG được sinh bất kỳ câu nào không nằm trong Markdown đầu ra.
+- KHÔNG được sinh câu hỏi.
+- KHÔNG được sinh đề nghị.
+- KHÔNG được giải thích.
+- KHÔNG được từ chối.
+- KHÔNG được mô tả về độ dài hay cấu trúc tài liệu.
+- KHÔNG được yêu cầu người dùng chỉ định phạm vi.
+- KHÔNG được hỏi lại: “Có muốn bắt đầu từ trang…”, “Bạn muốn xử lý phần nào…”, “Có nên chia nhỏ…”, hoàn toàn BỊ CẤM.
 
-### 4. Hình ảnh/Biểu đồ
-- Ghi nhãn nếu có (VD: "Hình 1: Tên hình")
-- Mô tả chi tiết: loại biểu đồ, trục, dữ liệu nổi bật, xu hướng/kết luận chính
-- Format: `[Mô tả: ...]`
+QUY ĐỊNH CHUYỂN ĐỔI:
+1. Giữ nguyên 100% nội dung gốc, không thêm, không bớt, không tóm tắt, không diễn giải.
+2. Giữ nguyên thứ tự trình bày, cấu trúc, bullet, numbering, **bold**, *italic*, `code`, dấu câu, xuống dòng.
+3. Tiêu đề dùng #, ##, ### dựa theo cấp trong tài liệu gốc.
+4. Bảng:
+   - Nếu đơn giản → chuyển sang bảng Markdown.
+   - Nếu phức tạp → giữ nguyên từng dòng như tài liệu gốc, không lược bỏ.
+5. Hình ảnh:
+   - Nếu hình có text → chuyển NGUYÊN VĂN tất cả text thấy trong hình.
+   - Nếu hình không có text → ghi “[Hình ảnh không có văn bản]”.
+6. Nếu ký tự mờ hoặc không đọc được → chuyển thành “[không đọc được]”.
 
-## NGUYÊN TẮC BẮT BUỘC
-- KHÔNG bỏ sót nội dung
-- KHÔNG thêm/sửa nội dung gốc
-- GIỮ NGUYÊN cấu trúc logic của tài liệu
+CHỈ ĐƯỢC PHÉP LÀM MỘT VIỆC:
+- Xuất duy nhất nội dung Markdown tương ứng với **toàn bộ nội dung đầu vào**.
+- Tuyệt đối KHÔNG được chèn thêm bất kỳ câu nói, giới thiệu, ghi chú, bình luận, đề xuất, hoặc hướng dẫn nào.
+
+KHI NHẬN DỮ LIỆU:
+- NGAY LẬP TỨC chuyển toàn bộ sang Markdown mà KHÔNG hỏi lại, KHÔNG yêu cầu xác nhận, KHÔNG dừng để xin hướng dẫn.
 """
 
     # trả về danh sách 10 câu hỏi 3 mức độ : dễ, vận dụng, vận dụng cao
@@ -47,7 +68,7 @@ CÁC BƯỚC THỰC HIỆN:
 3. Xác định các ví dụ hoặc ứng dụng được nhắc đến trong tài liệu.
 4. Mỗi câu hỏi phải tập trung vào MỘT khái niệm duy nhất trong tài liệu nguồn bên dưới.
 
-YÊU CẦU SỐ LƯỢNG CÂU HỎI : 5 câu dễ, 7 câu vận dụng, 3 câu vận dụng cao.
+YÊU CẦU SỐ LƯỢNG CÂU HỎI : 4 câu dễ, 3 câu vận dụng, 3 câu vận dụng cao.
 
 YÊU CẦU ĐẦU RA:
 - Trả về danh sách JSON với cấu trúc: [{{"question": "câu hỏi", "related_passage": "đoạn văn liên quan"}}, ...]
@@ -110,8 +131,7 @@ Yêu cầu:
 Lưu ý:
 related_passage phải giữ đúng nguyên văn đoạn văn liên quan đến câu hỏi.
 Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON với cấu trúc sau:
-[
-  {{
+{{
     "id": <số nguyên>,
     "question": "<nội dung câu hỏi>",
     "options": [
@@ -121,9 +141,8 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
         "<lựa chọn D>"
     ],
     "related_passage": "<đoạn văn liên quan>",
-  }},
+}},
   ...
-]
 Giải thích từ khóa về danh sách câu hỏi : 
 question : là nội dung câu hỏi
 related_passage : là đoạn văn liên quan đến câu hỏi đó 
@@ -180,6 +199,7 @@ YÊU CẦU BẮT BUỘC:
 
 DỮ LIỆU ĐẦU VÀO:
 {question_answers}
+
 """
     # Lưu ý :
     EVALUATE_AND_SELECT_PROMPT = """
