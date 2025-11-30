@@ -115,12 +115,11 @@ def format_question_answer_dict(data: dict) -> str:
 
 # node 1 : chunker
 def document_preprocessing(state: QState, config: RunnableConfig):
-    """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks)."""
+    """Tiền xử lý tài liệu: tách nhỏ văn bản thành các đoạn (chunks) với overlap."""
     session_id = config["configurable"].get("thread_id")
     file_ids = get_active_file_id(session_id)
     query = state.get("query", None)
     document_chunks = []
-    chunk_size = 5
 
     for file_id in file_ids:
         # Đọc docs từ MinIO (trong folder session)
@@ -141,12 +140,32 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                 splits = [split for doc in docs for split in splitter.split_text(doc)]
                 total_splits = len(splits)
 
-                # Gộp các split lại thành các chunk với chunk_size
-                for i in range(0, total_splits, chunk_size):
+                if total_splits < 20:
+                    chunk_size = 10
+                    overlap = 2
+                elif total_splits < 50:
+                    chunk_size = 15
+                    overlap = 3
+                elif total_splits < 100:
+                    chunk_size = 20
+                    overlap = 5
+                elif total_splits < 200:
+                    chunk_size = 30
+                    overlap = 6
+                else:
+                    chunk_size = 50
+                    overlap = 8
+
+                for i in range(0, total_splits, chunk_size - overlap):
+                    end_idx = min(i + chunk_size, total_splits)
                     chunk_text = "\n".join(
-                        [split.page_content for split in splits[i : i + chunk_size]]
+                        [split.page_content for split in splits[i:end_idx]]
                     )
                     document_chunks.append(chunk_text)
+
+                    # Dừng khi đã đến cuối
+                    if end_idx >= total_splits:
+                        break
 
     return {"document_chunks": document_chunks, "query": query}
 
@@ -199,7 +218,6 @@ def question_node(state: QState, config: RunnableConfig):
     }
 
 
-# xử lý câu trả lời khi không còn bad questions , chỉ trả lời cho good questions
 # node 3 : answer generate
 def answer_node(state: QState, config: RunnableConfig):
     """Sinh ra các đáp án cho các câu hỏi dựa trên các đoạn tài liệu đã tóm tắt."""
@@ -412,7 +430,7 @@ async def document_processing_tool(query: str, config: RunnableConfig):
 async def document_summarize_tool(query: str, config: RunnableConfig):
     """
     Công cụ tóm tắt nội dung tài liệu.
-    Sử dụng khi người dùng yêu cầu tóm tắt, tổng hợp nội dung, hoặc rút gọn thông tin từ tài liệu PDF đã tải lên.
+    Sử dụng khi người dùng yêu cầu tạo mind map
 
     Args:
         query (str): Câu truy vấn của người dùng.

@@ -1,5 +1,6 @@
-import os
 from openai import OpenAI
+
+from google import genai
 
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
@@ -50,13 +51,13 @@ def summarize_node(state: QState, config: RunnableConfig):
     for file_id in file_ids:
         # Đọc docs từ MinIO (trong folder session)
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
-        
+
         if minio_client.file_exists(docs_minio_path):
             docs_data = minio_client.download_data(docs_minio_path)
             if docs_data:
                 docs_content = docs_data.decode("utf-8")
                 docs = [docs_content]
-                
+
                 splitter = MarkdownHeaderTextSplitter(
                     headers_to_split_on=[
                         ("#", "Header_1"),
@@ -90,7 +91,7 @@ def extractive_node(state: QState, config: RunnableConfig):
     for file_id in file_ids:
         # Đọc docs từ MinIO (trong folder session)
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
-        
+
         if minio_client.file_exists(docs_minio_path):
             docs_data = minio_client.download_data(docs_minio_path)
             if docs_data:
@@ -119,6 +120,7 @@ def extractive_node(state: QState, config: RunnableConfig):
 
     return {"extractive_summaries": extractive_summaries}
 
+
 # Node 3: Merge hai kết quả
 def merge_node(state: QState, config: RunnableConfig):
     summaries = state["summaries"]
@@ -143,6 +145,7 @@ def merge_node(state: QState, config: RunnableConfig):
         "merge": content,
     }
 
+
 # def mind_map(state: QState, config: RunnableConfig):
 #     merge = state.get("merge", "")
 
@@ -165,15 +168,38 @@ def merge_node(state: QState, config: RunnableConfig):
 #             f.write(base64.b64decode(image_base64))
 
 
+def mind_map(state: QState, config: RunnableConfig):
+    merge = state.get("merge", "")
+
+    gemini_client = genai.Client(api_key="AIzaSyAGO1sHwsmkRcwmsa6-jgX1PLXxb-uJNTk")
+
+    prompt = Prompts.MIND_MAP_PROMPT.format(merge=merge)
+
+    response = gemini_client.models.generate_content(
+        model="gemini-2.5-flash-image-preview",
+        contents=[prompt],
+    )
+
+    for part in response.parts:
+        if part.text is not None:
+            print(part.text)
+        elif part.inline_data is not None:
+            image = part.as_image()
+            image.save("/home/hungmanh/Documents/CodeMentor/app/data/mind_map.png")
+
+
 def build_pdf_summarize_workflow():
     workflow = StateGraph(QState)
     workflow.add_node("summarize", summarize_node)
     workflow.add_node("extractive", extractive_node)
     workflow.add_node("merge", merge_node)
+    workflow.add_node("mind_map", mind_map)
+
     workflow.add_edge(START, "summarize")
     workflow.add_edge("summarize", "extractive")
     workflow.add_edge("extractive", "merge")
-    workflow.add_edge("merge", END)
+    workflow.add_edge("merge", "mind_map")
+    workflow.add_edge("mind_map", END)
 
     return workflow
 

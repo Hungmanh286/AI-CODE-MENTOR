@@ -77,10 +77,10 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
             "correct_answer": q.get("correct_answer"),
             "explanation": q.get("explanation"),
         }
-        # Lưu câu hỏi vào database
+        print(q)
+
         insert_database(question_data, Question)
 
-        # Lưu các option của câu hỏi
         for idx, option_text in enumerate(q.get("options", [])):
             option_data = {
                 "question_id": question_id,

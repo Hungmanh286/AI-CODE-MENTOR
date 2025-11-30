@@ -2,6 +2,9 @@ import os
 from openai import OpenAI
 from io import BytesIO
 import base64
+from google import genai
+from google.genai import types
+import datetime
 
 from pdf2image import convert_from_path
 from langchain_docling import DoclingLoader
@@ -89,6 +92,7 @@ def embedding_document(docs, session_id: str):
 prompt = Prompts.MARK_DOWN_PROMPT
 
 
+# open ai
 def parse_chunk(chunk_images: list) -> str:
     """
     Parse nội dung từ 1 chunk (nhóm các trang) từ PDF.
@@ -117,6 +121,29 @@ def parse_chunk(chunk_images: list) -> str:
     return response.output_text
 
 
+# gemini
+def parse_chunk_2(chunk_images: list) -> str:
+    client2 = genai.Client()
+
+    prompt_text = prompt
+    contents = [prompt_text]
+
+    for img_b64 in chunk_images:
+        img_bytes = base64.b64decode(img_b64)
+        contents.append(
+            types.Part.from_bytes(
+                data=img_bytes,
+                mime_type="image/png",
+            )
+        )
+
+    response = client2.models.generate_content(
+        model="gemini-2.0-flash-exp", contents=contents
+    )
+
+    return response.text
+
+
 def parse_pdf_text2(file_path: str):
     images = convert_from_path(file_path)
     image_b64_list = []
@@ -127,16 +154,16 @@ def parse_pdf_text2(file_path: str):
         image_b64_list.append(img_b64)
 
     total_pages = len(image_b64_list)
+    print(f"Total pages in PDF: {total_pages}")
 
     if total_pages < 50:
         chunk_size = 15
-    elif 50 <= total_pages <= 150:
-        chunk_size = 30
     else:
-        chunk_size = 50
+        chunk_size = 30
 
     chunks = []
     start = 0
+    start_time = datetime.datetime.now()
     while start < total_pages:
         end = min(start + chunk_size, total_pages)
         chunk = image_b64_list[start:end]
@@ -145,6 +172,10 @@ def parse_pdf_text2(file_path: str):
         start += chunk_size
 
     document_str = "\n\n".join(chunks)
+    end_time = datetime.datetime.now()
+    duration = end_time - start_time
+    print(f"Total time to parse PDF: {duration.total_seconds()} seconds")
+
     return document_str
 
 
