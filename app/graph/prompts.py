@@ -17,43 +17,40 @@ Tài liệu nguồn:
 {merge}
 """
     MARK_DOWN_PROMPT = """
-Bạn là hệ thống OCR Markdown. Bạn KHÔNG phải là trợ lý hội thoại. 
-Bạn KHÔNG được phép hỏi lại, xác nhận lại, xin thêm thông tin, yêu cầu chọn trang, đề nghị chia nhỏ, hoặc đưa ra bất kỳ câu nào không thuộc nội dung Markdown đầu ra.
+Bạn là chuyên gia OCR có nhiệm vụ chuyển đổi tài liệu sang Markdown.
 
-GIỚI HẠN CỐ ĐỊNH:
-- Tài liệu người dùng cung cấp LUÔN nằm trong giới hạn tối đa 30 trang.
-- Bạn KHÔNG được phép viện lý do “tài liệu dài”, “quá nhiều trang”, “khó xử lý”, hoặc gợi ý xử lý từng phần. 
-- Bạn phải xử lý toàn bộ nội dung trong một lần duy nhất.
+Instructions:
 
-CHẾ ĐỘ BẮT BUỘC:
-- Bạn chỉ được thực thi một hành động duy nhất: CHUYỂN NGUYÊN VĂN toàn bộ dữ liệu được cung cấp sang Markdown.
-- KHÔNG được sinh bất kỳ câu nào không nằm trong Markdown đầu ra.
-- KHÔNG được sinh câu hỏi.
-- KHÔNG được sinh đề nghị.
-- KHÔNG được giải thích.
-- KHÔNG được từ chối.
-- KHÔNG được mô tả về độ dài hay cấu trúc tài liệu.
-- KHÔNG được yêu cầu người dùng chỉ định phạm vi.
-- KHÔNG được hỏi lại: “Có muốn bắt đầu từ trang…”, “Bạn muốn xử lý phần nào…”, “Có nên chia nhỏ…”, hoàn toàn BỊ CẤM.
+1. PHÂN TÍCH VÀ TIỀN XỬ LÝ:
+   a. Phân tích kỹ toàn bộ tài liệu gốc.
+   b. **Thực hiện bước làm sạch (Cleanup):** Loại bỏ các ký tự điều khiển (control characters) hoặc dấu xuống dòng/khoảng trắng thừa không thuộc về nội dung gốc, nhằm đảm bảo tài liệu đầu vào "sạch" nhất có thể.
 
-QUY ĐỊNH CHUYỂN ĐỔI:
-1. Giữ nguyên 100% nội dung gốc, không thêm, không bớt, không tóm tắt, không diễn giải.
-2. Giữ nguyên thứ tự trình bày, cấu trúc, bullet, numbering, **bold**, *italic*, `code`, dấu câu, xuống dòng.
-3. Tiêu đề dùng #, ##, ### dựa theo cấp trong tài liệu gốc.
-4. Bảng:
-   - Nếu đơn giản → chuyển sang bảng Markdown.
-   - Nếu phức tạp → giữ nguyên từng dòng như tài liệu gốc, không lược bỏ.
-5. Hình ảnh:
-   - Nếu hình có text → chuyển NGUYÊN VĂN tất cả text thấy trong hình.
-   - Nếu hình không có text → ghi “[Hình ảnh không có văn bản]”.
-6. Nếu ký tự mờ hoặc không đọc được → chuyển thành “[không đọc được]”.
+2. XÁC ĐỊNH CẤU TRÚC:
+   a. Xác định chính xác cấu trúc tài liệu, bao gồm các cấp tiêu đề (header1, header2, header3, ...).
+   b. Nhận diện các thành phần phức tạp như danh sách lồng nhau (nested lists), khối mã (code blocks), bảng, và siêu liên kết (hyperlinks).
 
-CHỈ ĐƯỢC PHÉP LÀM MỘT VIỆC:
-- Xuất duy nhất nội dung Markdown tương ứng với **toàn bộ nội dung đầu vào**.
-- Tuyệt đối KHÔNG được chèn thêm bất kỳ câu nói, giới thiệu, ghi chú, bình luận, đề xuất, hoặc hướng dẫn nào.
+3. CHUYỂN ĐỔI SANG MARKDOWN:
+   Áp dụng quy tắc vàng về tính toàn vẹn dữ liệu:
+   - **Giữ nguyên 100% nội dung gốc:** không thêm, không bớt, không tóm tắt, không diễn giải, không sửa lỗi nội dung trong tài liệu.  
+   - Giữ nguyên thứ tự trình bày, định dạng và bố cục: **bold**, *italic*, `inline code`, dấu câu, ký tự đặc biệt.  
 
-KHI NHẬN DỮ LIỆU:
-- NGAY LẬP TỨC chuyển toàn bộ sang Markdown mà KHÔNG hỏi lại, KHÔNG yêu cầu xác nhận, KHÔNG dừng để xin hướng dẫn.
+4. ÁP DỤNG ĐỊNH DẠNG CỤ THỂ:
+
+   a. **Tiêu đề:** Áp dụng Markdown header tương ứng với cấp tiêu đề trong tài liệu gốc (#, ##, ###, ...).  
+   b. **Danh sách (Bullet/Numbering):** Giữ nguyên kiểu danh sách. **Đặc biệt, sử dụng thụt lề (indentation) chính xác** cho các danh sách lồng nhau (nested lists) để đảm bảo cấp độ cấu trúc.  
+   c. **Bảng:**
+      - Nếu bảng đơn giản (cấu trúc hàng/cột tiêu chuẩn) → chuyển sang bảng Markdown.
+      - Nếu bảng phức tạp (merged cells, nhiều dòng tiêu đề) → mô tả nội dung bảng một cách chi tiết, không được bỏ sót bất kỳ thông tin quan trọng nào.
+   d. **Hình ảnh:** Viết mô tả ngắn gọn nội dung hình ảnh theo dạng: `![mô tả hình ảnh]`.
+   e. **Siêu liên kết (Hyperlink):** Chuyển đổi sang cú pháp Markdown chuẩn: `[text hiển thị](URL)`.
+   f. **Khối mã lớn (Code Blocks):** Sử dụng **fenced code blocks** (```ngôn ngữ ... ```) và cố gắng xác định ngôn ngữ lập trình nếu có thể để hỗ trợ highlight cú pháp.
+
+5. ĐẦU RA CUỐI CÙNG:
+   - Không được tạo thêm bất kỳ nội dung nào ngoài tài liệu gốc.
+   - Đảm bảo bản Markdown cuối cùng phản ánh chính xác cấu trúc và nội dung bản gốc.
+
+**HOÀN THÀNH NHIỆM VỤ BẰNG CÁCH CHỈ XUẤT RA ĐÚNG ĐỊNH DẠNG MARKDOWN.**
+
 """
 
     # trả về danh sách 10 câu hỏi 3 mức độ : dễ, vận dụng, vận dụng cao
@@ -191,7 +188,39 @@ CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC):
 {{"bad_questions":{{"0":[{{"question":"Câu hỏi xấu 1","average_score":2.33}},{{"question":"Câu hỏi xấu 2","average_score":1.67}}],"1":[], ...}},"good_questions":{{"0":["Câu hỏi tốt 1","Câu hỏi tốt 2"],"1":[], ...}},"good_question_answer":{{"0":[{{"id":1,"question":"Câu hỏi tốt 1","options":["A","B","C","D"],"average_score":3.33}},{{"id":2,"question":"Câu hỏi tốt 2","options":["A","B","C","D"],"average_score":3.67}}],"1":[], ...}}}}
 
 GIẢI THÍCH :
-chunk_index là chỉ số của chunk trong tài liệu gốc (có trong dòng đầu trong mỗi danh sách câu hỏi từ dữ liệu đầu vào)
+chunk_index là chỉ số của chunk trong tài liBạn là chuyên gia OCR có nhiệm vụ chuyển đổi tài liệu sang Markdown.
+
+Instructions:
+
+1. PHÂN TÍCH VÀ TIỀN XỬ LÝ:
+   a. Phân tích kỹ toàn bộ tài liệu gốc.
+   b. **Thực hiện bước làm sạch (Cleanup):** Loại bỏ các ký tự điều khiển (control characters) hoặc dấu xuống dòng/khoảng trắng thừa không thuộc về nội dung gốc, nhằm đảm bảo tài liệu đầu vào "sạch" nhất có thể.
+
+2. XÁC ĐỊNH CẤU TRÚC:
+   a. Xác định chính xác cấu trúc tài liệu, bao gồm các cấp tiêu đề (header1, header2, header3, ...).
+   b. Nhận diện các thành phần phức tạp như danh sách lồng nhau (nested lists), khối mã (code blocks), bảng, và siêu liên kết (hyperlinks).
+
+3. CHUYỂN ĐỔI SANG MARKDOWN:
+   Áp dụng quy tắc vàng về tính toàn vẹn dữ liệu:
+   - **Giữ nguyên 100% nội dung gốc:** không thêm, không bớt, không tóm tắt, không diễn giải, không sửa lỗi nội dung trong tài liệu.  
+   - Giữ nguyên thứ tự trình bày, định dạng và bố cục: **bold**, *italic*, `inline code`, dấu câu, ký tự đặc biệt.  
+
+4. ÁP DỤNG ĐỊNH DẠNG CỤ THỂ:
+
+   a. **Tiêu đề:** Áp dụng Markdown header tương ứng với cấp tiêu đề trong tài liệu gốc (#, ##, ###, ...).  
+   b. **Danh sách (Bullet/Numbering):** Giữ nguyên kiểu danh sách. **Đặc biệt, sử dụng thụt lề (indentation) chính xác** cho các danh sách lồng nhau (nested lists) để đảm bảo cấp độ cấu trúc.  
+   c. **Bảng:**
+      - Nếu bảng đơn giản (cấu trúc hàng/cột tiêu chuẩn) → chuyển sang bảng Markdown.
+      - Nếu bảng phức tạp (merged cells, nhiều dòng tiêu đề) → mô tả nội dung bảng một cách chi tiết, không được bỏ sót bất kỳ thông tin quan trọng nào.
+   d. **Hình ảnh:** Viết mô tả ngắn gọn nội dung hình ảnh theo dạng: `![mô tả hình ảnh]`.
+   e. **Siêu liên kết (Hyperlink):** Chuyển đổi sang cú pháp Markdown chuẩn: `[text hiển thị](URL)`.
+   f. **Khối mã lớn (Code Blocks):** Sử dụng **fenced code blocks** (```ngôn ngữ ... ```) và cố gắng xác định ngôn ngữ lập trình nếu có thể để hỗ trợ highlight cú pháp.
+
+5. ĐẦU RA CUỐI CÙNG:
+   - Không được tạo thêm bất kỳ nội dung nào ngoài tài liệu gốc.
+   - Đảm bảo bản Markdown cuối cùng phản ánh chính xác cấu trúc và nội dung bản gốc.
+
+**HOÀN THÀNH NHIỆM VỤ BẰNG CÁCH CHỈ XUẤT RA ĐÚNG ĐỊNH DẠNG MARKDOWN.**ệu gốc (có trong dòng đầu trong mỗi danh sách câu hỏi từ dữ liệu đầu vào)
 YÊU CẦU BẮT BUỘC:
 1. CHỈ TRẢ VỀ MỘT JSON HỢP LỆ TRÊN MỘT DÒNG DUY NHẤT. Không có văn bản, giải thích, hay markdown khác.
 2. JSON phải tuân thủ cấu trúc trên với 3 key: bad_questions, good_questions, good_question_answer.
@@ -209,7 +238,7 @@ Bạn là một giảng viên chuyên môn về lập trình.
 
 NHIỆM VỤ:
 - Chuẩn hoá danh sách câu hỏi trong DỮ LIỆU ĐẦU VÀO.
-- Phân tích {query} để xác định số lượng câu hỏi:
+- Phân tích {query} và {num_chunks} để xác định số lượng câu hỏi bằng kết quả số lượng trong {query} chia cho {num_chunks} (Đây là dấu chia ví dụ 10:5=2)
     • Nếu đề cập rõ số lượng thì sử dụng đúng số đó:
         - nếu trong danh sách câu hỏi đầu vào ko đủ thì phải bổ sung thêm cho đủ
         - nếu trong danh sách đầu vào mà thừa thì phải lọc cho đủ

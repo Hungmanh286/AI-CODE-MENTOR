@@ -1,6 +1,6 @@
 from openai import OpenAI
-
 from google import genai
+
 
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
@@ -146,32 +146,12 @@ def merge_node(state: QState, config: RunnableConfig):
     }
 
 
-# def mind_map(state: QState, config: RunnableConfig):
-#     merge = state.get("merge", "")
-
-#     response = client.responses.create(
-#         model="gpt-5-mini",
-#         input="Tạo mind map từ nội dung sau:{merge}",
-#         tools=[{"type": "image_generation"}],
-#     )
-
-#     # Save the image to a file
-#     image_data = [
-#         output.result
-#         for output in response.output
-#         if output.type == "image_generation_call"
-#     ]
-
-#     if image_data:
-#         image_base64 = image_data[0]
-#         with open("/home/hungmanh/Documents/CodeMentor/app/data/otter.png", "wb") as f:
-#             f.write(base64.b64decode(image_base64))
-
-
+# lưu vào minio, sau đó gửi event cho client để display ảnh mindmap
 def mind_map(state: QState, config: RunnableConfig):
     merge = state.get("merge", "")
+    session_id = config["configurable"].get("thread_id")
 
-    gemini_client = genai.Client(api_key="AIzaSyAGO1sHwsmkRcwmsa6-jgX1PLXxb-uJNTk")
+    gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     prompt = Prompts.MIND_MAP_PROMPT.format(merge=merge)
 
@@ -181,11 +161,22 @@ def mind_map(state: QState, config: RunnableConfig):
     )
 
     for part in response.parts:
-        if part.text is not None:
-            print(part.text)
-        elif part.inline_data is not None:
+        if part.inline_data is not None:
             image = part.as_image()
-            image.save("/home/hungmanh/Documents/CodeMentor/app/data/mind_map.png")
+
+            # Lưu ảnh tạm thời để upload
+            temp_image_path = f"temp_mindmap_{session_id}.png"
+            image.save(temp_image_path)
+
+            # Upload lên MinIO
+            minio_path = f"{session_id}/mindmap.png"
+            with open(temp_image_path, "rb") as f:
+                minio_client.upload_data(minio_path, f.read())
+
+            # Xóa file tạm
+            import os
+
+            os.remove(temp_image_path)
 
 
 def build_pdf_summarize_workflow():
