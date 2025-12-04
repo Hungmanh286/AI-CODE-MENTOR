@@ -1,27 +1,29 @@
 from openai import OpenAI
 import json
 import re
+import concurrent.futures
 
+from tqdm import tqdm
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.message import MessagesState
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from langfuse.callback import CallbackHandler
 from langchain_text_splitters import MarkdownHeaderTextSplitter
-from langchain.tools import tool
+from langchain.tools import tool  # noqa
 
 
 from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
-from app.routes.process_data import process_pdf
 from app.routes.notify import (
     sse_event_queues,
 )
-from app.graph.agents.summarize_agent import pdf_summarize_agent
-from app.graph.agents.feedbacks_answer import feedbacks_answer
+from app.graph.agents.summarize_agent import pdf_summarize_agent  # noqa
+from app.graph.agents.feedbacks_answer import feedbacks_answer  # noqa
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
+from app.routes.process_data import process_pdf
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -80,7 +82,7 @@ def format_question_answer_dict(data: dict) -> str:
     Xử lý cả trường hợp JSON bị stringify nhiều lần.
     """
     formatted = ""
-    
+
     def parse_nested_json(value):
         """
         Parse JSON đệ quy để xử lý trường hợp bị stringify nhiều lần.
@@ -88,38 +90,32 @@ def format_question_answer_dict(data: dict) -> str:
         Trả về list các câu hỏi cuối cùng.
         """
         current = value
-        
-        # Nếu là string, thử parse
         while isinstance(current, str):
-            # Loại bỏ markdown code fence nếu có
             if current.strip().startswith("```"):
-                # Xóa code fence đầu (```json hoặc ```)
-                current = re.sub(r'^```(?:json)?\s*\n', '', current.strip())
-                # Xóa code fence cuối (```)
-                current = re.sub(r'\n```\s*$', '', current.strip())
+                current = re.sub(r"^```(?:json)?\s*\n", "", current.strip())
+                current = re.sub(r"\n```\s*$", "", current.strip())
                 current = current.strip()
-            
+
             try:
                 current = json.loads(current)
             except json.JSONDecodeError:
-                # Không parse được nữa, dừng lại
                 break
-        
-        # Nếu là list với 1 phần tử duy nhất là string, tiếp tục parse
-        while isinstance(current, list) and len(current) == 1 and isinstance(current[0], str):
+        while (
+            isinstance(current, list)
+            and len(current) == 1
+            and isinstance(current[0], str)
+        ):
             try:
-                # Loại bỏ markdown code fence nếu có
                 temp = current[0]
                 if temp.strip().startswith("```"):
-                    temp = re.sub(r'^```(?:json)?\s*\n', '', temp.strip())
-                    temp = re.sub(r'\n```\s*$', '', temp.strip())
+                    temp = re.sub(r"^```(?:json)?\s*\n", "", temp.strip())
+                    temp = re.sub(r"\n```\s*$", "", temp.strip())
                     temp = temp.strip()
-                
+
                 current = json.loads(temp)
             except json.JSONDecodeError:
                 break
-        
-        # Đảm bảo kết quả là list
+
         if isinstance(current, list):
             return current
         elif isinstance(current, dict):
@@ -169,7 +165,6 @@ def document_preprocessing(state: QState, config: RunnableConfig):
     document_chunks = []
 
     for file_id in file_ids:
-        # Đọc docs từ MinIO (trong folder session)
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
 
         if minio_client.file_exists(docs_minio_path):
@@ -182,26 +177,14 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     headers_to_split_on=[
                         ("#", "Header_1"),
                         ("##", "Header_2"),
+                        ("###", "Header_3"),
                     ],
                 )
                 splits = [split for doc in docs for split in splitter.split_text(doc)]
                 total_splits = len(splits)
 
-                if total_splits < 20:
-                    chunk_size = 10
-                    overlap = 2
-                elif total_splits < 50:
-                    chunk_size = 15
-                    overlap = 3
-                elif total_splits < 100:
-                    chunk_size = 20
-                    overlap = 5
-                elif total_splits < 200:
-                    chunk_size = 30
-                    overlap = 6
-                else:
-                    chunk_size = 50
-                    overlap = 8
+                chunk_size = 8
+                overlap = 3
 
                 for i in range(0, total_splits, chunk_size - overlap):
                     end_idx = min(i + chunk_size, total_splits)
@@ -210,16 +193,14 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     )
                     document_chunks.append(chunk_text)
 
-                    # Dừng khi đã đến cuối
                     if end_idx >= total_splits:
                         break
-
     return {"document_chunks": document_chunks, "query": query}
 
 
-# node 2 : generate question
+# node 2 : generate question (với PARALLEL PROCESSING)
 def question_node(state: QState, config: RunnableConfig):
-    """Sinh câu hỏi tự động từ chunks đã tóm tắt."""
+    """Sinh câu hỏi tự động từ chunks đã tóm tắt (PARALLEL)."""
     session_id = config["configurable"].get("thread_id")
     queue = sse_event_queues.get(session_id)
 
@@ -231,60 +212,106 @@ def question_node(state: QState, config: RunnableConfig):
     document_chunks = state.get("document_chunks", [])
     retry_count = state.get("retry_count", 0)
 
-    idx = 0
-    if retry_count == 0:
-        total = len(document_chunks)
-        for chunk in document_chunks:
-            # Gửi progress event để giữ SSE connection sống
+    def process_single_question(chunk_data):
+        """Process một chunk và generate question"""
+        idx, chunk = chunk_data
+        try:
             if queue:
                 try:
-                    queue.put_nowait(
-                        {
-                            "type": "progress",
-                            "message": f"Đang tạo câu hỏi {idx + 1}/{total}...",
-                        }
-                    )
+                    if retry_count == 0:
+                        queue.put_nowait(
+                            {
+                                "type": "progress",
+                                "message": f"Đang tạo câu hỏi chunk {idx + 1}...",
+                            }
+                        )
+                    else:
+                        queue.put_nowait(
+                            {
+                                "type": "progress",
+                                "message": f"Đang tạo lại câu hỏi chunk {idx}...",
+                            }
+                        )
                 except Exception as e:
                     print(f"[SSE] Warning: Could not send progress: {e}")
 
-            prompt = Prompts.QUESTION_GENERATION_PROMPT.format(chunk=chunk, query=query)
+            if retry_count == 0:
+                prompt = Prompts.QUESTION_GENERATION_PROMPT.format(
+                    chunk=chunk, query=query
+                )
+            else:
+                bad_qs = bad_questions.get(str(idx), [])
+                prompt = Prompts.QUESTION_REGENERATION_PROMPT.format(
+                    chunk=chunk, bad_qs=bad_qs, good_questions=good_questions
+                )
+
             response_msg = generate_agent.invoke(
                 {"messages": [HumanMessage(content=prompt)]}, config=config
             )
             question = response_msg["messages"][-1].content
+
+            return (idx, question)
+
+        except Exception as e:
+            print(f"Error processing chunk {idx}: {e}")
+            return (idx, f"[ERROR: Failed to generate question for chunk {idx}]")
+
+    max_workers = 30
+
+    if retry_count == 0:
+        chunks_data = [(idx, chunk) for idx, chunk in enumerate(document_chunks)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(process_single_question, chunk_data): chunk_data[0]
+                for chunk_data in chunks_data
+            }
+            results = {}
+            with tqdm(
+                total=len(futures), desc="Generating questions", disable=True
+            ) as pbar:
+                for future in concurrent.futures.as_completed(futures):
+                    idx, question = future.result()
+                    results[idx] = question
+                    pbar.update(1)
+        for idx in sorted(results.keys()):
             key = idx
             if key not in check_questions:
                 check_questions[key] = []
-            check_questions[key].append(question)
-            idx += 1
+            check_questions[key].append(results[idx])
+
+        print(f"Generated {len(check_questions)} questions in parallel")
 
     else:
-        if bad_questions is not None:
-            for chunk_index, bad_qs in bad_questions.items():
-                # Gửi progress event
-                if queue:
-                    try:
-                        queue.put_nowait(
-                            {
-                                "type": "progress",
-                                "message": f"Đang tạo lại câu hỏi cho chunk {chunk_index}...",
-                            }
-                        )
-                    except Exception as e:
-                        print(f"[SSE] Warning: Could not send progress: {e}")
+        if bad_questions is not None and len(bad_questions) > 0:
+            chunks_to_regenerate = [
+                (int(chunk_index), document_chunks[int(chunk_index)])
+                for chunk_index in bad_questions.keys()
+            ]
 
-                chunk = document_chunks[int(chunk_index)]
-                prompt = Prompts.QUESTION_REGENERATION_PROMPT.format(
-                    chunk=chunk, bad_qs=bad_qs, good_questions=good_questions
-                )
-                response_msg = generate_agent.invoke(
-                    {"messages": [HumanMessage(content=prompt)]}, config=config
-                )
-                question = response_msg["messages"][-1].content
-                key = str(chunk_index)
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
+                futures = {
+                    executor.submit(process_single_question, chunk_data): chunk_data[0]
+                    for chunk_data in chunks_to_regenerate
+                }
+
+                results = {}
+                with tqdm(
+                    total=len(futures), desc="Regenerating questions", disable=True
+                ) as pbar:
+                    for future in concurrent.futures.as_completed(futures):
+                        idx, question = future.result()
+                        results[idx] = question
+                        pbar.update(1)
+
+            for idx in sorted(results.keys()):
+                key = str(idx)
                 if key not in check_questions:
                     check_questions[key] = []
-                check_questions[key].append(question)
+                check_questions[key].append(results[idx])
+
+            print(f"Regenerated {len(check_questions)} questions in parallel")
 
     return {
         "check_questions": check_questions,
@@ -292,120 +319,280 @@ def question_node(state: QState, config: RunnableConfig):
     }
 
 
-# node 3 : answer generate
+# node 3 : answer generate (với PARALLEL PROCESSING)
 def answer_node(state: QState, config: RunnableConfig):
-    """Sinh ra các đáp án cho các câu hỏi dựa trên các đoạn tài liệu đã tóm tắt."""
+    """Sinh ra các đáp án cho các câu hỏi dựa trên các đoạn tài liệu đã tóm tắt (PARALLEL)."""
     session_id = config["configurable"].get("thread_id")
     queue = sse_event_queues.get(session_id)
 
     check_questions = state.get("check_questions", {})
     question_answers = {}
 
-    total = len(check_questions)
-    current = 0
+    def process_single_answer(question_data):
+        """Process một chunk questions và generate answers"""
+        idx, questions = question_data
+        try:
+            if queue:
+                try:
+                    queue.put_nowait(
+                        {
+                            "type": "progress",
+                            "message": f"Đang tạo đáp án chunk {idx}...",
+                        }
+                    )
+                except Exception as e:
+                    print(f"[SSE] Warning: Could not send progress: {e}")
 
-    for idx, questions in check_questions.items():
-        # Gửi progress event để giữ SSE connection sống
-        if queue:
-            try:
-                queue.put_nowait(
-                    {
-                        "type": "progress",
-                        "message": f"Đang tạo đáp án {current + 1}/{total}...",
-                    }
-                )
-            except Exception as e:
-                print(f"[SSE] Warning: Could not send progress: {e}")
+            formatted_prompt = f"Chunk {idx}\n" + "\n".join([q for q in questions])
 
-        formatted_prompt = f"Chunk {idx}\n" + "\n".join([q for q in questions])
+            prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
+            response_msg = generate_agent.invoke(
+                {"messages": [HumanMessage(content=prompt)]}, config=config
+            )
+            question_answer = response_msg["messages"][-1].content
 
-        prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
-        response_msg = generate_agent.invoke(
-            {"messages": [HumanMessage(content=prompt)]}, config=config
-        )
-        question_answer = response_msg["messages"][-1].content
+            return (idx, question_answer)
+
+        except Exception as e:
+            print(f"Error generating answer for chunk {idx}: {e}")
+            return (idx, f"[ERROR: Failed to generate answer for chunk {idx}]")
+
+    max_workers = 30
+
+    questions_data = [(idx, questions) for idx, questions in check_questions.items()]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_single_answer, question_data): question_data[0]
+            for question_data in questions_data
+        }
+
+        results = {}
+        with tqdm(total=len(futures), desc="Generating answers", disable=True) as pbar:
+            for future in concurrent.futures.as_completed(futures):
+                idx, answer = future.result()
+                results[idx] = answer
+                pbar.update(1)
+
+    for idx in sorted(
+        results.keys(),
+        key=lambda x: int(x) if isinstance(x, str) and x.isdigit() else x,
+    ):
         chunk_idx = str(idx)
         if chunk_idx not in question_answers:
             question_answers[chunk_idx] = []
-        question_answers[chunk_idx].append(question_answer)
-        current += 1
+        question_answers[chunk_idx].append(results[idx])
+
+    print(f"Generated answers for {len(question_answers)} chunks in parallel")
 
     return {
         "question_answers": question_answers,
     }
 
 
+# chia question thành 10 phần nhỏ để đánh giá song song căn cứ vào số chunk
 # node 3 : đánh giá chất lượng câu hỏi, nếu chưa tốt quay lại bước 2
 def judge(state: QState, config: RunnableConfig):
-    """Đánh giá chất lượng cặp question và answer, phân loại good/bad."""
+    """Đánh giá chất lượng cặp question và answer, phân loại good/bad (PARALLEL)."""
+    session_id = config["configurable"].get("thread_id")
+    queue = sse_event_queues.get(session_id)
 
     question_answers = state.get("question_answers", {})
-
-    formatted_question_answers = format_question_answer_dict(question_answers)
-
     good_question_answers = state.get("good_question_answers", None)
     good_questions = state.get("good_questions", None)
-    retry = state.get("retry_count", 0)
-
-    prompt = Prompts.EVALUATE_QA_PROMPT.format(
-        question_answers=formatted_question_answers
+    retry = state.get("retry_count", 0)  # Đếm số chunk và tính số worker phù hợp
+    num_chunks = len(question_answers)
+    chunks_per_worker = 3
+    batch_size = min(num_chunks, chunks_per_worker)
+    max_workers = min(
+        10, max(1, (num_chunks + chunks_per_worker - 1) // chunks_per_worker)
     )
-    response_msg = generate_agent.invoke(
-        {"messages": [HumanMessage(content=prompt)]}, config=config
+
+    print(
+        f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
     )
 
-    judgment = response_msg["messages"][-1].content.strip()
-
-    if judgment.startswith("```"):
-        judgment = re.sub(r"^```(json)?", "", judgment.strip())
-        judgment = re.sub(r"```$", "", judgment.strip())
-        judgment = judgment.strip()
-
-    try:
-        result = json.loads(judgment)
-    except json.JSONDecodeError as e:
-        print(f"JSONDecodeError: {e}")
-        print(f"Error at line {e.lineno}, column {e.colno}, position {e.pos}")
-
-        judgment_fixed = re.sub(
-            r'\\(?![ntr"\\/bfu])',
-            r"\\\\",
-            judgment,
-        )
-
+    def process_judge_batch(batch_data):
+        """Process một batch của question_answers"""
+        batch_id, batch_dict = batch_data
         try:
-            result = json.loads(judgment_fixed)
-        except json.JSONDecodeError as e2:
-            print(f"Still failed after fix: {e2}")
-            print(
-                f"Content around error: {judgment_fixed[max(0, e2.pos - 100) : e2.pos + 100]}"
+            if queue:
+                try:
+                    queue.put_nowait(
+                        {
+                            "type": "progress",
+                            "message": f"Đang đánh giá batch {batch_id + 1}...",
+                        }
+                    )
+                except Exception as e:
+                    print(f"[SSE] Warning: Could not send progress: {e}")
+
+            formatted_batch = format_question_answer_dict(batch_dict)
+
+            prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=formatted_batch)
+            response_msg = generate_agent.invoke(
+                {"messages": [HumanMessage(content=prompt)]}, config=config
             )
 
-            result = {
-                "good_question_answer": {},
-                "bad_questions": {},
-                "good_questions": {},
-            }
+            judgment = response_msg["messages"][-1].content.strip()
 
-    good_question_answer = result.get("good_question_answer", {})
-    bad_questions = result.get("bad_questions", {})
-    good_question = result.get("good_questions", {})
+            if judgment.startswith("```"):
+                judgment = re.sub(r"^```(json)?", "", judgment.strip())
+                judgment = re.sub(r"```$", "", judgment.strip())
+                judgment = judgment.strip()
+
+            try:
+                result = json.loads(judgment)
+            except json.JSONDecodeError as e:
+                print(f"JSONDecodeError in batch {batch_id}: {e}")
+                print(f"Error position: line {e.lineno}, column {e.colno}")
+
+                # Log phần JSON bị lỗi để debug
+                error_start = max(0, e.pos - 100)
+                error_end = min(len(judgment), e.pos + 100)
+                print(f"Content around error:\n{judgment[error_start:error_end]}")
+
+                try:
+                    # Fix 1: Thêm closing brackets nếu thiếu
+                    if judgment.count("{") > judgment.count("}"):
+                        judgment_fixed = judgment + "}"
+                    elif judgment.count("[") > judgment.count("]"):
+                        judgment_fixed = judgment + "]"
+                    else:
+                        judgment_fixed = re.sub(
+                            r'\\(?![ntr"\\/bfu])', r"\\\\", judgment
+                        )
+                    result = json.loads(judgment_fixed)
+
+                    print(f"Fixed JSON successfully for batch {batch_id}")
+                except json.JSONDecodeError as e2:
+                    print(f"Still failed after fix in batch {batch_id}: {e2}")
+
+                    # Fallback: Thử parse từng phần
+                    try:
+                        valid_json = judgment[: e.pos].rstrip()
+                        last_open = max(valid_json.rfind("{"), valid_json.rfind("["))
+                        if last_open > 0:
+                            partial = valid_json[:last_open]
+                            if partial.count("{") > partial.count("}"):
+                                partial += "}"
+                            if partial.count("[") > partial.count("]"):
+                                partial += "]"
+                            result = json.loads(partial)
+                            print(f"Using partial JSON for batch {batch_id}")
+                        else:
+                            raise e2
+                    except Exception as e3:
+                        print(
+                            f"All fixes failed for batch {batch_id}: {e3}, using empty result"
+                        )
+                        result = {
+                            "good_question_answer": {},
+                            "bad_questions": {},
+                            "good_questions": {},
+                        }
+
+            return (batch_id, result)
+
+        except Exception as e:
+            print(f"Error judging batch {batch_id}: {e}")
+            return (
+                batch_id,
+                {
+                    "good_question_answer": {},
+                    "bad_questions": {},
+                    "good_questions": {},
+                },
+            )
+
+    # Chia question_answers thành batches
+    chunk_items = list(question_answers.items())
+    batches = []
+    for i in range(0, len(chunk_items), batch_size):
+        batch_dict = dict(chunk_items[i : i + batch_size])
+        batches.append((len(batches), batch_dict))
+
+    # PARALLEL PROCESSING
+    all_good_question_answer = {}
+    all_bad_questions = {}
+    all_good_question = {}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_judge_batch, batch_data): batch_data[0]
+            for batch_data in batches
+        }
+
+        results = {}
+        with tqdm(total=len(futures), desc="Judging batches", disable=True) as pbar:
+            for future in concurrent.futures.as_completed(futures):
+                batch_id, result = future.result()
+                results[batch_id] = result
+                pbar.update(1)
+
+    # Merge results from all batches - nối các kết quả lại thành một dictionary hoàn chỉnh
+    for batch_id in sorted(results.keys()):
+        result = results[batch_id]
+
+        good_question_answer = result.get("good_question_answer", {})
+        bad_questions_batch = result.get("bad_questions", {})
+        good_question_batch = result.get("good_questions", {})
+
+        # Merge good_question_answer - parse JSON nếu cần
+        for k, v in good_question_answer.items():
+            if k not in all_good_question_answer:
+                all_good_question_answer[k] = []
+
+            # Parse JSON string nếu v là string
+            if isinstance(v, str):
+                try:
+                    # Remove markdown code fences if present
+                    v_cleaned = v.strip()
+                    if v_cleaned.startswith("```"):
+                        v_cleaned = re.sub(r"^```(?:json)?\s*\n", "", v_cleaned)
+                        v_cleaned = re.sub(r"\n```\s*$", "", v_cleaned)
+                        v_cleaned = v_cleaned.strip()
+
+                    parsed_v = json.loads(v_cleaned)
+                    if isinstance(parsed_v, list):
+                        all_good_question_answer[k].extend(parsed_v)
+                    else:
+                        all_good_question_answer[k].append(parsed_v)
+                except json.JSONDecodeError:
+                    # Nếu không parse được, giữ nguyên
+                    all_good_question_answer[k].append(v)
+            elif isinstance(v, list):
+                all_good_question_answer[k].extend(v)
+            else:
+                all_good_question_answer[k].append(v)
+
+        # Merge bad_questions
+        for k, v in bad_questions_batch.items():
+            if k not in all_bad_questions:
+                all_bad_questions[k] = []
+            if isinstance(v, list):
+                all_bad_questions[k].extend(v)
+            else:
+                all_bad_questions[k].append(v)
+
+        # Merge good_questions
+        for k, v in good_question_batch.items():
+            if k not in all_good_question:
+                all_good_question[k] = []
+            if isinstance(v, list):
+                all_good_question[k].extend(v)
+            else:
+                all_good_question[k].append(v)
 
     # Cập nhật good_questions
     if good_questions is None:
         good_questions = {}
-    for k, v in good_question.items():
+    for k, v in all_good_question.items():
         if k not in good_questions:
             good_questions[k] = []
-        if isinstance(v, list):
-            good_questions[k].extend(v)
-        else:
-            good_questions[k].append(v)
-
     # Cập nhật good_question_answers
     if good_question_answers is None:
         good_question_answers = {}
-    for k, v in good_question_answer.items():
+    for k, v in all_good_question_answer.items():
         if k not in good_question_answers:
             good_question_answers[k] = []
         if isinstance(v, list):
@@ -415,8 +602,12 @@ def judge(state: QState, config: RunnableConfig):
 
     retry += 1
 
+    print(
+        f"Judge completed: {len(all_good_question_answer)} good, {len(all_bad_questions)} bad chunks"
+    )
+
     return {
-        "bad_questions": bad_questions,
+        "bad_questions": all_bad_questions,
         "retry_count": retry,
         "good_question_answers": good_question_answers,
         "good_questions": good_questions,
@@ -439,22 +630,119 @@ def should_continue(state: QState) -> str:
 
 # node 5 : đánh giá lại 1 lần nữa rồi cho đáp án cuối cùng
 def validate(state: QState, config: RunnableConfig):
-    """Xác nhận đầu ra cuối cùng."""
-    good_question_answers = state.get("good_question_answers", None)
+    """Xác nhận đầu ra cuối cùng (PARALLEL)."""
+    session_id = config["configurable"].get("thread_id")
+    queue = sse_event_queues.get(session_id)
 
-    formatted_question_answers = format_dict_to_markdown(good_question_answers)
+    good_question_answers = state.get("good_question_answers", None)
+    question_answers = state.get("question_answers", {})
     query = state.get("query", None)
 
-    system_message = SystemMessage(
-        content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
-            questions=formatted_question_answers, query=query
-        )
+    # Chọn dữ liệu để validate
+    data_to_validate = (
+        good_question_answers if good_question_answers is not None else question_answers
     )
 
-    prompt = {"messages": [system_message]}
-    response_msg = generate_agent.invoke(prompt, config=config)
-    content = response_msg["messages"][-1].content
-    return {"quizz": content}
+    num_chunks = len(data_to_validate)
+
+    chunks_per_worker = 5
+    batch_size = min(num_chunks, chunks_per_worker)
+    max_workers = min(
+        10, max(1, (num_chunks + chunks_per_worker - 1) // chunks_per_worker)
+    )
+
+    print(
+        f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
+    )
+
+    def process_validate_batch(batch_data):
+        """Process một batch của question_answers để validate"""
+        batch_id, batch_dict = batch_data
+        try:
+            if queue:
+                try:
+                    queue.put_nowait(
+                        {
+                            "type": "progress",
+                            "message": f"Đang đánh giá cuối cùng batch {batch_id + 1}...",
+                        }
+                    )
+                except Exception as e:
+                    print(f"[SSE] Warning: Could not send progress: {e}")
+
+            formatted_batch = format_dict_to_markdown(batch_dict)
+
+            system_message = SystemMessage(
+                content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
+                    questions=formatted_batch, query=query, num_chunks=num_chunks
+                )
+            )
+
+            prompt = {"messages": [system_message]}
+            response_msg = generate_agent.invoke(prompt, config=config)
+            content = response_msg["messages"][-1].content
+
+            return (batch_id, content)
+
+        except Exception as e:
+            print(f"❌ Error validating batch {batch_id}: {e}")
+            return (batch_id, f"[ERROR: Failed to validate batch {batch_id}]")
+
+    # Chia data_to_validate thành batches
+    chunk_items = list(data_to_validate.items())
+    batches = []
+    for i in range(0, len(chunk_items), batch_size):
+        batch_dict = dict(chunk_items[i : i + batch_size])
+        batches.append((len(batches), batch_dict))
+
+    # PARALLEL PROCESSING
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_validate_batch, batch_data): batch_data[0]
+            for batch_data in batches
+        }
+
+        results = {}
+        with tqdm(total=len(futures), desc="Validating batches", disable=True) as pbar:
+            for future in concurrent.futures.as_completed(futures):
+                batch_id, content = future.result()
+                results[batch_id] = content
+                pbar.update(1)
+
+    # Merge results from all batches - Parse JSON từ mỗi batch
+    all_questions = []
+    for batch_id in sorted(results.keys()):
+        batch_content = results[batch_id].strip()
+
+        # Skip error messages
+        if batch_content.startswith("[ERROR:"):
+            print(f"Skipping error batch {batch_id}")
+            continue
+
+        # Remove markdown code fences if present
+        if batch_content.startswith("```"):
+            batch_content = re.sub(r"^```(?:json)?\s*\n", "", batch_content)
+            batch_content = re.sub(r"\n```\s*$", "", batch_content)
+            batch_content = batch_content.strip()
+
+        try:
+            # Parse JSON array from each batch
+            batch_questions = json.loads(batch_content)
+            if isinstance(batch_questions, list):
+                all_questions.extend(batch_questions)
+            elif isinstance(batch_questions, dict):
+                all_questions.append(batch_questions)
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse JSON from batch {batch_id}: {e}")
+            print(f"Content: {batch_content[:200]}...")
+            continue
+    final_quizz_json = json.dumps(all_questions, ensure_ascii=False, indent=2)
+
+    print(
+        f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions"
+    )
+
+    return {"quizz": final_quizz_json}
 
 
 workflow = StateGraph(QState)
@@ -493,7 +781,6 @@ async def document_processing_tool(query: str, config: RunnableConfig):
     if not session_id:
         return "session_id không hợp lệ."
 
-    # Ensure a queue exists for this session (client may not have connected yet)
     if session_id not in sse_event_queues:
         import asyncio
 
@@ -513,22 +800,38 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         result = await process_pdf(
             session_id, document_processing_agent=document_processing_agent, query=query
         )
-        print(f"[DocumentProcessing] process_pdf completed for session_id: {session_id}")
+        print(
+            f"[DocumentProcessing] process_pdf completed for session_id: {session_id}"
+        )
         print(f"[DocumentProcessing] Result: {result}")
 
-        # Send done event - CRITICAL for client to auto-display project
-        # Client expects: event.data === "done" (string, not JSON object)
-        if queue:
-            await queue.put("done")  # Send string "done", not dict
-            print(f"[DocumentProcessing] ✅ SSE 'done' event (string) sent to {session_id}")
-        else:
-            print(f"[DocumentProcessing] ❌ SSE queue not found for session_id: {session_id}")
+        import asyncio
+
+        for i in range(5):
+            current_queue = sse_event_queues.get(session_id)
+            if current_queue:
+                await current_queue.put("done")
+                print(
+                    f"[DocumentProcessing] SSE 'done' event (string) sent to {session_id}"
+                )
+                break
+            else:
+                if i < 4:
+                    print(
+                        f"[DocumentProcessing] SSE queue not found, retrying in 1s ({i + 1}/5)..."
+                    )
+                    await asyncio.sleep(1)
+                else:
+                    print(
+                        f"[DocumentProcessing] SSE queue not found for session_id: {session_id} after retries (Client disconnected)"
+                    )
 
         return "Đã tạo câu hỏi thành công từ tài liệu."
 
     except Exception as e:
-        print(f"[DocumentProcessing] ❌ Error during processing: {e}")
+        print(f"[DocumentProcessing] Error during processing: {e}")
         import traceback
+
         traceback.print_exc()
         if queue:
             try:
@@ -536,6 +839,9 @@ async def document_processing_tool(query: str, config: RunnableConfig):
             except Exception:
                 pass
         raise
+
+
+# For tool
 
 
 @tool("document_summarize_tool")

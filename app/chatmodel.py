@@ -15,7 +15,7 @@ def init_llm(model: str, **kwargs) -> BaseChatModel:
 
     model = "google_genai:" + model if model.startswith("gemini") else model
     llm_config = dict(
-        max_tokens=6000,
+        max_tokens=10000,
         temperature=0,
         timeout=None,
         max_retries=2,

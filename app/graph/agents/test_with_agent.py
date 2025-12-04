@@ -1,0 +1,315 @@
+import json
+import re
+from typing import List, Dict
+from datetime import datetime
+
+from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import HumanMessage
+from langfuse.callback import CallbackHandler
+
+from app.graph.generate import generate_agent
+from app.graph.test_prompt import (
+    Understanding_Evaluation_Prompt,
+    Clarity_Evaluation_Prompt,
+    Quality_of_Choices_Evaluation_Prompt,
+    Difficulty_Evaluation_Prompt,
+    Cognitive_Level_Evaluation_Prompt,
+    Engagement_Evaluation_Prompt,
+)
+from app.services.minio_client import minio_client
+from app.graph.agents.document_processing import document_processing_agent
+from app.config import settings
+
+tracer = CallbackHandler(
+    tags=["code"],
+    public_key=settings.LANGFUSE_PUBLIC_KEY,
+    secret_key=settings.LANGFUSE_SECRET_KEY,
+    host=settings.LANGFUSE_HOST,
+)
+
+
+class QualityTester:
+    """Test agent sử dụng document_processing_agent để đánh giá chất lượng câu hỏi"""
+
+    def __init__(self):
+        self.results = []
+        self.evaluation_prompts = {
+            "understanding": Understanding_Evaluation_Prompt,
+            "clarity": Clarity_Evaluation_Prompt,
+            "quality_of_choices": Quality_of_Choices_Evaluation_Prompt,
+            "difficulty": Difficulty_Evaluation_Prompt,
+            "cognitive_level": Cognitive_Level_Evaluation_Prompt,
+            "engagement": Engagement_Evaluation_Prompt,
+        }
+
+    def list_quality_folders(self) -> List[str]:
+        """List tất cả folders có tên bắt đầu bằng 'quality' trên MinIO"""
+        try:
+            objects = minio_client.client.list_objects(
+                minio_client.bucket_name, recursive=False
+            )
+
+            quality_folders = set()
+            for obj in objects:
+                folder_name = obj.object_name.split("/")[0]
+                if folder_name.startswith("quality"):
+                    quality_folders.add(folder_name)
+
+            folders = sorted(list(quality_folders))
+            print(f"Found {len(folders)} quality folders: {folders}")
+            return folders[:10]
+
+        except Exception as e:
+            print(f"Error listing quality folders: {e}")
+            return []
+
+    def verify_folder_has_docs(self, folder_name: str) -> bool:
+        """Kiểm tra folder có chứa file _docs.txt hay không"""
+        try:
+            objects = minio_client.client.list_objects(
+                minio_client.bucket_name, prefix=f"{folder_name}/", recursive=True
+            )
+
+            for obj in objects:
+                if obj.object_name.endswith("_docs.txt"):
+                    filename = obj.object_name.split("/")[-1]
+                    file_id = filename.replace("_docs.txt", "")
+                    print(f"Found docs file: {folder_name}/{file_id}_docs.txt")
+                    return True
+            print(f"No _docs.txt found in {folder_name}")
+            return False
+        except Exception as e:
+            print(f"Error verifying folder {folder_name}: {e}")
+            return False
+
+    def evaluate_question(self, qa: dict, metric: str, config: RunnableConfig) -> int:
+        """Đánh giá một câu hỏi theo metric cụ thể"""
+        try:
+            prompt_template = self.evaluation_prompts[metric]
+
+            question = qa.get("question", "")
+            options = "\n".join(qa.get("options", []))
+            answer_idx = qa.get("correct_answer", 0)
+            answer = (
+                qa.get("options", [])[answer_idx]
+                if answer_idx < len(qa.get("options", []))
+                else ""
+            )
+
+            prompt = prompt_template.format(
+                question=question, options=options, answer=answer
+            )
+
+            response_msg = generate_agent.invoke(
+                {"messages": [HumanMessage(content=prompt)]}, config=config
+            )
+            content = response_msg["messages"][-1].content.strip()
+
+            # Extract score (1-4)
+            match = re.search(r"[1-4]", content)
+            score = int(match.group()) if match else 0
+            return score
+
+        except Exception as e:
+            print(f"Error evaluating {metric}: {e}")
+            return 0
+
+    def calculate_score_distribution(
+        self, evaluated_questions: List[dict]
+    ) -> Dict[str, Dict[int, int]]:
+        """Đếm số lượng câu hỏi theo từng mức điểm (1-4) cho mỗi metric"""
+        distribution = {
+            metric: {1: 0, 2: 0, 3: 0, 4: 0}
+            for metric in self.evaluation_prompts.keys()
+        }
+
+        for qa in evaluated_questions:
+            scores = qa.get("scores", {})
+            for metric, score in scores.items():
+                if 1 <= score <= 4:
+                    distribution[metric][score] += 1
+
+        return distribution
+
+    def process_folder(self, folder_name: str, target_questions: int = 100):
+        """Xử lý một folder bằng document_processing_agent"""
+        print(f"\n{'=' * 80}")
+        print(f"Processing folder: {folder_name}")
+        print(f"{'=' * 80}")
+
+        if not self.verify_folder_has_docs(folder_name):
+            return None
+
+        config = RunnableConfig(
+            configurable={"thread_id": folder_name}, callbacks=[tracer]
+        )
+
+        query = f"Tạo {target_questions} câu hỏi trắc nghiệm từ tài liệu"
+
+        print("Running document_processing_agent...")
+        result = document_processing_agent.invoke({"query": query}, config=config)
+
+        # 4. Extract questions from result
+        quizz_json = result.get("quizz", "[]")
+
+        try:
+            questions = json.loads(quizz_json)
+            if not isinstance(questions, list):
+                questions = []
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse quizz JSON: {e}")
+            questions = []
+
+        print(f"Generated {len(questions)} questions")
+
+        if not questions:
+            return None
+
+        # 5. Evaluate questions
+        print(f"Evaluating {len(questions)} questions...")
+        evaluated_questions = []
+
+        for qa in questions[:target_questions]:  # Limit to target
+            scores = {}
+            for metric in self.evaluation_prompts.keys():
+                score = self.evaluate_question(qa, metric, config)
+                scores[metric] = score
+
+            avg_score = sum(scores.values()) / len(scores) if scores else 0
+
+            evaluated_questions.append(
+                {
+                    **qa,
+                    "scores": scores,
+                    "average_score": round(avg_score, 2),
+                }
+            )
+
+        # 6. Calculate score distribution
+        score_distribution = self.calculate_score_distribution(evaluated_questions)
+
+        # 7. Calculate statistics
+        avg_scores = {
+            metric: sum(q["scores"].get(metric, 0) for q in evaluated_questions)
+            / len(evaluated_questions)
+            for metric in self.evaluation_prompts.keys()
+        }
+
+        overall_avg = sum(avg_scores.values()) / len(avg_scores)
+
+        folder_result = {
+            "folder_name": folder_name,
+            "timestamp": datetime.now().isoformat(),
+            "total_questions": len(evaluated_questions),
+            "score_distribution": score_distribution,
+            "average_scores": {k: round(v, 2) for k, v in avg_scores.items()},
+            "overall_average": round(overall_avg, 2),
+            "questions": evaluated_questions,
+        }
+
+        print(f"\n📊 Results for {folder_name}:")
+        print(f"   Total questions: {len(evaluated_questions)}")
+        print(f"   Overall average: {folder_result['overall_average']:.2f}\n")
+
+        print("   Score Distribution (count per level):")
+        for metric in self.evaluation_prompts.keys():
+            dist = score_distribution[metric]
+            print(
+                f"   {metric:20s}: [1⭐:{dist[1]:3d}] [2⭐:{dist[2]:3d}] [3⭐:{dist[3]:3d}] [4⭐:{dist[4]:3d}] (avg: {avg_scores[metric]:.2f})"
+            )
+
+        return folder_result
+
+    def run_test(self, max_folders: int = 10, questions_per_doc: int = 100):
+        """Chạy test trên nhiều folders"""
+        print(f"\n{'=' * 80}")
+        print("Starting Quality Test with document_processing_agent")
+        print(f"{'=' * 80}\n")
+
+        # 1. List quality folders
+        folders = self.list_quality_folders()
+        folders = folders[:max_folders]
+
+        if not folders:
+            print(" No quality folders found!")
+            return
+
+        print(f"Processing {len(folders)} folders...\n")
+
+        # 2. Process each folder
+        for folder in folders:
+            try:
+                result = self.process_folder(folder, questions_per_doc)
+                if result:
+                    self.results.append(result)
+            except Exception as e:
+                print(f"Error processing {folder}: {e}")
+                continue
+
+        self.save_results()
+        self.print_summary()
+
+    def save_results(self):
+        """Lưu kết quả vào JSON file"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"/home/hungmanh/Documents/CodeMentor/app/data/quality_test_results_{timestamp}.json"
+
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(self.results, f, ensure_ascii=False, indent=2)
+
+        print(f"\n Results saved to: {filename}")
+
+    def print_summary(self):
+        """In tổng kết kết quả"""
+        if not self.results:
+            print("\n No results to summarize!")
+            return
+
+        print(f"\n{'=' * 80}")
+        print("📈 SUMMARY - Quality Test Results")
+        print(f"{'=' * 80}\n")
+
+        total_questions = sum(r["total_questions"] for r in self.results)
+        print(f"📊 Total folders processed: {len(self.results)}")
+        print(f"📊 Total questions evaluated: {total_questions}\n")
+
+        # Calculate overall score distribution across all documents
+        all_metrics = list(self.evaluation_prompts.keys())
+        overall_distribution = {
+            metric: {1: 0, 2: 0, 3: 0, 4: 0} for metric in all_metrics
+        }
+
+        for result in self.results:
+            dist = result["score_distribution"]
+            for metric in all_metrics:
+                for score in [1, 2, 3, 4]:
+                    overall_distribution[metric][score] += dist[metric][score]
+
+        # Calculate overall averages
+        overall_by_metric = {
+            metric: sum(r["average_scores"][metric] for r in self.results)
+            / len(self.results)
+            for metric in all_metrics
+        }
+
+        print("📊 Overall Score Distribution (across all documents):")
+        print("-" * 80)
+        for metric in all_metrics:
+            dist = overall_distribution[metric]
+            total = sum(dist.values())
+            print(f"{metric:20s}: ", end="")
+            print(f"[1⭐:{dist[1]:4d} ({dist[1] / total * 100:5.1f}%)] ", end="")
+            print(f"[2⭐:{dist[2]:4d} ({dist[2] / total * 100:5.1f}%)] ", end="")
+            print(f"[3⭐:{dist[3]:4d} ({dist[3] / total * 100:5.1f}%)] ", end="")
+            print(f"[4⭐:{dist[4]:4d} ({dist[4] / total * 100:5.1f}%)] ", end="")
+            print(f"(avg: {overall_by_metric[metric]:.2f})")
+
+        overall_avg = sum(overall_by_metric.values()) / len(overall_by_metric)
+        print(f"\n🏆 OVERALL AVERAGE SCORE: {overall_avg:.2f}")
+
+        print(f"\n{'=' * 80}\n")
+
+
+if __name__ == "__main__":
+    tester = QualityTester()
+    tester.run_test(max_folders=10, questions_per_doc=100)

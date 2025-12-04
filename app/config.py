@@ -22,6 +22,7 @@ class GlobalConfig(BaseSettings):
     CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
 
     # Chat mmind map
+    GEMINI_API_KEY: Optional[str] = Field(default=None)
 
     # Chat model vision (Openai)
     CHAT_MODEL_VISION_KEY: Optional[str] = Field(default=None)
