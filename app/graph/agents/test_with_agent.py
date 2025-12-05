@@ -16,6 +16,7 @@ from app.graph.test_prompt import (
     Cognitive_Level_Evaluation_Prompt,
     Engagement_Evaluation_Prompt,
 )
+
 from app.services.minio_client import minio_client
 from app.graph.agents.document_processing import document_processing_agent
 from app.config import settings
@@ -42,44 +43,48 @@ class QualityTester:
             "engagement": Engagement_Evaluation_Prompt,
         }
 
+        # Hardcode danh sách folders và file_id tương ứng
+        # Cấu trúc: {folder_name: file_id}
+        # MinIO structure: folder_name/file_id_docs.txt
+        # Mỗi folder chỉ chứa 1 file duy nhất
+        self.test_data = {
+            "quality_02eb6eda": "wcgx6op29zjhgnamk3rkkj",
+            "quality_45c48cce": "fn3jd6awgbooze9xa7ito",
+            "quality_119d07f2": "3r41au7mq0m67ajre6cuup",
+            "quality_396a405c": "zl4pxbrrp7nvyvuqba9s6k",
+            "quality_9040fc0e": "kg41nifyuqzv5qduk5bs",
+            "quality_16705013": "kb0rm6pjaz4qbrz05p1r3",
+            "quality_a09c0f36": "nol5ats9whlmh0dt7u43i",
+            "quality_c4c0cfa0": "wsuvkfod09hrb2bjfcynv",
+            "quality_ca9c24a7": "0gtqkqqucjnjpi021541ta",
+            "quality_d3d94468": "xg8btwgv034yvs1zasbnx",
+        }
+
     def list_quality_folders(self) -> List[str]:
-        """List tất cả folders có tên bắt đầu bằng 'quality' trên MinIO"""
-        try:
-            objects = minio_client.client.list_objects(
-                minio_client.bucket_name, recursive=False
-            )
+        """Trả về danh sách folders đã hardcode"""
+        folders = list(self.test_data.keys())
+        print(f"📂 Configured {len(folders)} test folders")
+        return folders
 
-            quality_folders = set()
-            for obj in objects:
-                folder_name = obj.object_name.split("/")[0]
-                if folder_name.startswith("quality"):
-                    quality_folders.add(folder_name)
+    def verify_folder_on_minio(self, folder_name: str) -> bool:
+        """Verify file cụ thể tồn tại trên MinIO
 
-            folders = sorted(list(quality_folders))
-            print(f"Found {len(folders)} quality folders: {folders}")
-            return folders[:10]
+        Note: MinIO structure: folder_name/file_id_docs.txt
+        Example: quality_d3d94468/zl4pxbrrp7nvyvuqba9s6k_docs.txt
+        """
+        file_id = self.test_data.get(folder_name)
 
-        except Exception as e:
-            print(f"Error listing quality folders: {e}")
-            return []
-
-    def verify_folder_has_docs(self, folder_name: str) -> bool:
-        """Kiểm tra folder có chứa file _docs.txt hay không"""
-        try:
-            objects = minio_client.client.list_objects(
-                minio_client.bucket_name, prefix=f"{folder_name}/", recursive=True
-            )
-
-            for obj in objects:
-                if obj.object_name.endswith("_docs.txt"):
-                    filename = obj.object_name.split("/")[-1]
-                    file_id = filename.replace("_docs.txt", "")
-                    print(f"Found docs file: {folder_name}/{file_id}_docs.txt")
-                    return True
-            print(f"No _docs.txt found in {folder_name}")
+        if not file_id:
+            print(f"   ❌ No file_id configured for folder: {folder_name}")
             return False
-        except Exception as e:
-            print(f"Error verifying folder {folder_name}: {e}")
+
+        minio_path = f"{folder_name}/{file_id}_docs.txt"
+
+        if minio_client.file_exists(minio_path):
+            print(f"   ✓ Found: {minio_path}")
+            return True
+        else:
+            print(f"   ❌ Missing: {minio_path}")
             return False
 
     def evaluate_question(self, qa: dict, metric: str, config: RunnableConfig) -> int:
@@ -132,22 +137,42 @@ class QualityTester:
         return distribution
 
     def process_folder(self, folder_name: str, target_questions: int = 100):
-        """Xử lý một folder bằng document_processing_agent"""
+        """Xử lý một folder bằng document_processing_agent
+
+        Note: folder_name = session_id (ví dụ: quality_d3d94468)
+        Folder chứa nhiều file: quality_d3d94468/file_id1_docs.txt, file_id2_docs.txt...
+        """
         print(f"\n{'=' * 80}")
-        print(f"Processing folder: {folder_name}")
+        print(f"📂 Processing folder: {folder_name}")
         print(f"{'=' * 80}")
 
-        if not self.verify_folder_has_docs(folder_name):
+        print("🔍 Verifying folder on MinIO...")
+        if not self.verify_folder_on_minio(folder_name):
+            print(f"⚠️  Skipping folder {folder_name} - no files found")
             return None
 
+        print("✅ Ready to process\n")
+
+        # Tạo đường dẫn MinIO đầy đủ
+        file_id = self.test_data.get(folder_name)
+        minio_path = f"{folder_name}/{file_id}_docs.txt"
+
+        print(f"📄 MinIO path: {minio_path}")
+
         config = RunnableConfig(
-            configurable={"thread_id": folder_name}, callbacks=[tracer]
+            configurable={"thread_id": minio_path}, callbacks=[tracer]
         )
 
         query = f"Tạo {target_questions} câu hỏi trắc nghiệm từ tài liệu"
 
-        print("Running document_processing_agent...")
-        result = document_processing_agent.invoke({"query": query}, config=config)
+        print("🚀 Running document_processing_agent...")
+        print(f"   Query: {query}")
+
+        try:
+            result = document_processing_agent.invoke({"query": query}, config=config)
+        except Exception as e:
+            print(f"❌ Error running agent: {e}")
+            return None
 
         # 4. Extract questions from result
         quizz_json = result.get("quizz", "[]")

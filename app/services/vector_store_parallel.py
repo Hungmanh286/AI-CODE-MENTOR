@@ -118,7 +118,7 @@ def parse_chunk_openai(chunk_images: List[str]) -> str:
         model=model, input=[{"role": "user", "content": content}]
     )
 
-    return response.output_text
+    return response.output_text or ""
 
 
 @rate_limit(rpm=ParallelConfig.RPM_LIMIT)
@@ -132,6 +132,9 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
     Returns:
         Văn bản markdown từ chunk
     """
+    # Tạo client mới cho mỗi thread để tránh thread-safety issues
+    thread_gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
     prompt_text = prompt
     contents = [prompt_text]
 
@@ -144,11 +147,11 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
             )
         )
 
-    response = gemini_client.models.generate_content(
-        model="gemini-2.5-flash", contents=contents
+    response = thread_gemini_client.models.generate_content(
+        model="gemini-2.5-pro", contents=contents
     )
 
-    return response.text
+    return response.text or ""
 
 
 def process_single_chunk(
@@ -263,8 +266,8 @@ def parse_pdf_parallel(
                 results[chunk_idx] = chunk_text
                 pbar.update(1)
 
-    # Reconstruct document in correct order
-    document_parts = [results[i] for i in sorted(results.keys())]
+    # Reconstruct document in correct order, filter out None values
+    document_parts = [results[i] for i in sorted(results.keys()) if results[i]]
 
     document_str = "\n\n".join(document_parts)
 

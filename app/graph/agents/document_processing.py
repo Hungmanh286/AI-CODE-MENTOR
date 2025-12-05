@@ -9,9 +9,7 @@ from langgraph.graph.message import MessagesState
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langfuse.callback import CallbackHandler
-from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain.tools import tool  # noqa
-from langchain_core.messages import AIMessage
 
 
 from app.config import settings
@@ -23,9 +21,10 @@ from app.graph.agents.summarize_agent import pdf_summarize_agent  # noqa
 from app.graph.agents.feedbacks_answer import feedbacks_answer  # noqa
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
-from app.routes.process_data import process_pdf
 from app.chatmodel import init_llm
+from app.routes.process_data import process_pdf
 from app.graph.generate import generate_agent  # noqa
+
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -181,30 +180,33 @@ def document_preprocessing(state: QState, config: RunnableConfig):
             docs_data = minio_client.download_data(docs_minio_path)
             if docs_data:
                 docs_content = docs_data.decode("utf-8")
-                docs = [docs_content]
 
-                splitter = MarkdownHeaderTextSplitter(
-                    headers_to_split_on=[
-                        ("#", "Header_1"),
-                        ("##", "Header_2"),
-                        ("###", "Header_3"),
-                    ],
+                # Chia docs_content thành 10 phần có overlap
+                content_length = len(docs_content)
+                num_parts = 10
+                chunk_size = content_length // num_parts
+                overlap_size = chunk_size // 20  # 20% overlap
+
+                print(f"File {file_id}: Total content length = {content_length} chars")
+                print(
+                    f"Splitting into {num_parts} parts with {overlap_size} chars overlap"
                 )
-                splits = [split for doc in docs for split in splitter.split_text(doc)]
-                total_splits = len(splits)
+                print(f"Each chunk: ~{chunk_size} chars")
 
-                chunk_size = 8
-                overlap = 3
-
-                for i in range(0, total_splits, chunk_size - overlap):
-                    end_idx = min(i + chunk_size, total_splits)
-                    chunk_text = "\n".join(
-                        [split.page_content for split in splits[i:end_idx]]
+                for part_idx in range(num_parts):
+                    start_idx = max(
+                        0, part_idx * chunk_size - overlap_size if part_idx > 0 else 0
                     )
-                    document_chunks.append(chunk_text)
+                    end_idx = min((part_idx + 1) * chunk_size, content_length)
 
-                    if end_idx >= total_splits:
-                        break
+                    part_content = docs_content[start_idx:end_idx]
+                    document_chunks.append(part_content)
+
+                    print(
+                        f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})"
+                    )
+
+                print(f"\nCreated {len(document_chunks)} chunks with overlap")
     return {"document_chunks": document_chunks, "query": query}
 
 
@@ -406,13 +408,13 @@ def judge(state: QState, config: RunnableConfig):
     question_answers = state.get("question_answers", {})
     good_question_answers = state.get("good_question_answers", None)
     good_questions = state.get("good_questions", None)
-    retry = state.get("retry_count", 0)  # Đếm số chunk và tính số worker phù hợp
+    retry = state.get("retry_count", 0)
     num_chunks = len(question_answers)
-    chunks_per_worker = 3
-    batch_size = min(num_chunks, chunks_per_worker)
-    max_workers = min(
-        10, max(1, (num_chunks + chunks_per_worker - 1) // chunks_per_worker)
-    )
+
+    # ✅ Sử dụng cố định 4 workers cho judge
+    max_workers = 4
+    chunks_per_worker = max(1, num_chunks // max_workers)
+    batch_size = max(1, chunks_per_worker)
 
     print(
         f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
@@ -451,13 +453,11 @@ def judge(state: QState, config: RunnableConfig):
                 print(f"JSONDecodeError in batch {batch_id}: {e}")
                 print(f"Error position: line {e.lineno}, column {e.colno}")
 
-                # Log phần JSON bị lỗi để debug
                 error_start = max(0, e.pos - 100)
                 error_end = min(len(judgment), e.pos + 100)
                 print(f"Content around error:\n{judgment[error_start:error_end]}")
 
                 try:
-                    # Fix 1: Thêm closing brackets nếu thiếu
                     if judgment.count("{") > judgment.count("}"):
                         judgment_fixed = judgment + "}"
                     elif judgment.count("[") > judgment.count("]"):
@@ -591,6 +591,15 @@ def judge(state: QState, config: RunnableConfig):
     for k, v in all_good_question.items():
         if k not in good_questions:
             good_questions[k] = []
+
+        if isinstance(v, list):
+            good_questions[k].extend(v)
+        else:
+            good_questions[k].append(v)
+    for k, v in all_good_question.items():
+        if k not in good_questions:
+            good_questions[k] = []
+
     # Cập nhật good_question_answers
     if good_question_answers is None:
         good_question_answers = {}
@@ -621,7 +630,7 @@ def should_continue(state: QState) -> str:
     retry_count = state.get("retry_count", 0)
     bad_questions = state.get("bad_questions", None)
 
-    if len(bad_questions) > 0 and retry_count < max_retry:
+    if len(bad_questions) > 20 and retry_count < max_retry:
         for k, v in bad_questions.items():
             if len(v) > 0:
                 return "question_node"
@@ -640,18 +649,15 @@ def validate(state: QState, config: RunnableConfig):
     question_answers = state.get("question_answers", {})
     query = state.get("query", None)
 
-    # Chọn dữ liệu để validate
     data_to_validate = (
         good_question_answers if good_question_answers is not None else question_answers
     )
 
     num_chunks = len(data_to_validate)
 
-    chunks_per_worker = 5
-    batch_size = min(num_chunks, chunks_per_worker)
-    max_workers = min(
-        10, max(1, (num_chunks + chunks_per_worker - 1) // chunks_per_worker)
-    )
+    max_workers = 3
+    chunks_per_worker = max(1, num_chunks // max_workers)
+    batch_size = max(1, chunks_per_worker)
 
     print(
         f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
@@ -672,10 +678,24 @@ def validate(state: QState, config: RunnableConfig):
                 except Exception as e:
                     print(f"[SSE] Warning: Could not send progress: {e}")
 
-            formatted_batch = format_dict_to_markdown(batch_dict)
+            formatted_questions = ""
+            for chunk_idx, questions_list in batch_dict.items():
+                formatted_questions += f"\n{'=' * 80}\n"
+                formatted_questions += f"CHUNK {chunk_idx}:\n"
+                formatted_questions += f"{'=' * 80}\n"
 
-            prompt = Prompts.EVALUATE_AND_SELECT_PROMPT.format(
-                questions=formatted_batch, query=query, num_chunks=num_chunks
+                if isinstance(questions_list, list):
+                    questions_json = json.dumps(
+                        questions_list, ensure_ascii=False, indent=2
+                    )
+                else:
+                    questions_json = str(questions_list)
+
+                formatted_questions += questions_json + "\n"
+
+            prompt_template = Prompts.EVALUATE_AND_SELECT_PROMPT
+            prompt = prompt_template.replace("{query}", query).replace(
+                "{questions}", formatted_questions
             )
 
             response_msg = llm.invoke(input=prompt, config=config)
@@ -684,7 +704,12 @@ def validate(state: QState, config: RunnableConfig):
             return (batch_id, content)
 
         except Exception as e:
-            print(f"❌ Error validating batch {batch_id}: {e}")
+            print(f" Error validating batch {batch_id}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            print(f"   Batch data keys: {list(batch_dict.keys())}")
+            print(f"   Sample data (first 500 chars): {str(batch_dict)[:500]}...")
             return (batch_id, f"[ERROR: Failed to validate batch {batch_id}]")
 
     # Chia data_to_validate thành batches
@@ -694,7 +719,6 @@ def validate(state: QState, config: RunnableConfig):
         batch_dict = dict(chunk_items[i : i + batch_size])
         batches.append((len(batches), batch_dict))
 
-    # PARALLEL PROCESSING
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(process_validate_batch, batch_data): batch_data[0]
@@ -708,7 +732,6 @@ def validate(state: QState, config: RunnableConfig):
                 results[batch_id] = content
                 pbar.update(1)
 
-    # Merge results from all batches - Parse JSON từ mỗi batch
     all_questions = []
     for batch_id in sorted(results.keys()):
         batch_content = results[batch_id].strip()
@@ -739,18 +762,8 @@ def validate(state: QState, config: RunnableConfig):
         f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions"
     )
 
-    prompt2 = """
-    Chỉ cần trả lời là tôi đã tạo xong mind map
-    """
-
-    response_msg = generate_agent.invoke(
-        {"messages": [HumanMessage(content=prompt2)]}, config=config
-    )
-    content = response_msg["messages"][-1].content
-
     return {
         "quizz": final_quizz_json,
-        "messages": [AIMessage(content=content, name="question_generation")],
     }
 
 

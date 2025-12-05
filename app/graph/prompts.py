@@ -150,6 +150,12 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
 }},
   ...
 ]
+
+Tuyệt đối không được phép bọc bất cứ kí tự gì bọc bên ngoài danh sách trên ( ví dụ "```json  ```" , "" , ...):
+    Ví dụ :  "```json[]```, "[]", ...
+
+Hãy trả về danh sách sạch nhất
+
 Giải thích từ khóa về danh sách câu hỏi : 
 question : là nội dung câu hỏi
 related_passage : là đoạn văn liên quan đến câu hỏi đó 
@@ -196,39 +202,8 @@ CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC):
 {{"bad_questions":{{"0":[{{"question":"Câu hỏi xấu 1","average_score":2.33}},{{"question":"Câu hỏi xấu 2","average_score":1.67}}],"1":[], ...}},"good_questions":{{"0":["Câu hỏi tốt 1","Câu hỏi tốt 2"],"1":[], ...}},"good_question_answer":{{"0":[{{"id":1,"question":"Câu hỏi tốt 1","options":["A","B","C","D"],"average_score":3.33}},{{"id":2,"question":"Câu hỏi tốt 2","options":["A","B","C","D"],"average_score":3.67}}],"1":[], ...}}}}
 
 GIẢI THÍCH :
-chunk_index là chỉ số của chunk trong tài liBạn là chuyên gia OCR có nhiệm vụ chuyển đổi tài liệu sang Markdown.
+chunk_index là chỉ số của chunk từ dữ liệu đầu vào.
 
-Instructions:
-
-1. PHÂN TÍCH VÀ TIỀN XỬ LÝ:
-   a. Phân tích kỹ toàn bộ tài liệu gốc.
-   b. **Thực hiện bước làm sạch (Cleanup):** Loại bỏ các ký tự điều khiển (control characters) hoặc dấu xuống dòng/khoảng trắng thừa không thuộc về nội dung gốc, nhằm đảm bảo tài liệu đầu vào "sạch" nhất có thể.
-
-2. XÁC ĐỊNH CẤU TRÚC:
-   a. Xác định chính xác cấu trúc tài liệu, bao gồm các cấp tiêu đề (header1, header2, header3, ...).
-   b. Nhận diện các thành phần phức tạp như danh sách lồng nhau (nested lists), khối mã (code blocks), bảng, và siêu liên kết (hyperlinks).
-
-3. CHUYỂN ĐỔI SANG MARKDOWN:
-   Áp dụng quy tắc vàng về tính toàn vẹn dữ liệu:
-   - **Giữ nguyên 100% nội dung gốc:** không thêm, không bớt, không tóm tắt, không diễn giải, không sửa lỗi nội dung trong tài liệu.  
-   - Giữ nguyên thứ tự trình bày, định dạng và bố cục: **bold**, *italic*, `inline code`, dấu câu, ký tự đặc biệt.  
-
-4. ÁP DỤNG ĐỊNH DẠNG CỤ THỂ:
-
-   a. **Tiêu đề:** Áp dụng Markdown header tương ứng với cấp tiêu đề trong tài liệu gốc (#, ##, ###, ...).  
-   b. **Danh sách (Bullet/Numbering):** Giữ nguyên kiểu danh sách. **Đặc biệt, sử dụng thụt lề (indentation) chính xác** cho các danh sách lồng nhau (nested lists) để đảm bảo cấp độ cấu trúc.  
-   c. **Bảng:**
-      - Nếu bảng đơn giản (cấu trúc hàng/cột tiêu chuẩn) → chuyển sang bảng Markdown.
-      - Nếu bảng phức tạp (merged cells, nhiều dòng tiêu đề) → mô tả nội dung bảng một cách chi tiết, không được bỏ sót bất kỳ thông tin quan trọng nào.
-   d. **Hình ảnh:** Viết mô tả ngắn gọn nội dung hình ảnh theo dạng: `![mô tả hình ảnh]`.
-   e. **Siêu liên kết (Hyperlink):** Chuyển đổi sang cú pháp Markdown chuẩn: `[text hiển thị](URL)`.
-   f. **Khối mã lớn (Code Blocks):** Sử dụng **fenced code blocks** (```ngôn ngữ ... ```) và cố gắng xác định ngôn ngữ lập trình nếu có thể để hỗ trợ highlight cú pháp.
-
-5. ĐẦU RA CUỐI CÙNG:
-   - Không được tạo thêm bất kỳ nội dung nào ngoài tài liệu gốc.
-   - Đảm bảo bản Markdown cuối cùng phản ánh chính xác cấu trúc và nội dung bản gốc.
-
-**HOÀN THÀNH NHIỆM VỤ BẰNG CÁCH CHỈ XUẤT RA ĐÚNG ĐỊNH DẠNG MARKDOWN.**ệu gốc (có trong dòng đầu trong mỗi danh sách câu hỏi từ dữ liệu đầu vào)
 YÊU CẦU BẮT BUỘC:
 1. CHỈ TRẢ VỀ MỘT JSON HỢP LỆ TRÊN MỘT DÒNG DUY NHẤT. Không có văn bản, giải thích, hay markdown khác.
 2. JSON phải tuân thủ cấu trúc trên với 3 key: bad_questions, good_questions, good_question_answer.
@@ -244,27 +219,54 @@ DỮ LIỆU ĐẦU VÀO:
     EVALUATE_AND_SELECT_PROMPT = """
 Bạn là một giảng viên chuyên môn về lập trình.
 
-NHIỆM VỤ:
-- Chuẩn hoá danh sách câu hỏi trong DỮ LIỆU ĐẦU VÀO.
-- Phân tích {query} và {num_chunks} để xác định số lượng câu hỏi bằng kết quả số lượng trong {query} chia cho {num_chunks} (Đây là dấu chia ví dụ 10:5=2)
-    • Nếu đề cập rõ số lượng thì sử dụng đúng số đó:
-        - nếu trong danh sách câu hỏi đầu vào ko đủ thì phải bổ sung thêm cho đủ
-        - nếu trong danh sách đầu vào mà thừa thì phải lọc cho đủ
-    • Nếu không đề cập thì mặc định 10 câu hỏi.
-LƯU Ý : Nếu có nhiều chunk thì phải có ít nhất 3 câu hỏi từ mỗi chunk.
+GIẢI THÍCH DỮ LIỆU ĐẦU VÀO:
+- Dữ liệu đầu vào bao gồm nhiều CHUNK.
+- MỖI CHUNK chứa một danh sách câu hỏi (mỗi câu hỏi có thể có các trường như id, question, options…).
+- CHUNK được đánh số CHUNK 0, CHUNK 1, CHUNK 2, … và mỗi chunk hoạt động như một “tập con” của toàn bộ dữ liệu.
+- Nhiệm vụ của bạn là chọn ra đúng số lượng câu hỏi từ MỖI CHUNK dựa trên yêu cầu của người dùng.
+
+NHIỆM VỤ CHÍNH:
+1. Phân tích yêu cầu người dùng "{query}" để xác định số lượng câu hỏi mà người dùng yêu cầu
+
+2. Từ tổng số câu hỏi người dùng yêu cầu, TÍNH SỐ CÂU HỎI CHO MỖI CHUNK theo công thức:
+   
+    Số câu hỏi mỗi chunk = (Tổng số câu hỏi người dùng yêu cầu) / 10
+
+   Ví dụ: 100 câu → mỗi chunk phải tạo ra **10 câu**.
+
+3. QUY TẮC SỐ LƯỢNG:
+   - Nếu người dùng **có nêu rõ** số lượng câu hỏi → PHẢI dùng số đó để tính số câu hỏi mỗi chunk.
+   - Nếu **không xuất hiện bất kỳ con số nào** trong yêu cầu → mặc định:
+         → MỖI CHUNK chỉ được lấy **1 câu hỏi**.
+
+4. Mục tiêu của bạn:
+   - Lấy đúng số câu hỏi theo từng chunk (dựa trên phép tính ở trên).
+   - Chuẩn hoá lại danh sách câu hỏi theo định dạng JSON yêu cầu bên dưới.
 
 YÊU CẦU BẮT BUỘC:
-- TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ])
-- KHÔNG THÊM markdown, backticks, giải thích hay text nào khác
-- Mỗi câu hỏi phải có đầy đủ 7 trường: id, type, difficulty, question, options, correct_answer, explanation
+- TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ]).
+- KHÔNG ĐƯỢC THÊM markdown, backticks, giải thích hoặc bất kỳ văn bản nào ngoài JSON.
+- Mỗi câu hỏi phải có ĐẦY ĐỦ 7 TRƯỜNG:
+  id, type, difficulty, question, options, correct_answer, explanation
 
 CẤU TRÚC JSON (VÍ DỤ):
-[{{"id":"q1","type":"multiple_choice","difficulty":"medium","question":"Câu hỏi?","options":["A","B","C","D"],"correct_answer":0,"explanation":"Giải thích"}}]
+[
+  {{
+    "id":"q1",
+    "type":"multiple_choice",
+    "difficulty":"medium",
+    "question":"Câu hỏi?",
+    "options":["A","B","C","D"],
+    "correct_answer":0,
+    "explanation":"Giải thích"
+  }}
+]
 
-Danh sách câu hỏi đầu vào:
+DANH SÁCH CÂU HỎI ĐẦU VÀO (THEO TỪNG CHUNK):
 {questions}
 
-CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC:
+CHỈ TRẢ VỀ JSON — KHÔNG TRẢ VỀ BẤT KỲ THỨ GÌ KHÁC.
+
 """
 
     # Modules for summarization
