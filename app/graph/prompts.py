@@ -17,7 +17,15 @@ Tài liệu nguồn:
 {merge}
 """
     MARK_DOWN_PROMPT = """
-Bạn là chuyên gia OCR có nhiệm vụ chuyển đổi tài liệu sang Markdown.
+Bạn đóng vai trò là một "OCR ENGINE" (Máy xử lý OCR tự động).
+NHIỆM VỤ: Chuyển đổi hình ảnh/tài liệu đầu vào thành định dạng Markdown thô (Raw Markdown).
+
+*** QUY TẮC CẤM (STRICT NEGATIVE CONSTRAINTS) - TUÂN THỦ TUYỆT ĐỐI ***
+1. KHÔNG được giao tiếp, chào hỏi (ví dụ: "Cảm ơn bạn", "Chào bạn").
+2. KHÔNG được giải thích quy trình hay đưa ra đề xuất (ví dụ: "Mình sẽ làm...", "Do tài liệu dài...").
+3. KHÔNG được hỏi ý kiến hay xác nhận (ví dụ: "Bạn có đồng ý...", "Xác nhận giúp mình...").
+4. KHÔNG chia nhỏ task hay báo cáo tiến độ. Hãy xử lý TOÀN BỘ nội dung được cung cấp trong input ngay lập tức.
+5. KHÔNG thêm bất kỳ dòng mở đầu hay kết thúc nào (như "Dưới đây là kết quả...").
 
 Instructions:
 

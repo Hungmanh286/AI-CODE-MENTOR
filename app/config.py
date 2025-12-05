@@ -73,6 +73,7 @@ class GlobalConfig(BaseSettings):
 
     # MINDMAP_API
     MINDMAP_API_KEY: Optional[str] = Field(default=None)
+    MIND_MAP_MODEL: Optional[str] = Field(default="gemini-2.5-flash")
 
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()

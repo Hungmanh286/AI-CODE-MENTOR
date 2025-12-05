@@ -192,8 +192,8 @@ class Presets:
     def free_tier():
         """Cấu hình tối ưu cho Free Tier (Gemini 15 RPM)"""
         return ParallelProcessingConfig(
-            MAX_WORKERS=3,  # Thấp để tránh hit rate limit
-            RPM_LIMIT=15,
+            MAX_WORKERS=50,  # Thấp để tránh hit rate limit
+            RPM_LIMIT=500,
             RPD_LIMIT=1500,
             CHUNK_SIZE_SMALL=15,
             CHUNK_SIZE_LARGE=30,
@@ -234,8 +234,8 @@ class Presets:
     def cost_optimized():
         """Cấu hình tối ưu chi phí (chunks lớn hơn, ít requests)"""
         return ParallelProcessingConfig(
-            MAX_WORKERS=5,
-            RPM_LIMIT=15,
+            MAX_WORKERS=50,
+            RPM_LIMIT=500,
             CHUNK_SIZE_SMALL=30,
             CHUNK_SIZE_LARGE=50,
             RETRY_ATTEMPTS=3,
@@ -247,8 +247,8 @@ class Presets:
     def development():
         """Cấu hình cho development/testing"""
         return ParallelProcessingConfig(
-            MAX_WORKERS=2,
-            RPM_LIMIT=15,
+            MAX_WORKERS=50,
+            RPM_LIMIT=500,
             CHUNK_SIZE_SMALL=5,
             CHUNK_SIZE_LARGE=10,
             RETRY_ATTEMPTS=1,
