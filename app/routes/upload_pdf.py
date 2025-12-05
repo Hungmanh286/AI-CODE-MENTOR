@@ -88,7 +88,6 @@ class ParallelProcessingConfig:
     Bật tối ưu hóa memory (giải phóng chunks sau khi xử lý xong)
     """
 
-    # ========== API Selection ==========
     DEFAULT_API: Literal["gemini", "openai"] = "gemini"
     """API mặc định để sử dụng"""
 
@@ -98,7 +97,6 @@ class ParallelProcessingConfig:
     Set None để disable fallback
     """
 
-    # ========== Logging Configuration ==========
     ENABLE_VERBOSE_LOGGING: bool = True
     """Bật logging chi tiết"""
 
@@ -108,7 +106,6 @@ class ParallelProcessingConfig:
     ENABLE_PROGRESS_BAR: bool = True
     """Hiển thị progress bar với tqdm"""
 
-    # ========== Output Configuration ==========
     SAVE_INTERMEDIATE_RESULTS: bool = False
     """
     Lưu kết quả từng chunk vào file riêng
@@ -118,7 +115,6 @@ class ParallelProcessingConfig:
     INTERMEDIATE_OUTPUT_DIR: str = "./temp_chunks"
     """Thư mục lưu kết quả tạm thời của từng chunk"""
 
-    # ========== Performance Optimization ==========
     ENABLE_CACHING: bool = True
     """
     Cache kết quả parsing để tránh xử lý lại chunks đã parse
@@ -336,9 +332,6 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
             start_time = time.time()
             file_record.has_processed = True
 
-            # Sử dụng parallel processing thay vì sequential
-            # use_gemini=False → dùng OpenAI (parse_chunk format)
-            # use_gemini=True → dùng Gemini (parse_chunk_2 format)
             docs = parse_pdf_parallel(
                 file_path=temp_local_path,
                 use_gemini=False,
@@ -453,15 +446,12 @@ async def upload_cropped_image(
     file: UploadFile = File(...), file_id: str = Form(...), session_id: str = Form(...)
 ):
     try:
-        # Upload ảnh crop lên MinIO
         crop_minio_path = f"{session_id}/crop_{file_id}_{file.filename}"
         temp_local_path = f"/tmp/crop_{file.filename}"
 
-        # Ghi file tạm
         with open(temp_local_path, "wb") as f:
             f.write(await file.read())
 
-        # Upload lên MinIO
         minio_client.upload_file(temp_local_path, crop_minio_path)
         os.remove(temp_local_path)
 
@@ -482,16 +472,13 @@ async def get_mindmap(session_id: str):
     try:
         mindmap_path = f"{session_id}/mindmap.png"
 
-        # Check if file exists
         if not minio_client.file_exists(mindmap_path):
             return {"error": "Mind map not found for this session."}
 
-        # Download mind map từ MinIO
         image_data = minio_client.download_data(mindmap_path)
         if not image_data:
             return {"error": "Failed to download mind map from MinIO."}
 
-        # Convert to base64
         img_base64 = base64.b64encode(image_data).decode("utf-8")
 
         return JSONResponse(

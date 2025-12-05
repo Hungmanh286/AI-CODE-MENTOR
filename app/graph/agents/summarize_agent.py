@@ -6,16 +6,16 @@ from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
 from langfuse.callback import CallbackHandler
 from langgraph.graph.message import MessagesState
-from langchain_core.messages import (
-    AIMessage,
-)
 from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langchain_core.messages import AIMessage, HumanMessage
+
 
 from app.config import settings
-from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
+from app.graph.generate import generate_agent
+from app.chatmodel import init_llm
 
 
 class QState(MessagesState):
@@ -39,7 +39,6 @@ tracer = CallbackHandler(
 )
 
 
-# Tóm tắt văn bản :
 # Node 1: Tóm tắt từng chunk
 def summarize_node(state: QState, config: RunnableConfig):
     summarize_chunks = []
@@ -49,7 +48,6 @@ def summarize_node(state: QState, config: RunnableConfig):
 
     chunk_size = 10
     for file_id in file_ids:
-        # Đọc docs từ MinIO (trong folder session)
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
 
         if minio_client.file_exists(docs_minio_path):
@@ -67,7 +65,6 @@ def summarize_node(state: QState, config: RunnableConfig):
                 splits = [split for doc in docs for split in splitter.split_text(doc)]
                 total_splits = len(splits)
 
-                # Gộp các split lại thành các chunk với chunk_size
                 for i in range(0, total_splits, chunk_size):
                     chunk_text = "\n".join(
                         [split.page_content for split in splits[i : i + chunk_size]]
@@ -89,7 +86,6 @@ def extractive_node(state: QState, config: RunnableConfig):
     file_ids = get_active_file_id(session_id)
 
     for file_id in file_ids:
-        # Đọc docs từ MinIO (trong folder session)
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
 
         if minio_client.file_exists(docs_minio_path):
@@ -107,7 +103,6 @@ def extractive_node(state: QState, config: RunnableConfig):
 
             total_splits = len(splits)
 
-        # Gộp các split lại thành các chunk với chunk_size
         for i in range(0, total_splits, chunk_size):
             chunk_text = "\n".join(
                 [split.page_content for split in splits[i : i + chunk_size]]
@@ -119,6 +114,14 @@ def extractive_node(state: QState, config: RunnableConfig):
             extractive_summaries.append(extractive_chunk)
 
     return {"extractive_summaries": extractive_summaries}
+
+
+llm = init_llm(
+    api_key=settings.CHAT_MODEL_VISION_KEY,
+    model=settings.CHAT_MODEL,
+    temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
+    tags=["agent"],
+)
 
 
 # Node 3: Merge hai kết quả
@@ -133,20 +136,15 @@ def merge_node(state: QState, config: RunnableConfig):
         document=document, context=context
     )
 
-    from langchain_core.messages import HumanMessage
+    response_msg = llm.invoke(input=prompt, config=config)
 
-    response_msg = generate_agent.invoke(
-        {"messages": [HumanMessage(content=prompt)]}, config=config
-    )
-    content = response_msg["messages"][-1].content
+    content = response_msg.content
 
     return {
-        "messages": [AIMessage(content=content, name="final_summary")],
         "merge": content,
     }
 
 
-# lưu vào minio, sau đó gửi event cho client để display ảnh mindmap
 def mind_map(state: QState, config: RunnableConfig):
     merge = state.get("merge", "")
     session_id = config["configurable"].get("thread_id")
@@ -161,22 +159,39 @@ def mind_map(state: QState, config: RunnableConfig):
     )
 
     for part in response.parts:
+        if part.text is not None:
+            content = part.text
+            print(f"[MindMap] Generated text content: {content[:100]}...")
         if part.inline_data is not None:
+            print(f"[MindMap] Found inline image data for session: {session_id}")
             image = part.as_image()
 
-            # Lưu ảnh tạm thời để upload
             temp_image_path = f"temp_mindmap_{session_id}.png"
             image.save(temp_image_path)
+            print(f"[MindMap] Saved temporary image: {temp_image_path}")
 
-            # Upload lên MinIO
             minio_path = f"{session_id}/mindmap.png"
             with open(temp_image_path, "rb") as f:
                 minio_client.upload_data(minio_path, f.read())
+            print(f"[MindMap] Successfully uploaded to MinIO: {minio_path}")
 
-            # Xóa file tạm
             import os
 
             os.remove(temp_image_path)
+            print(f"[MindMap] Removed temporary file: {temp_image_path}")
+
+    prompt2 = """
+    Chỉ cần trả lời là tôi đã tạo xong mind map
+    """
+
+    response_msg = generate_agent.invoke(
+        {"messages": [HumanMessage(content=prompt2)]}, config=config
+    )
+    content = response_msg["messages"][-1].content
+
+    return {
+        "messages": [AIMessage(content=content, name="mind_map")],
+    }
 
 
 def build_pdf_summarize_workflow():

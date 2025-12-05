@@ -6,15 +6,15 @@ import concurrent.futures
 from tqdm import tqdm
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.message import MessagesState
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langfuse.callback import CallbackHandler
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain.tools import tool  # noqa
+from langchain_core.messages import AIMessage
 
 
 from app.config import settings
-from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
 from app.routes.notify import (
     sse_event_queues,
@@ -24,6 +24,8 @@ from app.graph.agents.feedbacks_answer import feedbacks_answer  # noqa
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
 from app.routes.process_data import process_pdf
+from app.chatmodel import init_llm
+from app.graph.generate import generate_agent  # noqa
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
@@ -53,6 +55,14 @@ tracer = CallbackHandler(
 
 
 max_retry = 2
+
+
+llm = init_llm(
+    api_key=settings.CHAT_MODEL_VISION_KEY,
+    model=settings.CHAT_MODEL,
+    temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
+    tags=["agent"],
+)
 
 
 def format_dict_to_markdown(data: dict) -> str:
@@ -245,10 +255,9 @@ def question_node(state: QState, config: RunnableConfig):
                     chunk=chunk, bad_qs=bad_qs, good_questions=good_questions
                 )
 
-            response_msg = generate_agent.invoke(
-                {"messages": [HumanMessage(content=prompt)]}, config=config
-            )
-            question = response_msg["messages"][-1].content
+            response_msg = llm.invoke(input=prompt, config=config)
+
+            question = response_msg.content
 
             return (idx, question)
 
@@ -346,10 +355,8 @@ def answer_node(state: QState, config: RunnableConfig):
             formatted_prompt = f"Chunk {idx}\n" + "\n".join([q for q in questions])
 
             prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
-            response_msg = generate_agent.invoke(
-                {"messages": [HumanMessage(content=prompt)]}, config=config
-            )
-            question_answer = response_msg["messages"][-1].content
+            response_msg = llm.invoke(input=prompt, config=config)
+            question_answer = response_msg.content
 
             return (idx, question_answer)
 
@@ -429,11 +436,9 @@ def judge(state: QState, config: RunnableConfig):
             formatted_batch = format_question_answer_dict(batch_dict)
 
             prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=formatted_batch)
-            response_msg = generate_agent.invoke(
-                {"messages": [HumanMessage(content=prompt)]}, config=config
-            )
+            response_msg = llm.invoke(input=prompt, config=config)
 
-            judgment = response_msg["messages"][-1].content.strip()
+            judgment = response_msg.content.strip()
 
             if judgment.startswith("```"):
                 judgment = re.sub(r"^```(json)?", "", judgment.strip())
@@ -467,7 +472,6 @@ def judge(state: QState, config: RunnableConfig):
                 except json.JSONDecodeError as e2:
                     print(f"Still failed after fix in batch {batch_id}: {e2}")
 
-                    # Fallback: Thử parse từng phần
                     try:
                         valid_json = judgment[: e.pos].rstrip()
                         last_open = max(valid_json.rfind("{"), valid_json.rfind("["))
@@ -504,14 +508,12 @@ def judge(state: QState, config: RunnableConfig):
                 },
             )
 
-    # Chia question_answers thành batches
     chunk_items = list(question_answers.items())
     batches = []
     for i in range(0, len(chunk_items), batch_size):
         batch_dict = dict(chunk_items[i : i + batch_size])
         batches.append((len(batches), batch_dict))
 
-    # PARALLEL PROCESSING
     all_good_question_answer = {}
     all_bad_questions = {}
     all_good_question = {}
@@ -672,15 +674,12 @@ def validate(state: QState, config: RunnableConfig):
 
             formatted_batch = format_dict_to_markdown(batch_dict)
 
-            system_message = SystemMessage(
-                content=Prompts.EVALUATE_AND_SELECT_PROMPT.format(
-                    questions=formatted_batch, query=query, num_chunks=num_chunks
-                )
+            prompt = Prompts.EVALUATE_AND_SELECT_PROMPT.format(
+                questions=formatted_batch, query=query, num_chunks=num_chunks
             )
 
-            prompt = {"messages": [system_message]}
-            response_msg = generate_agent.invoke(prompt, config=config)
-            content = response_msg["messages"][-1].content
+            response_msg = llm.invoke(input=prompt, config=config)
+            content = response_msg.content
 
             return (batch_id, content)
 
@@ -719,14 +718,12 @@ def validate(state: QState, config: RunnableConfig):
             print(f"Skipping error batch {batch_id}")
             continue
 
-        # Remove markdown code fences if present
         if batch_content.startswith("```"):
             batch_content = re.sub(r"^```(?:json)?\s*\n", "", batch_content)
             batch_content = re.sub(r"\n```\s*$", "", batch_content)
             batch_content = batch_content.strip()
 
         try:
-            # Parse JSON array from each batch
             batch_questions = json.loads(batch_content)
             if isinstance(batch_questions, list):
                 all_questions.extend(batch_questions)
@@ -742,7 +739,19 @@ def validate(state: QState, config: RunnableConfig):
         f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions"
     )
 
-    return {"quizz": final_quizz_json}
+    prompt2 = """
+    Chỉ cần trả lời là tôi đã tạo xong mind map
+    """
+
+    response_msg = generate_agent.invoke(
+        {"messages": [HumanMessage(content=prompt2)]}, config=config
+    )
+    content = response_msg["messages"][-1].content
+
+    return {
+        "quizz": final_quizz_json,
+        "messages": [AIMessage(content=content, name="question_generation")],
+    }
 
 
 workflow = StateGraph(QState)
@@ -841,9 +850,6 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         raise
 
 
-# For tool
-
-
 @tool("document_summarize_tool")
 async def document_summarize_tool(query: str, config: RunnableConfig):
     """
@@ -854,11 +860,75 @@ async def document_summarize_tool(query: str, config: RunnableConfig):
         query (str): Câu truy vấn của người dùng.
         config (RunnableConfig): Cấu hình chứa session_id.
     """
-    response_msg = await pdf_summarize_agent.ainvoke(
-        {"messages": [HumanMessage(content="Tóm tắt tài liệu")]}, config=config
-    )
-    content = response_msg["messages"][-1].content
-    return {"message": content}
+    session_id = config["configurable"].get("thread_id")
+    if not session_id:
+        return "session_id không hợp lệ."
+
+    if session_id not in sse_event_queues:
+        import asyncio
+
+        sse_event_queues[session_id] = asyncio.Queue()
+        print(f"[MindMap] Created SSE queue for session_id: {session_id}")
+
+    queue = sse_event_queues.get(session_id)
+
+    try:
+        # Send start event
+        if queue:
+            await queue.put({"type": "start", "message": "Bắt đầu tạo mind map..."})
+            print(f"[MindMap] SSE 'start' event sent to {session_id}")
+
+        # Process
+        print(f"[MindMap] Starting mind map generation for session_id: {session_id}")
+        response_msg = await pdf_summarize_agent.ainvoke(
+            {"messages": [HumanMessage(content="Tóm tắt tài liệu")]}, config=config
+        )
+        print(f"[MindMap] Mind map generation completed for session_id: {session_id}")
+
+        content = response_msg["messages"][-1].content
+
+        # Send mindmap_done event với đường dẫn ảnh
+        import asyncio
+
+        mindmap_path = f"{session_id}/mindmap.png"
+        for i in range(5):
+            current_queue = sse_event_queues.get(session_id)
+            if current_queue:
+                await current_queue.put(
+                    {
+                        "type": "mindmap_done",
+                        "message": content,
+                        "mindmap_path": mindmap_path,
+                    }
+                )
+                print(
+                    f"[MindMap] SSE 'mindmap_done' event sent to {session_id} with path: {mindmap_path}"
+                )
+                break
+            else:
+                if i < 4:
+                    print(
+                        f"[MindMap] SSE queue not found, retrying in 1s ({i + 1}/5)..."
+                    )
+                    await asyncio.sleep(1)
+                else:
+                    print(
+                        f"[MindMap] SSE queue not found for session_id: {session_id} after retries"
+                    )
+
+        return content
+
+    except Exception as e:
+        print(f"[MindMap] Error during processing: {e}")
+        import traceback
+
+        traceback.print_exc()
+        if queue:
+            try:
+                await queue.put({"type": "error", "message": str(e)})
+            except Exception:
+                pass
+        raise
 
 
 @tool("answer_tool")
