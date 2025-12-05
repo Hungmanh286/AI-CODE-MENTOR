@@ -29,11 +29,9 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
     evaluated_result = result["quizz"]
     questions_data = json.loads(evaluated_result)
 
-    # Lấy thông tin file từ database
     file_ids = get_active_file_id(session_id)
     file_id = file_ids[0] if file_ids else None
 
-    # Lấy tên file từ database thay vì từ local file
     from app.schema.upload import UploadFileStatus
 
     engine = settings._app_db_engine
@@ -43,7 +41,6 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
         ).first()
         file_name = file_record.file_name if file_record else "unknown.pdf"
 
-    # Tạo project mới
     project_id = str(uuid.uuid4())
 
     project_data = {
