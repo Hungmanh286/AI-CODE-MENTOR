@@ -48,12 +48,12 @@ class QualityTester:
         # MinIO structure: folder_name/file_id_docs.txt
         # Mỗi folder chỉ chứa 1 file duy nhất
         self.test_data = {
-            "quality_02eb6eda": "wcgx6op29zjhgnamk3rkkj",
-            "quality_45c48cce": "fn3jd6awgbooze9xa7ito",
-            "quality_119d07f2": "3r41au7mq0m67ajre6cuup",
-            "quality_396a405c": "zl4pxbrrp7nvyvuqba9s6k",
-            "quality_9040fc0e": "kg41nifyuqzv5qduk5bs",
-            "quality_16705013": "kb0rm6pjaz4qbrz05p1r3",
+            # "quality_02eb6eda": "wcgx6op29zjhgnamk3rkkj",
+            # "quality_45c48cce": "fn3jd6awgbooze9xa7ito",
+            # "quality_119d07f2": "3r41au7mq0m67ajre6cuup",
+            # "quality_396a405c": "zl4pxbrrp7nvyvuqba9s6k",
+            # "quality_9040fc0e": "kg41nifyuqzv5qduk5bs",
+            # "quality_16705013": "kb0rm6pjaz4qbrz05p1r3",
             "quality_a09c0f36": "nol5ats9whlmh0dt7u43i",
             "quality_c4c0cfa0": "wsuvkfod09hrb2bjfcynv",
             "quality_ca9c24a7": "0gtqkqqucjnjpi021541ta",

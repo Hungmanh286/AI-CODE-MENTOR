@@ -175,6 +175,7 @@ def document_preprocessing(state: QState, config: RunnableConfig):
 
     for file_id in file_ids:
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
+        # docs_minio_path = f"{session_id}"
 
         if minio_client.file_exists(docs_minio_path):
             docs_data = minio_client.download_data(docs_minio_path)
@@ -359,7 +360,7 @@ def answer_node(state: QState, config: RunnableConfig):
             prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
             response_msg = llm.invoke(input=prompt, config=config)
             question_answer = response_msg.content
-
+            # print(question_answer)
             return (idx, question_answer)
 
         except Exception as e:
@@ -390,7 +391,7 @@ def answer_node(state: QState, config: RunnableConfig):
         if chunk_idx not in question_answers:
             question_answers[chunk_idx] = []
         question_answers[chunk_idx].append(results[idx])
-
+        # print(results[idx])
     print(f"Generated answers for {len(question_answers)} chunks in parallel")
 
     return {
@@ -441,6 +442,7 @@ def judge(state: QState, config: RunnableConfig):
             response_msg = llm.invoke(input=prompt, config=config)
 
             judgment = response_msg.content.strip()
+            # print(judgment)
 
             if judgment.startswith("```"):
                 judgment = re.sub(r"^```(json)?", "", judgment.strip())
@@ -700,7 +702,7 @@ def validate(state: QState, config: RunnableConfig):
 
             response_msg = llm.invoke(input=prompt, config=config)
             content = response_msg.content
-
+            print(content)
             return (batch_id, content)
 
         except Exception as e:

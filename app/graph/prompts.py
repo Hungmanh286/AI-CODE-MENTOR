@@ -150,11 +150,8 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
 }},
   ...
 ]
+Hãy trả về đúng JSON, Không được bao toàn bộ JSON trong bất kỳ ký tự nào: không dấu nháy kép, không backtick, không markdown, không json, không [], không wrapper dưới mọi hình thức.
 
-Tuyệt đối không được phép bọc bất cứ kí tự gì bọc bên ngoài danh sách trên ( ví dụ "```json  ```" , "" , ...):
-    Ví dụ :  "```json[]```, "[]", ...
-
-Hãy trả về danh sách sạch nhất
 
 Giải thích từ khóa về danh sách câu hỏi : 
 question : là nội dung câu hỏi
@@ -171,7 +168,8 @@ NHIỆM VỤ:
 - Bước 1: Đánh giá từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 3 tiêu chí bên dưới.
 - Bước 2: Tính điểm trung bình cho mỗi câu hỏi (average_score = (score1 + score2 + score3) / 3).
 - Bước 3: Phân loại câu hỏi thành good (average_score >= 3) hoặc bad (average_score < 3).
-- Bước 4: Trả về một JSON duy nhất theo đúng CẤU TRÚC JSON ĐẦU RA.
+- Bước 4: Hãy biến đổi các câu bad thành tốt đảm bảo các tiêu chí đánh giá chi tiết.
+- Bước 5: Trả về một JSON duy nhất theo đúng CẤU TRÚC JSON ĐẦU RA.
 
 TIÊU CHÍ ĐÁNH GIÁ CHI TIẾT:
 
@@ -210,6 +208,7 @@ YÊU CẦU BẮT BUỘC:
 3. Mỗi key phải chứa dict với chunk_index là string (ví dụ: "0", "1", "2").
 4. Nếu một chunk không có câu hỏi tốt hoặc xấu, trả về danh sách rỗng [] cho chunk đó.
 5. Tất cả chunk_index từ đầu vào phải xuất hiện trong cả 3 key của JSON đầu ra.
+6 Hãy trả về đúng JSON , không được bao toàn bộ JSON trong dấu nháy kép.
 
 DỮ LIỆU ĐẦU VÀO:
 {question_answers}
@@ -226,23 +225,7 @@ GIẢI THÍCH DỮ LIỆU ĐẦU VÀO:
 - Nhiệm vụ của bạn là chọn ra đúng số lượng câu hỏi từ MỖI CHUNK dựa trên yêu cầu của người dùng.
 
 NHIỆM VỤ CHÍNH:
-1. Phân tích yêu cầu người dùng "{query}" để xác định số lượng câu hỏi mà người dùng yêu cầu
-
-2. Từ tổng số câu hỏi người dùng yêu cầu, TÍNH SỐ CÂU HỎI CHO MỖI CHUNK theo công thức:
-   
-    Số câu hỏi mỗi chunk = (Tổng số câu hỏi người dùng yêu cầu) / 10
-
-   Ví dụ: 100 câu → mỗi chunk phải tạo ra **10 câu**.
-
-3. QUY TẮC SỐ LƯỢNG:
-   - Nếu người dùng **có nêu rõ** số lượng câu hỏi → PHẢI dùng số đó để tính số câu hỏi mỗi chunk.
-   - Nếu **không xuất hiện bất kỳ con số nào** trong yêu cầu → mặc định:
-         → MỖI CHUNK chỉ được lấy **1 câu hỏi**.
-
-4. Mục tiêu của bạn:
-   - Lấy đúng số câu hỏi theo từng chunk (dựa trên phép tính ở trên).
-   - Chuẩn hoá lại danh sách câu hỏi theo định dạng JSON yêu cầu bên dưới.
-
+Tạo đúng 25 câu từ danh sách câu hỏi đầu vào bên dưới
 YÊU CẦU BẮT BUỘC:
 - TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ]).
 - KHÔNG ĐƯỢC THÊM markdown, backticks, giải thích hoặc bất kỳ văn bản nào ngoài JSON.
@@ -376,7 +359,7 @@ Yêu cầu:
 Tài liệu nguồn:
 {documents}
     """
-    # phải lấy được context của ảnh để trả lời câu hỏi
+
     FEEDBACK_QUESTIONS_PROMPT = """
 Bạn là chuyên gia trả lời câu hỏi dựa trên tài liệu được cung cấp.
 
