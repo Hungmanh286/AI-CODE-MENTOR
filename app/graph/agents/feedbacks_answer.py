@@ -49,7 +49,7 @@ def image_to_text(image_path):
     base64_image = encode_image(image_path)
 
     response = client.responses.create(
-        model="gpt-5-nano",
+        model="gpt-4.1-mini",
         input=[
             {
                 "role": "user",
