@@ -1,4 +1,3 @@
-from openai import OpenAI
 from google import genai
 
 
@@ -24,11 +23,6 @@ class QState(MessagesState):
     extractive_summaries: list[dict] | None
     summaries: list[dict] | None
     merge: str | None
-
-
-model = settings.CHAT_MODEL_VISION
-api_key = settings.CHAT_MODEL_VISION_KEY
-client = OpenAI(api_key=api_key)
 
 
 tracer = CallbackHandler(
@@ -117,7 +111,7 @@ def extractive_node(state: QState, config: RunnableConfig):
 
 
 llm = init_llm(
-    api_key=settings.CHAT_MODEL_VISION_KEY,
+    api_key=settings.CHAT_MODEL_KEY,
     model=settings.CHAT_MODEL,
     temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
     tags=["agent"],

@@ -39,18 +39,18 @@ try:
     HAS_RATEGUARD = True
 except ImportError:
     HAS_RATEGUARD = False
-    print("⚠️  Warning: rateguard not installed. Install with: pip install rateguard")
+    print("Warning: rateguard not installed. Install with: pip install rateguard")
 
 
 # Configuration
 @dataclass(frozen=True)
 class ParallelConfig:
-    MAX_WORKERS: int = 50  # Số lượng threads xử lý đồng thời
-    RPM_LIMIT: int = 500  # Requests per minute (phụ thuộc vào plan của bạn)
-    CHUNK_SIZE_SMALL: int = 15  # Cho PDF < 50 trang
-    CHUNK_SIZE_LARGE: int = 30  # Cho PDF >= 50 trang
-    RETRY_ATTEMPTS: int = 3  # Số lần retry khi chunk fail
-    RETRY_DELAY: int = 2  # Delay (giây) giữa các retry
+    MAX_WORKERS: int = 50
+    RPM_LIMIT: int = 500
+    CHUNK_SIZE_SMALL: int = 15
+    CHUNK_SIZE_LARGE: int = 30
+    RETRY_ATTEMPTS: int = 3
+    RETRY_DELAY: int = 2
 
 
 # Initialize clients
@@ -59,17 +59,14 @@ embeddings = VoyageAIEmbeddings(
     model=settings.EMBEDDING_MODEL,
     output_dimension=settings.EMBEDDING_DIMS,
 )
-
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
 openai_client = OpenAI(api_key=api_key)
-gemini_client = genai.Client(api_key="AIzaSyCdz979QouIDruEfvvp4xgkeGE-I8JO5M8")
+gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 url = "http://localhost:6333"
 prompt = Prompts.MARK_DOWN_PROMPT
 
-
-# ========== Rate Limiting Implementation ==========
 
 if not HAS_RATEGUARD:
     # Simple rate limiter implementation nếu không có rateguard
@@ -148,7 +145,7 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
         )
 
     response = gemini_client.models.generate_content(
-        model="gemini-2.0-flash-exp", contents=contents
+        model="gemini-2.5-flash", contents=contents
     )
 
     return response.text
@@ -210,7 +207,6 @@ def parse_pdf_parallel(
     print(f"🚀 Starting parallel PDF parsing: {file_path}")
     start_time = datetime.datetime.now()
 
-    # Convert PDF to images
     print("📄 Converting PDF to images...")
     images = convert_from_path(file_path)
     image_b64_list = []
@@ -225,7 +221,7 @@ def parse_pdf_parallel(
     print(f"📊 Total pages: {total_pages}")
 
     # Determine chunk size
-    chunk_size = 10
+    chunk_size = 8
     print(f"📦 Chunk size: {chunk_size} pages/chunk")
 
     # Split into chunks
@@ -242,14 +238,18 @@ def parse_pdf_parallel(
 
     total_chunks = len(chunks_data)
     print(f"🔢 Total chunks: {total_chunks}")
-    print(f"👷 Using {max_workers} worker threads")
+
+    # Optimize worker count: use minimum of total_chunks and max_workers
+    optimal_workers = min(total_chunks, max_workers)
+    print(
+        f"👷 Using {optimal_workers} worker threads (optimized from max {max_workers})"
+    )
     print(f"⏱️  Rate limit: {ParallelConfig.RPM_LIMIT} requests/minute")
     print(f"🤖 Using {'Gemini' if use_gemini else 'OpenAI'} API\n")
 
-    # Process chunks in parallel
     results = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
         # Submit all tasks
         futures = {
             executor.submit(process_single_chunk, chunk_data, use_gemini): chunk_data[0]
@@ -265,18 +265,19 @@ def parse_pdf_parallel(
 
     # Reconstruct document in correct order
     document_parts = [results[i] for i in sorted(results.keys())]
+
     document_str = "\n\n".join(document_parts)
 
     # Calculate statistics
     end_time = datetime.datetime.now()
     duration = end_time - start_time
 
-    print("\n✅ Parsing complete!")
-    print(f"⏱️  Total time: {duration.total_seconds():.2f} seconds")
+    print("\nParsing complete!")
+    print(f"Total time: {duration.total_seconds():.2f} seconds")
     print(
-        f"📈 Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds"
+        f"Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds"
     )
-    print(f"📄 Total characters: {len(document_str):,}")
+    print(f"Total characters: {len(document_str):,}")
 
     return document_str
 
