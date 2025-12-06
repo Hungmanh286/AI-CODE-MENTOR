@@ -69,11 +69,11 @@ prompt = Prompts.MARK_DOWN_PROMPT
 
 
 if not HAS_RATEGUARD:
-    # Simple rate limiter implementation nếu không có rateguard
+
     class SimpleRateLimiter:
         def __init__(self, rpm: int):
             self.rpm = rpm
-            self.interval = 60.0 / rpm  # Seconds between calls
+            self.interval = 60.0 / rpm
             self.last_call = 0
 
         def __call__(self, func):
@@ -88,9 +88,6 @@ if not HAS_RATEGUARD:
             return wrapper
 
     rate_limit = lambda rpm: SimpleRateLimiter(rpm)
-
-
-# ========== Parsing Functions with Rate Limiting ==========
 
 
 @rate_limit(rpm=ParallelConfig.RPM_LIMIT)
@@ -223,11 +220,9 @@ def parse_pdf_parallel(
     total_pages = len(image_b64_list)
     print(f"📊 Total pages: {total_pages}")
 
-    # Determine chunk size
     chunk_size = 8
     print(f"📦 Chunk size: {chunk_size} pages/chunk")
 
-    # Split into chunks
     chunks_data = []
     start = 0
     chunk_index = 0
@@ -253,7 +248,6 @@ def parse_pdf_parallel(
     results = {}
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
-        # Submit all tasks
         futures = {
             executor.submit(process_single_chunk, chunk_data, use_gemini): chunk_data[0]
             for chunk_data in chunks_data
@@ -283,9 +277,6 @@ def parse_pdf_parallel(
     print(f"Total characters: {len(document_str):,}")
 
     return document_str
-
-
-# ========== Legacy Functions (compatibility) ==========
 
 
 def parse_pdf_text(file_path: str):

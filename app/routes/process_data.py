@@ -62,7 +62,6 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
         print(f"Error inserting session project: {e}")
 
     for q in questions_data:
-        # Tạo câu hỏi
         question_id = str(uuid.uuid4())
         question_data = {
             "id": question_id,
@@ -74,7 +73,6 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
             "correct_answer": q.get("correct_answer"),
             "explanation": q.get("explanation"),
         }
-        print(q)
 
         insert_database(question_data, Question)
 
@@ -214,7 +212,6 @@ def delete_session_data(session_id: str, user_id: str = Query(None)):
         if not session_projects:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        # Kiểm tra quyền sở hữu nếu có user_id
         if user_id:
             session_owner = session_projects[0].user_id
             if session_owner != user_id:

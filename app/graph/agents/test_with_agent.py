@@ -63,7 +63,7 @@ class QualityTester:
     def list_quality_folders(self) -> List[str]:
         """Trả về danh sách folders đã hardcode"""
         folders = list(self.test_data.keys())
-        print(f"📂 Configured {len(folders)} test folders")
+        print(f"Configured {len(folders)} test folders")
         return folders
 
     def verify_folder_on_minio(self, folder_name: str) -> bool:
@@ -75,7 +75,7 @@ class QualityTester:
         file_id = self.test_data.get(folder_name)
 
         if not file_id:
-            print(f"   ❌ No file_id configured for folder: {folder_name}")
+            print(f"No file_id configured for folder: {folder_name}")
             return False
 
         minio_path = f"{folder_name}/{file_id}_docs.txt"
