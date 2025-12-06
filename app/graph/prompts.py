@@ -168,7 +168,7 @@ NHIỆM VỤ:
 - Bước 1: Đánh giá từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 3 tiêu chí bên dưới.
 - Bước 2: Tính điểm trung bình cho mỗi câu hỏi (average_score = (score1 + score2 + score3) / 3).
 - Bước 3: Phân loại câu hỏi thành good (average_score >= 3) hoặc bad (average_score < 3).
-- Bước 4: Hãy biến đổi các câu bad thành tốt đảm bảo các tiêu chí đánh giá chi tiết.
+- Bước 4: Hãy sửa các câu bad thành good đảm bảo các tiêu chí đánh giá chi tiết.
 - Bước 5: Trả về một JSON duy nhất theo đúng CẤU TRÚC JSON ĐẦU RA.
 
 TIÊU CHÍ ĐÁNH GIÁ CHI TIẾT:

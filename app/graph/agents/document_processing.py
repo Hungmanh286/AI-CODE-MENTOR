@@ -28,6 +28,7 @@ from app.graph.generate import generate_agent  # noqa
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.CHAT_MODEL_VISION_KEY
+
 client = OpenAI(api_key=api_key)
 
 
@@ -139,7 +140,7 @@ def format_question_answer_dict(data: dict) -> str:
             try:
                 qa_items = parse_nested_json(json_str)
             except Exception as e:
-                formatted += f"⚠️ Lỗi parse JSON: {e}\n\n"
+                formatted += f"Lỗi parse JSON: {e}\n\n"
                 continue
 
             for item in qa_items:
