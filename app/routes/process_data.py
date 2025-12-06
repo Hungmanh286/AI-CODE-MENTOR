@@ -24,7 +24,9 @@ tracer = CallbackHandler(
 
 async def process_pdf(session_id: str, query: str, document_processing_agent=None):
     # Gọi question_expert để xử lý PDF và sinh câu hỏi
-    config = RunnableConfig(configurable={"thread_id": session_id}, callbacks=[tracer])
+    config = RunnableConfig(
+        configurable={"thread_id": session_id, "query": query}, callbacks=[tracer]
+    )
     result = await document_processing_agent.ainvoke({"query": query}, config)
     evaluated_result = result["quizz"]
     questions_data = json.loads(evaluated_result)

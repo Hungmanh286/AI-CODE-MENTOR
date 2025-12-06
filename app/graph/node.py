@@ -25,13 +25,19 @@ from app.graph.agents.document_processing import (
     document_processing_tool,
     document_summarize_tool,
     answer_tool,
+    question_generation_tool,
 )
 from app.graph.prompts import Prompts
 from app.schema import MessageName
 from app.config import settings
 # from app.graph.tools import retriever_tool
 
-TOOLS = [document_processing_tool, document_summarize_tool, answer_tool]
+TOOLS = [
+    document_processing_tool,
+    document_summarize_tool,
+    answer_tool,
+    question_generation_tool,
+]
 
 try:
     # LLM: Generate answer
@@ -62,18 +68,25 @@ async def tool_calls_node(state: State, config: RunnableConfig):
     prompt_tool_choice = f"""Bạn là một trợ lý AI thông minh. Nhiệm vụ của bạn là chọn đúng công cụ để xử lý yêu cầu của người dùng.
 
 DANH SÁCH CÔNG CỤ:
-1. `using_to_create_questions`: CHỈ dùng khi người dùng yêu cầu TẠO câu hỏi, quiz, bài kiểm tra.
-2. `document_summarize_tool`: CHỈ dùng khi người dùng yêu cầu TÓM TẮT, tổng hợp nội dung tài liệu.
-3. `answer_tool`: Dùng cho TẤT CẢ các trường hợp khác (hỏi đáp, giải thích, tìm kiếm thông tin, chat thông thường).
+1. `using_to_create_questions_for_document`: Tạo câu hỏi trắc nghiệm TOÀN DIỆN từ toàn bộ tài liệu (xử lý chậm, đầy đủ, có đánh giá chất lượng).
+2. `question_generation_tool`: Tạo câu hỏi trắc nghiệm NHANH từ chương/phần cụ thể trong tài liệu (xử lý nhanh, tập trung vào một phần).
+3. `document_summarize_tool`: Tóm tắt nội dung tài liệu, tạo mind map.
+4. `answer_tool`: Trả lời câu hỏi, giải thích, hỏi đáp thông thường từ tài liệu.
 
 Yêu cầu của người dùng: "{user_query}"
 
-QUY TẮC:
-- Nếu yêu cầu chứa từ khóa "tóm tắt", "tổng hợp" -> Chọn `document_summarize_tool`.
-- Nếu yêu cầu chứa từ khóa "tạo câu hỏi", "quiz", "trắc nghiệm" -> Chọn `using_to_create_questions`.
-- Nếu là câu hỏi thông thường, yêu cầu giải thích, hoặc không rõ ràng -> BẮT BUỘC chọn `answer_tool`.
+QUY TẮC LỰA CHỌN:
+- Nếu yêu cầu "tóm tắt", "mind map", "tổng hợp" → Chọn `document_summarize_tool`
+- Nếu yêu cầu "tạo câu hỏi từ TOÀN BỘ tài liệu", "quiz toàn diện", "bài kiểm tra đầy đủ" → Chọn `using_to_create_questions_for_document`
+- Nếu yêu cầu "tạo câu hỏi về CHƯƠNG X", "quiz về PHẦN Y", "câu hỏi nhanh từ đoạn Z" → Chọn `question_generation_tool`
+- Nếu là câu hỏi thông thường, giải thích, hỏi đáp, hoặc không rõ ràng → Chọn `answer_tool`
 
-Hãy chọn công cụ phù hợp nhất, nếu không chắc chắn mặc định sử dụng answer_tool"""
+PHÂ
+N BIỆT QUAN TRỌNG:
+- `using_to_create_questions_for_document`: Xử lý TOÀN BỘ tài liệu, có quy trình đánh giá chất lượng, tốn thời gian.
+- `question_generation_tool`: Xử lý NHANH từ một PHẦN cụ thể, phù hợp khi người dùng chỉ định chương/phần.
+
+Nếu không chắc chắn, mặc định sử dụng `answer_tool`."""
     response = await llm_with_tools.ainvoke(
         [HumanMessage(content=prompt_tool_choice)], config
     )
