@@ -60,6 +60,7 @@ app.include_router(Routers.process_data_router, prefix="", tags=["ProcessData"])
 app.include_router(Routers.history_chat_router, prefix="", tags=["HistoryChat"])
 app.include_router(Routers.notify_router, prefix="", tags=["Notify"])
 app.include_router(Routers.auth_router, prefix="", tags=["Auth"])
+app.include_router(Routers.mindmap_router, prefix="", tags=["MindMap"])
 if __name__ == "__main__":
     import uvicorn
 

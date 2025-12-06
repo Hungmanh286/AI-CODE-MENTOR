@@ -7,6 +7,7 @@ from .process_data import router as process_data_router
 from .history_chat import router as history_chat_router
 from .notify import router as notify_router
 from .auth_router import router as auth_router
+from .mindmap import router as mindmap_router
 
 
 class Routers:
@@ -19,6 +20,7 @@ class Routers:
     history_chat_router = history_chat_router
     notify_router = notify_router
     auth_router = auth_router
+    mindmap_router = mindmap_router
 
 
 __all__ = ["Routers"]
