@@ -1,178 +1,111 @@
-import os
-import sys
+#
 
-from langchain_core.runnables.config import RunnableConfig
-from docling.document_converter import DocumentConverter
-from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph import StateGraph, START, END
+from langchain_voyageai.embeddings import VoyageAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
 from langchain_core.messages import (
     AIMessage,
+    HumanMessage,
+    SystemMessage,
+    trim_messages,
 )
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.graph.state import State
+from app.schema import MessageName
+from app.config import settings
 from app.graph.prompts import Prompts
 from app.graph.generate import generate_agent
-from app.chatmodel import init_llm
-from app.config import settings
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
+from app.graph.state import (
+    get_conversation_messages,
+)
 
 
-converter = DocumentConverter()
+TOOLS = []
+
+quizz: list[str] | None = None
+
+embeddings = VoyageAIEmbeddings(
+    api_key=settings.EMBEDDING_KEY,
+    model=settings.EMBEDDING_MODEL,
+    output_dimension=settings.EMBEDDING_DIMS,
+)
+
+url = "http://localhost:6333"
 
 
-try:
-    llm = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
-        model=settings.CHAT_MODEL,
-        temperature=settings.CHAT_MODEL_TEMPERATURE,
-        tags=["feedback_agent"],
+# điều kiện 1
+# node 2: information_retriever
+def information_retriever(state: State, config: RunnableConfig) -> str:
+    query = config["metadata"]["query"]
+    collection_name = config["configurable"].get("thread_id")
+
+    vector_store = QdrantVectorStore.from_existing_collection(
+        embedding=embeddings,
+        collection_name=collection_name,
+        url=url,
     )
-except Exception as e:
-    print(f"Fatal Error: Failed to initialize API agent model: {e}")
-    sys.exit(1)
-
-
-def get_human_message_content(state: State):
-    messages = state.get("messages", [])
-    for msg in messages:
-        if msg.__class__.__name__ == "HumanMessage":
-            return msg.content
-        if isinstance(msg, dict) and msg.get("role") == "user":
-            return msg.get("content", "")
-    return ""
-
-
-# node trích xuất dữ liệu từ file pdf
-async def extract_pdf_text(state: State, config: RunnableConfig):
-    session_id = config["configurable"].get("thread_id")
-    file_ids = get_active_file_id(session_id)
-    all_texts = []
-    
-    for file_id in file_ids:
-        # Đọc docs từ MinIO (trong folder session)
-        docs_minio_path = f"{session_id}/{file_id}_docs.txt"
-        
-        if minio_client.file_exists(docs_minio_path):
-            docs_data = minio_client.download_data(docs_minio_path)
-            if docs_data:
-                text = docs_data.decode("utf-8").strip()
-                all_texts.append(text)
-    
-    if not all_texts:
-        return {"documents": None}
-    
-    big_text = "\n\n".join(all_texts)
-    return {"documents": big_text}
-
-
-# node summarize context
-async def summarize_context(state: State, config: RunnableConfig):
-    documents = state.get("documents", None)
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=10000,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", " ", ""],
+    doc_retriever = vector_store.as_retriever(
+        search_kwargs={"k": 20},
     )
-
-    chunks = splitter.split_text(documents)
-    summaries = []
-
-    prompt = Prompts.SUMMARIZE_PROMPT.format("""
-Tóm tắt đoạn văn sau bằng tiếng Việt, giữ lại thông tin quan trọng:
----
-{text}
----
-Tóm tắt:
-""")
-    for chunk in chunks:
-        response = await llm.ainvoke(prompt.format(text=chunk), config=config)
-        text = response.content
-        summaries.append(text)
-    return {"summarize_context": summaries}
+    retrieved_docs = doc_retriever.invoke(query)
+    docs = []
+    for doc in retrieved_docs:
+        doc_obj = doc.model_dump()
+        docs.append(doc_obj)
+    return {"docs": docs}
 
 
-def check_pdf_exists(state: State, config: RunnableConfig):
-    documents = state.get("summarize_context", None)
-    if not documents:
-        return "web_search"
-    else:
-        return "pdf_exists"
+# Step 3: Extract documents from tool messages
+def documents_node(state: State) -> dict:
+    """Add documents to state."""
+    docs = state.get("docs", [])
+    documents = "\n".join(item["page_content"] for item in docs)
+    return {"documents": documents}
 
 
-# node sinh câu hỏi :
-async def generate_questions(state: State, config: RunnableConfig):
-    documents = state.get("summarize_context", [])
-    question = get_human_message_content(state)
-
-    system_message = SystemMessage(
-        content=Prompts.GENERATE_QUESTIONS_PROMPT.format(
-            question=question,
-            documents=documents,
-        )
-    )
-    # system_context = SystemMessage(
-    #     content=f"Use the following documents as context for your response:\n\n{documents}"
-    # )
-
-    prompt = {"messages": [system_message]}
-    response_msg = await generate_agent.ainvoke(prompt, config=config)
-    content = response_msg["messages"][-1].content
-    return {
-        "ai_answer": content,
-    }
-
-
-# node đánh giá câu hỏi :
-async def evaluate_questions(state: State, config: RunnableConfig):
-    """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
-    documents = state.get("summarize_context", [])
-    generated_questions = state.get("ai_answer", "")
-
+async def question_node(state: State, config: RunnableConfig):
+    """Sinh câu hỏi từ tài liệu"""
+    documents = state.get("documents", [])
     # Tạo system prompt
     system_message = SystemMessage(
-        content=Prompts.EVALUATE_QUESTIONS_PROMPT.format(
-            documents=documents,
-            questions=generated_questions,
-        )
+        content=Prompts.QUESTIONS_GEN_PROMPT.format(document=documents)
+    )
+    full_conversation_messages = get_conversation_messages(
+        state, aimessage_name=[MessageName.answer]
+    )
+    conversation_messages = trim_messages(
+        full_conversation_messages,
+        strategy="last",
+        token_counter=len,
+        max_tokens=settings.HISTORY_CONTEXT_LEN,
+        start_on=HumanMessage,
+        end_on=(HumanMessage, AIMessage),
+        include_system=False,
     )
 
-    prompt = {"messages": [system_message]}
-
-    # Gọi LLM để đánh giá
+    prompt = {"messages": [system_message] + conversation_messages}
     response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
     return {
-        "messages": [AIMessage(content=content, name="evaluation_agent")],
-        "evaluation_result": content,
+        "messages": [AIMessage(content=content, name="feedbacks_question")],
+        "quizz": content,
     }
 
 
-def build_expert_workflow():
-    from langgraph.graph import StateGraph, START, END
-
+def build_feedbacks_workflow():
     workflow = StateGraph(State)
-    workflow.add_node("extract_pdf_text", extract_pdf_text)
-    workflow.add_node("generate_questions", generate_questions)
-    workflow.add_node("summarize_context", summarize_context)
-    workflow.add_node("evaluate_questions", evaluate_questions)
 
-    workflow.add_conditional_edges(
-        "extract_pdf_text",
-        check_pdf_exists,
-        {
-            "pdf_exists": "generate_questions",
-            "web_search": END,
-        },
-    )
-    workflow.add_edge(START, "extract_pdf_text")
-    workflow.add_edge("extract_pdf_text", "summarize_context")
-    workflow.add_edge("summarize_context", "generate_questions")
-    workflow.add_edge("generate_questions", "evaluate_questions")
-    workflow.add_edge("evaluate_questions", END)
+    workflow.add_node("information_retriever", information_retriever)
+    workflow.add_node(MessageName.feedbacks_question, question_node)
+    workflow.add_node("documents", documents_node)
+
+    workflow.add_edge(START, "information_retriever")
+    workflow.add_edge("information_retriever", "documents")
+    workflow.add_edge("documents", MessageName.feedbacks_question)
+    workflow.add_edge(MessageName.feedbacks_question, END)
     return workflow
 
 
-workflow = build_expert_workflow()
-question_expert = workflow.compile()
+workflow = build_feedbacks_workflow()
+question_agent = workflow.compile()

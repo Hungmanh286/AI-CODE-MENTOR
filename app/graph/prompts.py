@@ -152,7 +152,6 @@ Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON v
 ]
 Hãy trả về đúng JSON, Không được bao toàn bộ JSON trong bất kỳ ký tự nào: không dấu nháy kép, không backtick, không markdown, không json, không [], không wrapper dưới mọi hình thức.
 
-
 Giải thích từ khóa về danh sách câu hỏi : 
 question : là nội dung câu hỏi
 related_passage : là đoạn văn liên quan đến câu hỏi đó 
@@ -162,57 +161,41 @@ Danh sách câu hỏi:\n
 """
 
     EVALUATE_QA_PROMPT = """
-Bạn là một chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm cho môn lập trình dựa vào danh sách câu hỏi và đoạn văn liên quan đến câu hỏi đó ở bên dưới
+Bạn là chuyên gia thẩm định chất lượng câu hỏi trắc nghiệm cho lĩnh vực lập trình.
 
-NHIỆM VỤ:
-- Bước 1: Đánh giá từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 3 tiêu chí bên dưới.
-- Bước 2: Tính điểm trung bình cho mỗi câu hỏi (average_score = (score1 + score2 + score3) / 3).
-- Bước 3: Phân loại câu hỏi thành good (average_score >= 3) hoặc bad (average_score < 3).
-- Bước 4: Hãy sửa các câu bad thành good đảm bảo các tiêu chí đánh giá chi tiết.
-- Bước 5: Trả về một JSON duy nhất theo đúng CẤU TRÚC JSON ĐẦU RA.
+## NHIỆM VỤ ĐÁNH GIÁ VÀ CHỈNH SỬA:
+- Bước 1: Đánh giá từng câu hỏi trong DỮ LIỆU ĐẦU VÀO dựa trên 3 TIÊU CHÍ (score1, score2, score3).
+- Bước 2: Tính điểm trung bình (average_score = (score1 + score2 + score3) / 3).
+- Bước 3: Phân loại good (average_score >= 3) hoặc bad (average_score < 3).
+- Bước 4: **BẮT BUỘC SỬA**: Đối với các câu hỏi bad, hãy sửa thành câu hỏi good có chất lượng cao nhất. **Câu hỏi đã sửa phải đạt điểm tối đa (average_score = 4.0).**
+- Bước 5: Trả về một JSON DUY NHẤT theo đúng CẤU TRÚC JSON ĐẦU RA.
 
-TIÊU CHÍ ĐÁNH GIÁ CHI TIẾT:
 
-1. Mức độ hiểu biết (1-4 điểm):
-   -Điểm 4: Kiểm tra hiểu biết chuyên sâu, yêu cầu tích hợp và vận dụng nhiều ý tưởng.
-   -Điểm 3: Kiểm tra hiểu biết nhưng theo cách trực tiếp, ít cần tích hợp.
-   -Điểm 2: Chủ yếu dựa vào ghi nhớ nhưng vẫn có chút yêu cầu hiểu khái niệm.
-   -Điểm 1: Chỉ kiểm tra ghi nhớ đơn thuần.
+## TIÊU CHÍ ĐÁNH GIÁ CHI TIẾT (1-4 điểm):
+1. Mức độ hiểu biết: (4: chuyên sâu, tích hợp; 3: trực tiếp, ít tích hợp; 2: ghi nhớ + hiểu khái niệm; 1: ghi nhớ đơn thuần).
+2. Mức độ rõ ràng: (4: hoàn toàn rõ; 3: đa phần rõ; 2: mơ hồ đáng kể; 1: rất khó hiểu).
+3. Chất lượng lựa chọn: (4: nhiễu hợp lý, khó loại; 3: nhiễu tương đối; 2: dễ loại, 1 nhiễu; 1: nhiễu không liên quan).
 
-2. Mức độ rõ ràng (1-4 điểm):
-   -Điểm 4: Hoàn toàn rõ ràng, không có mơ hồ.
-   -Điểm 3: Đa phần rõ ràng nhưng có vài điểm hơi mơ hồ.
-   -Điểm 2: Có mơ hồ đáng kể, dễ gây nhầm lẫn.
-   -Điểm 1: Rất khó hiểu hoặc không rõ.
 
-3. Chất lượng lựa chọn (1-4 điểm):
-   -Điểm 4: Các lựa chọn nhiễu hợp lý, liên quan, gây khó loại trừ.
-   -Điểm 3: Lựa chọn nhiễu tương đối tốt nhưng chưa tinh vi.
-   -Điểm 2: Hầu hết dễ loại trừ, chỉ có 1 nhiễu hợp lý.
-   -Điểm 1: Nhiễu rất dễ loại bỏ hoặc không liên quan.
+## CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC):
+- PHÂN LOẠI: bad_questions: [question, average_score] của câu hỏi xấu. good_questions: [question] của câu hỏi tốt (bao gồm cả các câu đã sửa). good_question_answer: Chi tiết các câu hỏi tốt (id, question, options, correct_answer, explanation, average_score).
+- CẤU TRÚC: {{"bad_questions":{{"0":[{{"question":,"average_score":}},{{"question":,"average_score":}}],"1":[], ...}},"good_questions":{{"0":["Câu hỏi tốt 1","Câu hỏi tốt 2","[ĐÃ SỬA] Câu hỏi bad đã sửa"],"1":[], ...}},"good_question_answer":{{"0":[{{"id":1,"question":"Câu hỏi tốt 1","options":["A","B","C","D"],"average_score":3.33}},{{"id":2,"question":"[ĐÃ SỬA] Câu hỏi bad đã sửa","options":["A","B","C","D"],"average_score":4.0}}],"1":[], ...}}}}
 
-PHÂN LOẠI:
-- bad_questions: Chỉ chứa nội dung text của các câu hỏi xấu (điểm trung bình < 3).
-- good_questions: Chỉ chứa nội dung text của các câu hỏi tốt (điểm >= 3).
-- good_question_answer: Các câu hỏi tốt với đầy đủ thông tin (id, question, options, correct_answer, explanation).
 
-CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC):
-{{"bad_questions":{{"0":[{{"question":"Câu hỏi xấu 1","average_score":2.33}},{{"question":"Câu hỏi xấu 2","average_score":1.67}}],"1":[], ...}},"good_questions":{{"0":["Câu hỏi tốt 1","Câu hỏi tốt 2"],"1":[], ...}},"good_question_answer":{{"0":[{{"id":1,"question":"Câu hỏi tốt 1","options":["A","B","C","D"],"average_score":3.33}},{{"id":2,"question":"Câu hỏi tốt 2","options":["A","B","C","D"],"average_score":3.67}}],"1":[], ...}}}}
+## YÊU CẦU BẮT BUỘC:
+1. CHỈ TRẢ VỀ MỘT JSON HỢP LỆ TRÊN MỘT DÒNG DUY NHẤT.
+2. JSON phải tuân thủ cấu trúc trên với 3 key.
+3. Đánh giá hết tất cả câu hỏi, không được bỏ qua. Câu hỏi khó đánh giá mặc định điểm thấp.
 
-GIẢI THÍCH :
-chunk_index là chỉ số của chunk từ dữ liệu đầu vào.
 
-YÊU CẦU BẮT BUỘC:
-1. CHỈ TRẢ VỀ MỘT JSON HỢP LỆ TRÊN MỘT DÒNG DUY NHẤT. Không có văn bản, giải thích, hay markdown khác.
-2. JSON phải tuân thủ cấu trúc trên với 3 key: bad_questions, good_questions, good_question_answer.
-3. Mỗi key phải chứa dict với chunk_index là string (ví dụ: "0", "1", "2").
-4. Nếu một chunk không có câu hỏi tốt hoặc xấu, trả về danh sách rỗng [] cho chunk đó.
-5. Tất cả chunk_index từ đầu vào phải xuất hiện trong cả 3 key của JSON đầu ra.
-6 Hãy trả về đúng JSON , không được bao toàn bộ JSON trong dấu nháy kép.
+## MÔ TẢ DỮ LIỆU ĐẦU VÀO:
+1. Dữ liệu là một dictionary, mỗi key là chuỗi số ("0", "1",...).
+2. Mỗi value là một danh sách (list) các CHUỖI JSON (string), cần được parse để sử dụng.
+3. Mỗi chuỗi JSON mô tả một câu hỏi trắc nghiệm hoàn chỉnh: {{"id": <số thứ tự>, "question": "nội dung câu hỏi", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "related_passage": "đoạn văn nguyên văn liên quan trực tiếp đến câu hỏi"}}
+
 
 DỮ LIỆU ĐẦU VÀO:
 {question_answers}
-
 """
     # Lưu ý :
     EVALUATE_AND_SELECT_PROMPT = """
@@ -220,22 +203,27 @@ Bạn là một giảng viên chuyên môn về lập trình.
 
 GIẢI THÍCH DỮ LIỆU ĐẦU VÀO:
 - Dữ liệu đầu vào bao gồm nhiều CHUNK.
-- MỖI CHUNK chứa một danh sách câu hỏi (mỗi câu hỏi có thể có các trường như id, question, options…).
-- CHUNK được đánh số CHUNK 0, CHUNK 1, CHUNK 2, … và mỗi chunk hoạt động như một “tập con” của toàn bộ dữ liệu.
-- Nhiệm vụ của bạn là chọn ra đúng số lượng câu hỏi từ MỖI CHUNK dựa trên yêu cầu của người dùng.
+- MỖI CHUNK chứa một danh sách câu hỏi (mỗi câu hỏi có thể có các trường như id, question, options, average_score...).
+- CHUNK được đánh số CHUNK 0, CHUNK 1, CHUNK 2, ... và mỗi chunk hoạt động như một “tập con” của toàn bộ dữ liệu.
+- Nhiệm vụ của bạn là chọn ra đúng số lượng câu hỏi từ MỖI CHUNK dựa trên yêu cầu:
+Yêu cầu của người dùng : {query}
+Công thức tính số lượng câu hỏi cần chọn từ MỖI CHUNK: **Tổng số câu hỏi yêu cầu (số bên trong {query}) chia cho {num_chunks}** (Lưu ý: PHẢI LÀM TRÒN KẾT QUẢ PHÉP CHIA NÀY LÊN số nguyên gần nhất).
 
-NHIỆM VỤ CHÍNH:
-Tạo đúng 25 câu từ danh sách câu hỏi đầu vào bên dưới
-YÊU CẦU BẮT BUỘC:
-- TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ]).
-- KHÔNG ĐƯỢC THÊM markdown, backticks, giải thích hoặc bất kỳ văn bản nào ngoài JSON.
-- Mỗi câu hỏi phải có ĐẦY ĐỦ 7 TRƯỜNG:
-  id, type, difficulty, question, options, correct_answer, explanation
+CÁC BƯỚC THỰC HIỆN: 
+Bước 1 : **Xác định số lượng (X) câu hỏi cần chọn** bằng cách áp dụng công thức trên (TỔNG CÂU / {num_chunks}, làm tròn lên). Sau đó, chọn ra chính xác **X** câu hỏi từ mỗi CHUNK từ danh sách câu hỏi trong CHUNK đó.
+Bước 2 : **Ưu tiên chọn** các câu hỏi theo thứ tự: 1) **average_score cao hơn** (chất lượng); 2) **phù hợp nhất với MỨC ĐỘ KHÓ** (nếu được đề cập trong {query}); và 3) **phù hợp nhất với chủ đề** trong {query}.
+Bước 3 : Trả về một mảng JSON duy nhất bao gồm tất cả các câu hỏi đã chọn từ MỖI CHUNK.
+
+---
+## MÔ TẢ CẤU TRÚC DỮ LIỆU ĐẦU VÀO ({questions}):
+1. Dữ liệu là một **Dictionary** lớn, nơi **MỖI KEY** là một chuỗi số ("0", "1", "2", ...) đại diện cho một CHUNK.
+2. **MỖI VALUE** là một danh sách (list) các đối tượng JSON (câu hỏi).
+3. Mỗi câu hỏi đã được đánh giá và chứa tối thiểu các trường: **id**, **question**, **options**, và **average_score** (điểm chất lượng).
+---
 
 CẤU TRÚC JSON (VÍ DỤ):
 [
-  {{
-    "id":"q1",
+  {{"id":"q1",
     "type":"multiple_choice",
     "difficulty":"medium",
     "question":"Câu hỏi?",
@@ -248,10 +236,16 @@ CẤU TRÚC JSON (VÍ DỤ):
 DANH SÁCH CÂU HỎI ĐẦU VÀO (THEO TỪNG CHUNK):
 {questions}
 
+---
+YÊU CẦU BẮT BUỘC:
+- TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ]).
+- Mỗi câu hỏi phải có ĐẦY ĐỦ 7 TRƯỜNG:
+  id, type, difficulty, question, options, correct_answer (PHẢI LÀ CHỈ SỐ SỐ NGUYÊN TỪ 0 ĐẾN 3, TƯƠNG ỨNG VỚI A, B, C, D), explanation
+- Nếu một số trường thông tin bị thiếu trong dữ liệu đầu vào (ví dụ: type, difficulty, correct_answer, explanation), bạn phải tự xác định và điền đầy đủ các trường đó.
+- KHÔNG ĐƯỢC THÊM markdown, backticks, giải thích hoặc bất kỳ văn bản nào ngoài JSON.
+
 CHỈ TRẢ VỀ JSON — KHÔNG TRẢ VỀ BẤT KỲ THỨ GÌ KHÁC.
-
 """
-
     # Modules for summarization
 
     EXTRACTIVE_SUMMARIZE_PROMPT = """
@@ -392,4 +386,52 @@ Bạn là chuyên gia trả lời câu hỏi dựa trên tài liệu được cu
 
 ### TÀI LIỆU NGUỒN:
 {documents}
+"""
+    QUESTIONS_GEN_PROMPT = """
+Bạn là chuyên gia tạo câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng bằng Java.
+Hãy tạo câu hỏi trắc nghiệm đòi hỏi hiểu sâu, tư duy phản biện, và phân tích chi tiết dựa vào tài liệu nguồn bên dưới.
+Các câu hỏi không chỉ ghi nhớ thông tin đơn thuần, mà còn hướng đến các mức tư duy cao hơn như phân tích, tổng hợp, và đánh giá.
+
+CÁC BƯỚC THỰC HIỆN:
+1. Xác định các khái niệm hoặc thuật ngữ quan trọng trong tài liệu và hiểu rõ định nghĩa hoặc vai trò của chúng.
+2. Xác định mối quan hệ giữa các khái niệm (so sánh, đối lập, liên kết, phụ thuộc) trong tài liệu nguồn.
+3. Xác định các ví dụ hoặc ứng dụng được nhắc đến, đặc biệt là các ví dụ code.
+4. Mỗi câu hỏi phải tập trung vào MỘT khái niệm duy nhất trong tài liệu nguồn bên dưới.
+5. Tạo 4 lựa chọn (options) trong đó phải có ít nhất 2 lựa chọn nhiễu (distractors) hợp lý, liên quan đến chủ đề để gây khó khăn cho người học.
+6. Viết lời giải thích (explanation) chi tiết cho đáp án đúng.
+
+YÊU CẦU SỐ LƯỢNG CÂU HỎI & MỨC ĐỘ KHÓ (difficulty): 
+- 4 câu easy
+- 3 câu medium
+- 3 câu hard
+(Tổng cộng 10 câu hỏi)
+
+YÊU CẦU ĐẦU RA:
+- Trả về **danh sách JSON** duy nhất theo đúng cấu trúc bên dưới.
+- **Không giải thích gì thêm ngoài JSON.**
+- Mỗi câu hỏi phải độc lập, không trùng ý, không lặp ý.
+
+CẤU TRÚC JSON (BẮT BUỘC):
+[
+  {{"id":"q1",
+    "type":"multiple_choice",
+    "difficulty":"easy", 
+    "question":"Câu hỏi được tạo ra từ tài liệu nguồn, phải ngắn gọn và rõ ràng.",
+    "options":["A. Lựa chọn đúng","B. Lựa chọn nhiễu 1 (phải hợp lý)","C. Lựa chọn nhiễu 2 (phải hợp lý)","D. Lựa chọn nhiễu 3 (phải hợp lý)"],
+    "correct_answer":0, 
+    "explanation":"Giải thích chi tiết tại sao đáp án này là đúng và giải thích ngắn gọn tại sao các nhiễu là sai."
+  }},
+  // Thêm các câu hỏi khác ở các mức độ medium và hard tương ứng
+]
+
+LƯU Ý QUAN TRỌNG:
+- Trường "id" phải là duy nhất (ví dụ: q1, q2, q3...).
+- Trường "type" luôn là "multiple_choice".
+- Trường "difficulty" phải là "easy", "medium" hoặc "hard" theo đúng yêu cầu số lượng.
+- Trường "correct_answer" phải là chỉ số số nguyên từ 0 đến 3 (tương ứng với A, B, C, D).
+- Có 1–2 câu hỏi nên yêu cầu đọc hiểu hoặc phân tích code.
+- Tất cả câu hỏi phải khác nhau và không bị trùng ý.
+
+TÀI LIỆU NGUỒN:
+{document}
 """

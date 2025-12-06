@@ -36,6 +36,8 @@ class State(MessagesState):
     questions: List[Question]
     selected_answers: List[str]
     selected_text: str | None
+    quizz: list[str] | None = None
+    query: str | None = None
 
 
 def get_conversation_messages(

@@ -24,6 +24,7 @@ from app.services.minio_client import minio_client
 from app.chatmodel import init_llm
 from app.routes.process_data import process_pdf
 from app.graph.generate import generate_agent  # noqa
+from app.graph.agents.question_expert import question_agent  # noqa
 
 
 model = settings.CHAT_MODEL_VISION
@@ -89,47 +90,75 @@ def format_question_answer_dict(data: dict) -> str:
     """
     Format dict chứa list JSON Q&A thành văn bản đẹp (Markdown),
     phù hợp với cấu trúc dữ liệu KHÔNG có correct_answer/explanation.
-    Xử lý cả trường hợp JSON bị stringify nhiều lần.
+    Xử lý cả trường hợp JSON bị stringify nhiều lần và multiple JSON objects nối liền nhau.
     """
     formatted = ""
+
+    def parse_multiple_json_objects(text):
+        """
+        Parse string chứa nhiều JSON objects nối liền nhau.
+        Ví dụ: '{"id":1,...}{"id":2,...}{"id":3,...}'
+        """
+        objects = []
+        text = text.strip()
+
+        # Remove markdown code fences
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*\n", "", text)
+            text = re.sub(r"\n```\s*$", "", text)
+            text = text.strip()
+
+        # Try to parse as single JSON array or object first
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return parsed
+            elif isinstance(parsed, dict):
+                return [parsed]
+        except json.JSONDecodeError:
+            pass
+
+        # If that fails, try to split multiple JSON objects
+        depth = 0
+        start_idx = None
+
+        for i, char in enumerate(text):
+            if char == "{":
+                if depth == 0:
+                    start_idx = i
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0 and start_idx is not None:
+                    # Found complete JSON object
+                    obj_text = text[start_idx : i + 1]
+                    try:
+                        obj = json.loads(obj_text)
+                        objects.append(obj)
+                    except json.JSONDecodeError as e:
+                        print(f"Failed to parse object: {obj_text[:100]}... Error: {e}")
+                    start_idx = None
+
+        return objects
 
     def parse_nested_json(value):
         """
         Parse JSON đệ quy để xử lý trường hợp bị stringify nhiều lần.
-        Xử lý cả markdown code fence (```json ... ```).
-        Trả về list các câu hỏi cuối cùng.
         """
-        current = value
-        while isinstance(current, str):
-            if current.strip().startswith("```"):
-                current = re.sub(r"^```(?:json)?\s*\n", "", current.strip())
-                current = re.sub(r"\n```\s*$", "", current.strip())
-                current = current.strip()
-
-            try:
-                current = json.loads(current)
-            except json.JSONDecodeError:
-                break
-        while (
-            isinstance(current, list)
-            and len(current) == 1
-            and isinstance(current[0], str)
-        ):
-            try:
-                temp = current[0]
-                if temp.strip().startswith("```"):
-                    temp = re.sub(r"^```(?:json)?\s*\n", "", temp.strip())
-                    temp = re.sub(r"\n```\s*$", "", temp.strip())
-                    temp = temp.strip()
-
-                current = json.loads(temp)
-            except json.JSONDecodeError:
-                break
-
-        if isinstance(current, list):
-            return current
-        elif isinstance(current, dict):
-            return [current]
+        if isinstance(value, list):
+            # Already a list, check if items need parsing
+            result = []
+            for item in value:
+                if isinstance(item, str):
+                    sub_items = parse_multiple_json_objects(item)
+                    result.extend(sub_items)
+                else:
+                    result.append(item)
+            return result
+        elif isinstance(value, dict):
+            return [value]
+        elif isinstance(value, str):
+            return parse_multiple_json_objects(value)
         else:
             return []
 
@@ -141,6 +170,12 @@ def format_question_answer_dict(data: dict) -> str:
                 qa_items = parse_nested_json(json_str)
             except Exception as e:
                 formatted += f"Lỗi parse JSON: {e}\n\n"
+                print(f"Error parsing chunk {chunk_id}: {e}")
+                print(f"Content preview: {str(json_str)[:200]}...")
+                continue
+
+            if not qa_items:
+                formatted += "Không thể parse được dữ liệu trong chunk này\n\n"
                 continue
 
             for item in qa_items:
@@ -185,9 +220,24 @@ def document_preprocessing(state: QState, config: RunnableConfig):
 
                 # Chia docs_content thành 10 phần có overlap
                 content_length = len(docs_content)
-                num_parts = 10
-                chunk_size = content_length // num_parts
-                overlap_size = chunk_size // 20  # 20% overlap
+                if content_length < 5000:
+                    num_parts = 3
+                    chunk_size = content_length // num_parts
+                    overlap_size = chunk_size // 20
+
+                elif 5000 <= content_length < 10000:
+                    num_parts = 5
+                    chunk_size = content_length // num_parts
+                    overlap_size = chunk_size // 20
+
+                elif 10000 <= content_length < 30000:
+                    num_parts = 8
+                    chunk_size = content_length // num_parts
+                    overlap_size = chunk_size // 20
+                else:
+                    num_parts = 10
+                    chunk_size = content_length // num_parts
+                    overlap_size = chunk_size // 20
 
                 print(f"File {file_id}: Total content length = {content_length} chars")
                 print(
@@ -221,7 +271,6 @@ def question_node(state: QState, config: RunnableConfig):
     check_questions = {}
     good_questions = state.get("good_questions", None)
     bad_questions = state.get("bad_questions", None)
-    query = state.get("query", None)
 
     document_chunks = state.get("document_chunks", [])
     retry_count = state.get("retry_count", 0)
@@ -250,9 +299,7 @@ def question_node(state: QState, config: RunnableConfig):
                     print(f"[SSE] Warning: Could not send progress: {e}")
 
             if retry_count == 0:
-                prompt = Prompts.QUESTION_GENERATION_PROMPT.format(
-                    chunk=chunk, query=query
-                )
+                prompt = Prompts.QUESTION_GENERATION_PROMPT.format(chunk=chunk)
             else:
                 bad_qs = bad_questions.get(str(idx), [])
                 prompt = Prompts.QUESTION_REGENERATION_PROMPT.format(
@@ -260,8 +307,12 @@ def question_node(state: QState, config: RunnableConfig):
                 )
 
             response_msg = llm.invoke(input=prompt, config=config)
+            question = response_msg.content.strip()
 
-            question = response_msg.content
+            if question.startswith("```"):
+                question = re.sub(r"^```(?:json)?\s*\n", "", question)
+                question = re.sub(r"\n```\s*$", "", question)
+                question = question.strip()
 
             return (idx, question)
 
@@ -356,12 +407,39 @@ def answer_node(state: QState, config: RunnableConfig):
                 except Exception as e:
                     print(f"[SSE] Warning: Could not send progress: {e}")
 
-            formatted_prompt = f"Chunk {idx}\n" + "\n".join([q for q in questions])
+            formatted_questions = ""
+            for q_str in questions:
+                try:
+                    # Try to parse and format nicely
+                    cleaned = q_str.strip()
+                    if cleaned.startswith("```"):
+                        cleaned = re.sub(r"^```(?:json)?\s*\n", "", cleaned)
+                        cleaned = re.sub(r"\n```\s*$", "", cleaned)
+                        cleaned = cleaned.strip()
+
+                    q_list = json.loads(cleaned)
+                    for i, q_item in enumerate(q_list, 1):
+                        formatted_questions += f"CÂU HỎI {i}:\n"
+                        formatted_questions += (
+                            f"Nội dung: {q_item.get('question', '')}\n"
+                        )
+                        formatted_questions += f"\nĐoạn văn liên quan:\n{q_item.get('related_passage', '')}\n"
+
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    formatted_questions += f"\n{q_str}\n"
+
+            formatted_prompt = f"CHUNK {idx}\n{formatted_questions}"
 
             prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
             response_msg = llm.invoke(input=prompt, config=config)
-            question_answer = response_msg.content
-            # print(question_answer)
+            question_answer = response_msg.content.strip()
+
+            # Try to clean JSON
+            if question_answer.startswith("```"):
+                question_answer = re.sub(r"^```(?:json)?\s*\n", "", question_answer)
+                question_answer = re.sub(r"\n```\s*$", "", question_answer)
+                question_answer = question_answer.strip()
+
             return (idx, question_answer)
 
         except Exception as e:
@@ -413,10 +491,11 @@ def judge(state: QState, config: RunnableConfig):
     retry = state.get("retry_count", 0)
     num_chunks = len(question_answers)
 
-    # ✅ Sử dụng cố định 4 workers cho judge
-    max_workers = 4
-    chunks_per_worker = max(1, num_chunks // max_workers)
-    batch_size = max(1, chunks_per_worker)
+    # Each worker processes 2 chunks
+    batch_size = 2
+    max_workers = max(
+        1, (num_chunks + batch_size - 1) // batch_size
+    )  # Ceiling division
 
     print(
         f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
@@ -436,14 +515,11 @@ def judge(state: QState, config: RunnableConfig):
                     )
                 except Exception as e:
                     print(f"[SSE] Warning: Could not send progress: {e}")
-
-            formatted_batch = format_question_answer_dict(batch_dict)
-
-            prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=formatted_batch)
+            batch_dict_str = json.dumps(batch_dict, ensure_ascii=False, indent=2)
+            prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=batch_dict_str)
             response_msg = llm.invoke(input=prompt, config=config)
 
             judgment = response_msg.content.strip()
-            # print(judgment)
 
             if judgment.startswith("```"):
                 judgment = re.sub(r"^```(json)?", "", judgment.strip())
@@ -542,15 +618,12 @@ def judge(state: QState, config: RunnableConfig):
         bad_questions_batch = result.get("bad_questions", {})
         good_question_batch = result.get("good_questions", {})
 
-        # Merge good_question_answer - parse JSON nếu cần
         for k, v in good_question_answer.items():
             if k not in all_good_question_answer:
                 all_good_question_answer[k] = []
 
-            # Parse JSON string nếu v là string
             if isinstance(v, str):
                 try:
-                    # Remove markdown code fences if present
                     v_cleaned = v.strip()
                     if v_cleaned.startswith("```"):
                         v_cleaned = re.sub(r"^```(?:json)?\s*\n", "", v_cleaned)
@@ -562,15 +635,14 @@ def judge(state: QState, config: RunnableConfig):
                         all_good_question_answer[k].extend(parsed_v)
                     else:
                         all_good_question_answer[k].append(parsed_v)
-                except json.JSONDecodeError:
-                    # Nếu không parse được, giữ nguyên
+                except (json.JSONDecodeError, TypeError, AttributeError):
+                    # Nếu không parse được, giữ nguyên string
                     all_good_question_answer[k].append(v)
             elif isinstance(v, list):
                 all_good_question_answer[k].extend(v)
             else:
                 all_good_question_answer[k].append(v)
 
-        # Merge bad_questions
         for k, v in bad_questions_batch.items():
             if k not in all_bad_questions:
                 all_bad_questions[k] = []
@@ -579,7 +651,6 @@ def judge(state: QState, config: RunnableConfig):
             else:
                 all_bad_questions[k].append(v)
 
-        # Merge good_questions
         for k, v in good_question_batch.items():
             if k not in all_good_question:
                 all_good_question[k] = []
@@ -658,9 +729,9 @@ def validate(state: QState, config: RunnableConfig):
 
     num_chunks = len(data_to_validate)
 
-    max_workers = 3
-    chunks_per_worker = max(1, num_chunks // max_workers)
-    batch_size = max(1, chunks_per_worker)
+    # Each worker processes 2 chunks
+    batch_size = 2
+    max_workers = max(1, (num_chunks + batch_size - 1) // batch_size)
 
     print(
         f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
@@ -683,10 +754,7 @@ def validate(state: QState, config: RunnableConfig):
 
             formatted_questions = ""
             for chunk_idx, questions_list in batch_dict.items():
-                formatted_questions += f"\n{'=' * 80}\n"
                 formatted_questions += f"CHUNK {chunk_idx}:\n"
-                formatted_questions += f"{'=' * 80}\n"
-
                 if isinstance(questions_list, list):
                     questions_json = json.dumps(
                         questions_list, ensure_ascii=False, indent=2
@@ -695,10 +763,12 @@ def validate(state: QState, config: RunnableConfig):
                     questions_json = str(questions_list)
 
                 formatted_questions += questions_json + "\n"
-
+                print(num_chunks)
             prompt_template = Prompts.EVALUATE_AND_SELECT_PROMPT
-            prompt = prompt_template.replace("{query}", query).replace(
-                "{questions}", formatted_questions
+            prompt = (
+                prompt_template.replace("{query}", query)
+                .replace("{questions}", formatted_questions)
+                .replace("{num_chunks}", str(num_chunks))
             )
 
             response_msg = llm.invoke(input=prompt, config=config)
@@ -755,10 +825,15 @@ def validate(state: QState, config: RunnableConfig):
                 all_questions.extend(batch_questions)
             elif isinstance(batch_questions, dict):
                 all_questions.append(batch_questions)
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, TypeError, AttributeError) as e:
             print(f"Failed to parse JSON from batch {batch_id}: {e}")
             print(f"Content: {batch_content[:200]}...")
-            continue
+            try:
+                all_questions.append(
+                    {"raw_content": batch_content, "parse_error": str(e)}
+                )
+            except Exception:
+                continue
     final_quizz_json = json.dumps(all_questions, ensure_ascii=False, indent=2)
 
     print(
@@ -792,7 +867,7 @@ workflow.add_edge("validate", END)
 document_processing_agent = workflow.compile()
 
 
-@tool("using_to_create_questions")
+@tool("using_to_create_questions_for_document")
 async def document_processing_tool(query: str, config: RunnableConfig):
     """
     Công cụ tạo câu hỏi trắc nghiệm từ tài liệu.
@@ -835,7 +910,7 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         for i in range(5):
             current_queue = sse_event_queues.get(session_id)
             if current_queue:
-                await current_queue.put("done")
+                await current_queue.put("document_done")
                 print(
                     f"[DocumentProcessing] SSE 'done' event (string) sent to {session_id}"
                 )
@@ -855,6 +930,80 @@ async def document_processing_tool(query: str, config: RunnableConfig):
 
     except Exception as e:
         print(f"[DocumentProcessing] Error during processing: {e}")
+        import traceback
+
+        traceback.print_exc()
+        if queue:
+            try:
+                await queue.put({"type": "error", "message": str(e)})
+            except Exception:
+                pass
+        raise
+
+
+@tool("question_generation_tool")
+async def question_generation_tool(query: str, config: RunnableConfig):
+    """
+    Công cụ tạo câu hỏi trắc nghiệm nhanh từ chương cụ thể trong tài liệu.
+    Sử dụng khi người dùng yêu cầu tạo câu hỏi từ một chương hoặc phần cụ thể.
+
+    Args:
+        query: Yêu cầu về câu hỏi (ví dụ: "tạo 10 câu hỏi về chương 3").
+        config: Cấu hình chứa session_id.
+    """
+    import asyncio
+
+    session_id = config["configurable"].get("thread_id")
+    if not session_id:
+        return "session_id không hợp lệ."
+
+    # Ensure SSE queue exists
+    if session_id not in sse_event_queues:
+        sse_event_queues[session_id] = asyncio.Queue()
+        print(f"[QuestionGen] Created SSE queue for session_id: {session_id}")
+
+    queue = sse_event_queues.get(session_id)
+
+    try:
+        # Send start event
+        if queue:
+            await queue.put({"type": "start", "message": "Đang tạo câu hỏi..."})
+            print(f"[QuestionGen] SSE 'start' event sent to {session_id}")
+
+        # Process using process_pdf with question_agent
+        print(
+            f"[QuestionGen] Starting question generation for session_id: {session_id}"
+        )
+        result = await process_pdf(
+            session_id, document_processing_agent=question_agent, query=query
+        )
+        print(
+            f"[QuestionGen] Question generation completed for session_id: {session_id}"
+        )
+        print(f"[QuestionGen] Result: {result}")
+
+        # Send done event
+        for i in range(5):
+            current_queue = sse_event_queues.get(session_id)
+            if current_queue:
+                await current_queue.put("question_done")
+                print(f"[QuestionGen] SSE 'done' event sent to {session_id}")
+                break
+            else:
+                if i < 4:
+                    print(
+                        f"[QuestionGen] SSE queue not found, retrying in 1s ({i + 1}/5)..."
+                    )
+                    await asyncio.sleep(1)
+                else:
+                    print(
+                        f"[QuestionGen] SSE queue not found for session_id: {session_id} after retries"
+                    )
+
+        return "Đã tạo câu hỏi thành công."
+
+    except Exception as e:
+        print(f"[QuestionGen] Error: {e}")
         import traceback
 
         traceback.print_exc()
