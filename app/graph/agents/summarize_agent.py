@@ -1,5 +1,5 @@
 from google import genai
-
+import uuid
 
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
@@ -15,6 +15,8 @@ from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
 from app.graph.generate import generate_agent
 from app.chatmodel import init_llm
+from app.routes.mindmap import create_mindmap
+from app.schema.mindmap import MindMap
 
 
 class QState(MessagesState):
@@ -164,12 +166,27 @@ def mind_map(state: QState, config: RunnableConfig):
             image.save(temp_image_path)
             print(f"[MindMap] Saved temporary image: {temp_image_path}")
 
-            minio_path = f"{session_id}/mindmap.png"
+            mindmap_id = str(uuid.uuid4())
+            minio_path = f"{session_id}/{mindmap_id}_mindmap.png"
+
             with open(temp_image_path, "rb") as f:
-                minio_client.upload_data(minio_path, f.read())
+                image_bytes = f.read()
+                minio_client.upload_data(minio_path, image_bytes)
             print(f"[MindMap] Successfully uploaded to MinIO: {minio_path}")
 
             import os
+
+            try:
+                mindmap_data = MindMap(
+                    id=mindmap_id,
+                    session_id=session_id,
+                    name=f"mindmap_{session_id}",
+                    source_path=minio_path,
+                )
+                created_mindmap = create_mindmap(mindmap=mindmap_data)
+                print(f"[MindMap] Saved to database with ID: {created_mindmap.id}")
+            except Exception as e:
+                print(f"[MindMap] Error saving to database: {e}")
 
             os.remove(temp_image_path)
             print(f"[MindMap] Removed temporary file: {temp_image_path}")
