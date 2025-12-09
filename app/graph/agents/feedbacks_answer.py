@@ -27,7 +27,7 @@ from app.graph.state import (
 from app.services.minio_client import minio_client
 
 
-TOOLS = []
+# TOOLS = []
 
 
 embeddings = VoyageAIEmbeddings(
@@ -128,7 +128,7 @@ def information_retriever(state: State, config: RunnableConfig) -> str:
         url=url,
     )
     doc_retriever = vector_store.as_retriever(
-        search_kwargs={"k": 10},
+        search_kwargs={"k": 5},
     )
     retrieved_docs = doc_retriever.invoke(query)
     docs = []
@@ -151,7 +151,7 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
         url=url,
     )
     doc_retriever = vector_store.as_retriever(
-        search_kwargs={"k": 10},
+        search_kwargs={"k": 3},
     )
     retrieved_docs = doc_retriever.invoke(query)
     docs = []
@@ -162,18 +162,25 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
 
 
 # Step 3: Extract documents from tool messages
-def documents_node(state: State) -> dict:
+def documents_node(state: State, config: RunnableConfig) -> dict:
     """Add documents to state."""
     docs = state.get("docs", [])
+    query = get_human_message_content(state)
+
     documents = "\n".join(item["page_content"] for item in docs)
     return {"documents": documents}
 
 
 async def answer_node(state: State, config: RunnableConfig):
     """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
+    import json
+    from pathlib import Path
+
     documents = state.get("documents", [])
     question = get_human_message_content(state)
     selected_text = state.get("selected_text", "")
+    docs = state.get("docs", [])
+
     # Tạo system prompt
     system_message = SystemMessage(
         content=Prompts.FEEDBACK_QUESTIONS_PROMPT.format(
@@ -198,6 +205,32 @@ async def answer_node(state: State, config: RunnableConfig):
     prompt = {"messages": [system_message] + conversation_messages}
     response_msg = await generate_agent.ainvoke(prompt, config=config)
     content = response_msg["messages"][-1].content
+
+    # Lưu query, context và answer vào file JSON
+    log_dir = Path("/home/hungmanh/Documents/CodeMentor/app/data/query_logs")
+    log_dir.mkdir(exist_ok=True, parents=True)
+
+    # Chỉ lấy page_content từ docs
+    context = [doc.get("page_content", "") for doc in docs]
+
+    log_entry = {"query": question, "context": context, "answer": content}
+
+    # Sử dụng 1 file duy nhất cho tất cả session
+    log_file = log_dir / "query_context_logs.json"
+
+    # Append vào file nếu đã tồn tại, hoặc tạo mới
+    if log_file.exists():
+        with open(log_file, "r", encoding="utf-8") as f:
+            existing_data = json.load(f)
+        if not isinstance(existing_data, list):
+            existing_data = [existing_data]
+        existing_data.append(log_entry)
+    else:
+        existing_data = [log_entry]
+
+    with open(log_file, "w", encoding="utf-8") as f:
+        json.dump(existing_data, f, indent=2, ensure_ascii=False)
+
     return {
         "messages": [AIMessage(content=content, name="feedbacks_answer")],
     }

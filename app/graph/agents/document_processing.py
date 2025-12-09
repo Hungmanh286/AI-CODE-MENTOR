@@ -17,14 +17,15 @@ from app.graph.prompts import Prompts
 from app.routes.notify import (
     sse_event_queues,
 )
+from app.routes.process_data import process_pdf
 from app.graph.agents.summarize_agent import pdf_summarize_agent  # noqa
 from app.graph.agents.feedbacks_answer import feedbacks_answer  # noqa
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
 from app.chatmodel import init_llm
-from app.routes.process_data import process_pdf
 from app.graph.generate import generate_agent  # noqa
 from app.graph.agents.question_expert import question_agent  # noqa
+from app.graph.agents.mind_map import summarize_agent  # noqa
 
 
 model = settings.CHAT_MODEL_VISION
@@ -211,7 +212,7 @@ def document_preprocessing(state: QState, config: RunnableConfig):
 
     for file_id in file_ids:
         docs_minio_path = f"{session_id}/{file_id}_docs.txt"
-        # docs_minio_path = f"{session_id}"
+        # docs_minio_path_test = f"{session_id}"
 
         if minio_client.file_exists(docs_minio_path):
             docs_data = minio_client.download_data(docs_minio_path)
@@ -1015,11 +1016,11 @@ async def question_generation_tool(query: str, config: RunnableConfig):
         raise
 
 
-@tool("document_summarize_tool")
-async def document_summarize_tool(query: str, config: RunnableConfig):
+@tool("mindmap_tool")
+async def mindmap_tool(query: str, config: RunnableConfig):
     """
-    Công cụ tóm tắt nội dung tài liệu.
-    Sử dụng khi người dùng yêu cầu tạo mind map
+    Công cụ để tạo bản đồ tư duy (mindmap)
+    Sử dụng khi người dùng yêu cầu tạo mind map, tạo bản đồ tư duy
 
     Args:
         query (str): Câu truy vấn của người dùng.
@@ -1108,6 +1109,24 @@ async def answer_tool(query: str, config: RunnableConfig):
     """
     response_msg = await feedbacks_answer.ainvoke(
         {"messages": [HumanMessage(content=query)]}, config=config
+    )
+    content = response_msg["messages"][-1].content
+    return {"message": content}
+
+
+@tool("summary_tool")
+async def summary_tool(query: str, config: RunnableConfig):
+    """
+    Công cụ tóm tắt  nội dung tài liệu.
+    Sử dụng khi người dùng yêu cầu tóm tắt nội dung tài liệu đã tải lên.
+
+    Args:
+        query (str): Câu truy vấn của người dùng.
+        config (RunnableConfig): Cấu hình chứa session_id.
+    """
+    response_msg = await summarize_agent.ainvoke(
+        {"messages": [HumanMessage(content=query)]},
+        config=config,
     )
     content = response_msg["messages"][-1].content
     return {"message": content}
