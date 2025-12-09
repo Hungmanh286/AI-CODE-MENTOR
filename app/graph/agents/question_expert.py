@@ -15,10 +15,10 @@ from app.graph.state import State
 from app.schema import MessageName
 from app.config import settings
 from app.graph.prompts import Prompts
-from app.graph.generate import generate_agent
 from app.graph.state import (
     get_conversation_messages,
 )
+from app.chatmodel import init_llm
 
 
 TOOLS = []
@@ -64,6 +64,14 @@ def documents_node(state: State) -> dict:
     return {"documents": documents}
 
 
+llm = init_llm(
+    api_key=settings.CHAT_MODEL_KEY,
+    model=settings.CHAT_MODEL,
+    temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
+    tags=["agent"],
+)
+
+
 async def question_node(state: State, config: RunnableConfig):
     """Sinh câu hỏi từ tài liệu"""
     documents = state.get("documents", [])
@@ -84,9 +92,10 @@ async def question_node(state: State, config: RunnableConfig):
         include_system=False,
     )
 
-    prompt = {"messages": [system_message] + conversation_messages}
-    response_msg = await generate_agent.ainvoke(prompt, config=config)
-    content = response_msg["messages"][-1].content
+    # Truyền list of messages trực tiếp thay vì dict
+    messages = [system_message] + conversation_messages
+    response_msg = llm.invoke(messages, config=config)
+    content = response_msg.content
     return {
         "messages": [AIMessage(content=content, name="feedbacks_question")],
         "quizz": content,

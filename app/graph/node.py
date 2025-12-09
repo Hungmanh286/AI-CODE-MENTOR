@@ -23,9 +23,10 @@ from app.graph.generate import generate_agent
 
 from app.graph.agents.document_processing import (
     document_processing_tool,
-    document_summarize_tool,
+    mindmap_tool,
     answer_tool,
     question_generation_tool,
+    summary_tool,
 )
 from app.graph.prompts import Prompts
 from app.schema import MessageName
@@ -34,9 +35,10 @@ from app.config import settings
 
 TOOLS = [
     document_processing_tool,
-    document_summarize_tool,
+    mindmap_tool,
     answer_tool,
     question_generation_tool,
+    summary_tool,
 ]
 
 try:
@@ -70,15 +72,17 @@ async def tool_calls_node(state: State, config: RunnableConfig):
 DANH SÁCH CÔNG CỤ:
 1. `using_to_create_questions_for_document`: Tạo câu hỏi trắc nghiệm TOÀN DIỆN từ toàn bộ tài liệu (xử lý chậm, đầy đủ, có đánh giá chất lượng).
 2. `question_generation_tool`: Tạo câu hỏi trắc nghiệm NHANH từ chương/phần cụ thể trong tài liệu (xử lý nhanh, tập trung vào một phần).
-3. `document_summarize_tool`: Tóm tắt nội dung tài liệu, tạo mind map.
+3. `mindmap_tool`:  Tạo mind map.
 4. `answer_tool`: Trả lời câu hỏi, giải thích, hỏi đáp thông thường từ tài liệu.
+5. "summary_tool": Tóm tắt nội dung tài liệu.
 
 Yêu cầu của người dùng: "{user_query}"
 
 QUY TẮC LỰA CHỌN:
-- Nếu yêu cầu "tóm tắt", "mind map", "tổng hợp" → Chọn `document_summarize_tool`
-- Nếu yêu cầu "tạo câu hỏi từ TOÀN BỘ tài liệu", "quiz toàn diện", "bài kiểm tra đầy đủ" → Chọn `using_to_create_questions_for_document`
+- Nếu yêu cầu "mind map", "bản đồ tư duy" → Chọn `mindmap_tool`
+- Nếu yêu cầu "tạo câu hỏi từ TOÀN BỘ tài liệu", "quiz toàn diện", "bài kiểm tra đầy đủ", "tạo câu hỏi", nếu bạn khó xác định mặc định dùng tool này → Chọn `using_to_create_questions_for_document`
 - Nếu yêu cầu "tạo câu hỏi về CHƯƠNG X", "quiz về PHẦN Y", "câu hỏi nhanh từ đoạn Z" → Chọn `question_generation_tool`
+- Nếu yêu cầu "tóm tắt tài liệu", "tóm tắt nội dung", "tổng hợp" → Chọn `summary_tool`
 - Nếu là câu hỏi thông thường, giải thích, hỏi đáp, hoặc không rõ ràng → Chọn `answer_tool`
 
 PHÂ
