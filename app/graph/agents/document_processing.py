@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
 from langfuse.callback import CallbackHandler
 from langchain.tools import tool  # noqa
+from langchain_core.pydantic_v1 import BaseModel
 
 
 from app.config import settings
@@ -66,6 +67,64 @@ llm = init_llm(
     tags=["agent"],
 )
 
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+def clean_markdown_json(content: str) -> str:
+    """Remove markdown code blocks from JSON/text response
+    
+    Args:
+        content: Raw content from LLM that may contain ```json or ``` markers
+        
+    Returns:
+        Cleaned content without markdown markers
+    """
+    if content.startswith("```"):
+        content = re.sub(r"^```(?:json)?\s*\n", "", content)
+        content = re.sub(r"\n```\s*$", "", content)
+    return content.strip()
+
+
+def execute_parallel_tasks(
+    process_func,
+    tasks_data: list,
+    max_workers: int,
+    desc: str = "Processing",
+    disable_progress: bool = True
+) -> dict:
+    """Execute tasks in parallel with standardized error handling
+    
+    Args:
+        process_func: Function to process each task, should return (task_id, result)
+        tasks_data: List of task data to process
+        max_workers: Maximum number of parallel workers
+        desc: Description for progress bar
+        disable_progress: Whether to disable tqdm progress bar
+        
+    Returns:
+        Dictionary mapping task_id to results
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_func, task_data): task_data
+            for task_data in tasks_data
+        }
+        
+        results = {}
+        with tqdm(total=len(futures), desc=desc, disable=disable_progress) as pbar:
+            for future in concurrent.futures.as_completed(futures):
+                task_id, result = future.result()
+                results[task_id] = result
+                pbar.update(1)
+    
+    return results
+
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 def format_dict_to_markdown(data: dict) -> str:
     """Format dict Q&A thành chuỗi Markdown dễ đọc"""
@@ -308,12 +367,7 @@ def question_node(state: QState, config: RunnableConfig):
                 )
 
             response_msg = llm.invoke(input=prompt, config=config)
-            question = response_msg.content.strip()
-
-            if question.startswith("```"):
-                question = re.sub(r"^```(?:json)?\s*\n", "", question)
-                question = re.sub(r"\n```\s*$", "", question)
-                question = question.strip()
+            question = clean_markdown_json(response_msg.content)
 
             return (idx, question)
 
@@ -325,19 +379,12 @@ def question_node(state: QState, config: RunnableConfig):
 
     if retry_count == 0:
         chunks_data = [(idx, chunk) for idx, chunk in enumerate(document_chunks)]
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(process_single_question, chunk_data): chunk_data[0]
-                for chunk_data in chunks_data
-            }
-            results = {}
-            with tqdm(
-                total=len(futures), desc="Generating questions", disable=True
-            ) as pbar:
-                for future in concurrent.futures.as_completed(futures):
-                    idx, question = future.result()
-                    results[idx] = question
-                    pbar.update(1)
+        results = execute_parallel_tasks(
+            process_single_question,
+            chunks_data,
+            max_workers=max_workers,
+            desc="Generating questions"
+        )
         for idx in sorted(results.keys()):
             key = idx
             if key not in check_questions:
@@ -353,22 +400,12 @@ def question_node(state: QState, config: RunnableConfig):
                 for chunk_index in bad_questions.keys()
             ]
 
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as executor:
-                futures = {
-                    executor.submit(process_single_question, chunk_data): chunk_data[0]
-                    for chunk_data in chunks_to_regenerate
-                }
-
-                results = {}
-                with tqdm(
-                    total=len(futures), desc="Regenerating questions", disable=True
-                ) as pbar:
-                    for future in concurrent.futures.as_completed(futures):
-                        idx, question = future.result()
-                        results[idx] = question
-                        pbar.update(1)
+            results = execute_parallel_tasks(
+                process_single_question,
+                chunks_to_regenerate,
+                max_workers=max_workers,
+                desc="Regenerating questions"
+            )
 
             for idx in sorted(results.keys()):
                 key = str(idx)
@@ -432,20 +469,22 @@ def answer_node(state: QState, config: RunnableConfig):
             formatted_prompt = f"CHUNK {idx}\n{formatted_questions}"
 
             prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
-            response_msg = llm.invoke(input=prompt, config=config)
-            question_answer = response_msg.content.strip()
-
-            # Try to clean JSON
-            if question_answer.startswith("```"):
-                question_answer = re.sub(r"^```(?:json)?\s*\n", "", question_answer)
-                question_answer = re.sub(r"\n```\s*$", "", question_answer)
-                question_answer = question_answer.strip()
-
-            return (idx, question_answer)
+            
+            # Use structured_llm_answer to get QuestionWithAnswerList object
+            response_obj = structured_llm_answer.invoke(input=prompt, config=config)
+            
+            # Format the structured response for judge node
+            formatted_json = format_qa_for_judge(response_obj, str(idx))
+            
+            print(f"Chunk {idx} - Generated {len(response_obj.questions)} questions with answers")
+            
+            return (idx, formatted_json)
 
         except Exception as e:
             print(f"Error generating answer for chunk {idx}: {e}")
-            return (idx, f"[ERROR: Failed to generate answer for chunk {idx}]")
+            import traceback
+            traceback.print_exc()
+            return (idx, None)  # Return None for error cases
 
     max_workers = 30
 
@@ -468,10 +507,17 @@ def answer_node(state: QState, config: RunnableConfig):
         key=lambda x: int(x) if isinstance(x, str) and x.isdigit() else x,
     ):
         chunk_idx = str(idx)
+        answer_data = results[idx]
+        
+        # Skip error cases (None)
+        if answer_data is None:
+            print(f"Skipping chunk {chunk_idx} due to error in answer generation")
+            continue
+            
         if chunk_idx not in question_answers:
             question_answers[chunk_idx] = []
-        question_answers[chunk_idx].append(results[idx])
-        # print(results[idx])
+        question_answers[chunk_idx].append(answer_data)
+        
     print(f"Generated answers for {len(question_answers)} chunks in parallel")
 
     return {
@@ -516,16 +562,18 @@ def judge(state: QState, config: RunnableConfig):
                     )
                 except Exception as e:
                     print(f"[SSE] Warning: Could not send progress: {e}")
-            batch_dict_str = json.dumps(batch_dict, ensure_ascii=False, indent=2)
-            prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=batch_dict_str)
+            
+            # batch_dict values are now formatted text strings from format_qa_for_judge()
+            # Concatenate all text chunks in the batch
+            batch_text = ""
+            for chunk_id, text_list in batch_dict.items():
+                for text in text_list:
+                    batch_text += text + "\n\n"
+            
+            prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=batch_text)
             response_msg = llm.invoke(input=prompt, config=config)
 
-            judgment = response_msg.content.strip()
-
-            if judgment.startswith("```"):
-                judgment = re.sub(r"^```(json)?", "", judgment.strip())
-                judgment = re.sub(r"```$", "", judgment.strip())
-                judgment = judgment.strip()
+            judgment = clean_markdown_json(response_msg.content)
 
             try:
                 result = json.loads(judgment)
@@ -598,18 +646,12 @@ def judge(state: QState, config: RunnableConfig):
     all_bad_questions = {}
     all_good_question = {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(process_judge_batch, batch_data): batch_data[0]
-            for batch_data in batches
-        }
-
-        results = {}
-        with tqdm(total=len(futures), desc="Judging batches", disable=True) as pbar:
-            for future in concurrent.futures.as_completed(futures):
-                batch_id, result = future.result()
-                results[batch_id] = result
-                pbar.update(1)
+    results = execute_parallel_tasks(
+        process_judge_batch,
+        batches,
+        max_workers=max_workers,
+        desc="Judging batches"
+    )
 
     # Merge results from all batches - nối các kết quả lại thành một dictionary hoàn chỉnh
     for batch_id in sorted(results.keys()):
@@ -714,6 +756,79 @@ def should_continue(state: QState) -> str:
     return "end"
 
 
+class Question(BaseModel):
+    """Schema for a single question"""
+    id: str
+    type: str
+    difficulty: str
+    question: str
+    options: list[str]
+    correct_answer: int  # Changed from str to int (0-3)
+    explanation: str
+
+
+class QuestionList(BaseModel):
+    """Schema for list of selected questions"""
+    selected_questions: list[Question]
+
+
+class QuestionWithAnswer(BaseModel):
+    """Schema for a single question with answer options"""
+    id: int
+    question: str
+    options: list[str]  # List of 4 options starting with A., B., C., D.
+    related_passage: str
+
+
+class QuestionWithAnswerList(BaseModel):
+    """Schema for list of questions with answers"""
+    questions: list[QuestionWithAnswer]
+
+
+structured_llm = llm.with_structured_output(QuestionList, method="json_mode")
+structured_llm_answer = llm.with_structured_output(QuestionWithAnswerList, method="json_mode")
+
+def format_qa_for_judge(qa_list: QuestionWithAnswerList, chunk_id: str) -> str:
+    """Format structured QuestionWithAnswerList thành text đẹp cho judge node
+    
+    Args:
+        qa_list: QuestionWithAnswerList object từ answer node
+        chunk_id: ID của chunk
+        
+    Returns:
+        Formatted text string with structure:
+        CHUNK X
+        CÂU HỎI 1:
+        Nội dung: [question]
+        Đáp án:
+        A. ...
+        B. ...
+        C. ...
+        D. ...
+        
+        Đoạn văn liên quan:
+        [related_passage]
+    """
+    formatted_text = f"CHUNK {chunk_id}\n"
+    
+    for i, question in enumerate(qa_list.questions, 1):
+        formatted_text += f"CÂU HỎI {i}:\n"
+        formatted_text += f"Nội dung: {question.question}\n"
+        
+        # Add options (đáp án trắc nghiệm)
+        formatted_text += "Đáp án:\n"
+        for option in question.options:
+            formatted_text += f"{option}\n"
+        
+        formatted_text += f"\nĐoạn văn liên quan:\n{question.related_passage}\n"
+        
+        # Add separator between questions (except for the last one)
+        if i < len(qa_list.questions):
+            formatted_text += "\n"
+    
+    return formatted_text
+
+
 # node 5 : đánh giá lại 1 lần nữa rồi cho đáp án cuối cùng
 def validate(state: QState, config: RunnableConfig):
     """Xác nhận đầu ra cuối cùng (PARALLEL)."""
@@ -772,10 +887,14 @@ def validate(state: QState, config: RunnableConfig):
                 .replace("{num_chunks}", str(num_chunks))
             )
 
-            response_msg = llm.invoke(input=prompt, config=config)
-            content = response_msg.content
-            print(content)
-            return (batch_id, content)
+            # Invoke structured_llm - response will be a QuestionList Pydantic object
+            response_obj = structured_llm.invoke(input=prompt, config=config)
+            
+            # Print for debugging
+            print(f"Batch {batch_id} - Response type: {type(response_obj)}")
+            print(f"Batch {batch_id} - Questions count: {len(response_obj.selected_questions)}")
+            
+            return (batch_id, response_obj)
 
         except Exception as e:
             print(f" Error validating batch {batch_id}: {e}")
@@ -784,7 +903,7 @@ def validate(state: QState, config: RunnableConfig):
             traceback.print_exc()
             print(f"   Batch data keys: {list(batch_dict.keys())}")
             print(f"   Sample data (first 500 chars): {str(batch_dict)[:500]}...")
-            return (batch_id, f"[ERROR: Failed to validate batch {batch_id}]")
+            return (batch_id, None)  # Return None for error cases
 
     # Chia data_to_validate thành batches
     chunk_items = list(data_to_validate.items())
@@ -793,48 +912,31 @@ def validate(state: QState, config: RunnableConfig):
         batch_dict = dict(chunk_items[i : i + batch_size])
         batches.append((len(batches), batch_dict))
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(process_validate_batch, batch_data): batch_data[0]
-            for batch_data in batches
-        }
+    results = execute_parallel_tasks(
+        process_validate_batch,
+        batches,
+        max_workers=max_workers,
+        desc="Validating batches"
+    )
 
-        results = {}
-        with tqdm(total=len(futures), desc="Validating batches", disable=True) as pbar:
-            for future in concurrent.futures.as_completed(futures):
-                batch_id, content = future.result()
-                results[batch_id] = content
-                pbar.update(1)
-
+    # Collect all questions from structured responses
     all_questions = []
     for batch_id in sorted(results.keys()):
-        batch_content = results[batch_id].strip()
+        response_obj = results[batch_id]
 
-        # Skip error messages
-        if batch_content.startswith("[ERROR:"):
+        # Skip error cases (None)
+        if response_obj is None:
             print(f"Skipping error batch {batch_id}")
             continue
 
-        if batch_content.startswith("```"):
-            batch_content = re.sub(r"^```(?:json)?\s*\n", "", batch_content)
-            batch_content = re.sub(r"\n```\s*$", "", batch_content)
-            batch_content = batch_content.strip()
-
-        try:
-            batch_questions = json.loads(batch_content)
-            if isinstance(batch_questions, list):
-                all_questions.extend(batch_questions)
-            elif isinstance(batch_questions, dict):
-                all_questions.append(batch_questions)
-        except (json.JSONDecodeError, TypeError, AttributeError) as e:
-            print(f"Failed to parse JSON from batch {batch_id}: {e}")
-            print(f"Content: {batch_content[:200]}...")
-            try:
-                all_questions.append(
-                    {"raw_content": batch_content, "parse_error": str(e)}
-                )
-            except Exception:
-                continue
+        # Handle QuestionList Pydantic object
+        if isinstance(response_obj, QuestionList):
+            for question in response_obj.selected_questions:
+                # Convert Pydantic Question object to dict
+                all_questions.append(question.dict())
+        else:
+            print(f"Unexpected response type for batch {batch_id}: {type(response_obj)}")
+            continue
     final_quizz_json = json.dumps(all_questions, ensure_ascii=False, indent=2)
 
     print(
@@ -858,7 +960,6 @@ workflow.add_edge(START, "document_preprocessing")
 workflow.add_edge("document_preprocessing", "question_node")
 workflow.add_edge("question_node", "answer_node")
 workflow.add_edge("answer_node", "judge")
-
 
 workflow.add_conditional_edges(
     "judge", should_continue, {"question_node": "question_node", "end": "validate"}

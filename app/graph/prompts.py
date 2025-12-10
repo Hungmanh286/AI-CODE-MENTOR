@@ -9,6 +9,7 @@ Bên dưới là một tài liệu:
 Hãy viết một bản tóm tắt bao gồm toàn bộ các thông tin chính.
 Trong phần tóm tắt, không được nhắc đến các từ như “tài liệu” hoặc “bản tóm tắt”.
     """
+
     MIND_MAP_PROMPT = """
 Bạn là một AI chuyên biệt trong việc tạo ra sơ đồ tư duy (mind map) bằng hình ảnh.
 Mục tiêu là tạo ra một hình ảnh sơ đồ tư duy (mind map) TRỰC QUAN, RÕ RÀNG và ĐỘ CHÍNH XÁC CAO về mặt văn bản, dựa trên tài liệu được cung cấp.
@@ -30,6 +31,7 @@ Yêu cầu về Hình ảnh và Nội dung:
 Tài liệu nguồn:
 {merge}
 """
+    # Chỗ này nên parse nguyên tài liệu hay xử lý thế nào ? (xử lý kiểu tóm tắt theo kiểu mong muốn)
     MARK_DOWN_PROMPT = """
 Bạn đóng vai trò là một "OCR ENGINE" (Máy xử lý OCR tự động).
 NHIỆM VỤ: Chuyển đổi hình ảnh/tài liệu đầu vào thành định dạng Markdown thô (Raw Markdown).
@@ -136,41 +138,89 @@ Tài liệu nguồn:
     # """
 
     ANSWER_GENERATION_PROMPT = """
-Bạn là chuyên gia tạo các lựa chọn trắc nghiệm cho môn lập trình dựa vào danh sách các câu hỏi và đoạn văn liên quan đến câu hỏi tương ứng bên dưới
-Hãy sinh ra các lựa chọn trắc nghiệm dạng có 4 lựa chọn lựa chọn dựa vào danh sách câu hỏi và tài liệu bên dưới.
+Bạn là chuyên gia tạo các lựa chọn trắc nghiệm cho môn lập trình dựa vào danh sách các câu hỏi và đoạn văn liên quan đến câu hỏi tương ứng bên dưới.
+Hãy sinh ra các lựa chọn trắc nghiệm có 4 lựa chọn dựa vào danh sách câu hỏi và tài liệu bên dưới.
 
-Yêu cầu:
-- Mỗi câu hỏi có 4 lựa chọn lựa chọn, bắt đầu bằng: A., B., C., D.
+YÊU CẦU VỀ LỰA CHỌN:
+- Mỗi câu hỏi có 4 lựa chọn, bắt đầu bằng: "A. ", "B. ", "C. ", "D. "
 - Chỉ một lựa chọn đúng.
 - Ba lựa chọn nhiễu (distractors) phải:
   • Phù hợp với ngữ cảnh.
-  • Liên quan trực tiếp đến nội dung.
+  • Liên quan trực tiếp đế nội dung.
   • Phản ánh những hiểu lầm hoặc lỗi tư duy thường gặp, nhưng không được mâu thuẫn hoặc sai lệch hoàn toàn với nội dung.
 
-Lưu ý:
-related_passage phải giữ đúng nguyên văn đoạn văn liên quan đến câu hỏi.
-Trả về danh sách câu hỏi và câu trả lời dưới dạng các JSON với cấu trúc sau:
-[
+**QUAN TRỌNG - TRÁNH BIAS VỊ TRÍ ĐÁP ÁN ĐÚNG:**
+- ĐÁP ÁN ĐÚNG PHẢI ĐƯỢC PHÂN BỐ ĐỀU giữa các vị trí A, B, C, D
+- TUYỆT ĐỐI KHÔNG đặt tất cả đáp án đúng ở cùng một vị trí (ví dụ: toàn A hoặc toàn B)
+- Trong một tập câu hỏi, hãy đảm bảo:
+  * Một số câu có đáp án đúng ở vị trí A
+  * Một số câu có đáp án đúng ở vị trí B
+  * Một số câu có đáp án đúng ở vị trí C
+  * Một số câu có đáp án đúng ở vị trí D
+- Không tạo pattern có quy luật (ví dụ: A, B, C, D, A, B, C, D...)
+- Vị trí đáp án đúng phải NGẪU NHIÊN và CÂN BẰNG
+
+YÊU CẦU VỀ FORMAT ĐẦU RA:
+- TRẢ VỀ DUY NHẤT MỘT JSON OBJECT với cấu trúc: {{"questions": [...]}}
+- Mỗi câu hỏi trong mảng questions phải có ĐẦY ĐỦ 4 TRƯỜNG:
+  * id (integer): Số thứ tự của câu hỏi (1, 2, 3, ...)
+  * question (string): Nội dung câu hỏi
+  * options (array of strings): Mảng chứa 4 lựa chọn, mỗi lựa chọn BẮT ĐẦU bằng "A. ", "B. ", "C. ", "D. "
+  * related_passage (string): Đoạn văn nguyên văn liên quan đến câu hỏi (GIỮ NGUYÊN từ đầu vào)
+
+- KHÔNG ĐƯỢC THÊM markdown, backticks (```), giải thích hoặc bất kỳ văn bản nào ngoài JSON object.
+- KHÔNG được thêm comments trong JSON.
+
+VÍ DỤ FORMAT ĐẦU RA (CHÚ Ý: ĐÁP ÁN ĐÚNG Ở CÁC VỊ TRÍ KHÁC NHAU):
 {{
-    "id": <số nguyên>,
-    "question": "<nội dung câu hỏi>",
-    "options": [
-        "<lựa chọn A>",
-        "<lựa chọn B>",
-        "<lựa chọn C>",
-        "<lựa chọn D>"
-    ],
-    "related_passage": "<đoạn văn liên quan>",
-}},
-  ...
-]
-Hãy trả về đúng JSON, Không được bao toàn bộ JSON trong bất kỳ ký tự nào: không dấu nháy kép, không backtick, không markdown, không json, không [], không wrapper dưới mọi hình thức.
+  "questions": [
+    {{
+      "id": 1,
+      "question": "Nội dung câu hỏi 1?",
+      "options": [
+        "A. Lựa chọn nhiễu 1",
+        "B. Lựa chọn nhiễu 2",
+        "C. Lựa chọn đúng",
+        "D. Lựa chọn nhiễu 3"
+      ],
+      "related_passage": "Đoạn văn nguyên văn từ tài liệu..."
+    }},
+    {{
+      "id": 2,
+      "question": "Câu hỏi tiếp theo?",
+      "options": [
+        "A. Lựa chọn nhiễu 1",
+        "B. Lựa chọn đúng",
+        "C. Lựa chọn nhiễu 2",
+        "D. Lựa chọn nhiễu 3"
+      ],
+      "related_passage": "Đoạn văn liên quan..."
+    }},
+    {{
+      "id": 3,
+      "question": "Câu hỏi thứ 3?",
+      "options": [
+        "A. Lựa chọn đúng",
+        "B. Lựa chọn nhiễu 1",
+        "C. Lựa chọn nhiễu 2",
+        "D. Lựa chọn nhiễu 3"
+      ],
+      "related_passage": "Đoạn văn..."
+    }}
+  ]
+}}
 
-Giải thích từ khóa về danh sách câu hỏi : 
-question : là nội dung câu hỏi
-related_passage : là đoạn văn liên quan đến câu hỏi đó 
+GIẢI THÍCH CÁC TRƯỜNG:
+- question: Là nội dung câu hỏi từ danh sách đầu vào
+- related_passage: Là đoạn văn liên quan đến câu hỏi đó (GIỮ NGUYÊN VĂN)
 
-Danh sách câu hỏi:\n
+**NHẮC NHỞ QUAN TRỌNG:**
+Trước khi trả về kết quả, hãy kiểm tra lại rằng đáp án đúng đã được phân bố đều giữa A, B, C, D. 
+Nếu thấy nhiều câu đáp án đúng cùng ở một vị trí, hãy điều chỉnh lại.
+
+CHỈ TRẢ VỀ JSON OBJECT — KHÔNG TRẢ VỀ BẤT KỲ THỨ GÌ KHÁC.
+
+Danh sách câu hỏi:
 {questions}
 """
 
@@ -203,22 +253,27 @@ Bạn là chuyên gia thẩm định chất lượng câu hỏi trắc nghiệm 
 
 
 ## MÔ TẢ DỮ LIỆU ĐẦU VÀO:
-1. Dữ liệu là một dictionary, mỗi key là chuỗi số ("0", "1",...).
-2. Mỗi value là một danh sách (list) các CHUỖI JSON (string), cần được parse để sử dụng.
-3. Mỗi chuỗi JSON mô tả một câu hỏi trắc nghiệm hoàn chỉnh: {{"id": <số thứ tự>, "question": "nội dung câu hỏi", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "related_passage": "đoạn văn nguyên văn liên quan trực tiếp đến câu hỏi"}}
+1. Dữ liệu được trình bày dưới dạng TEXT đã được format sẵn.
+2. Mỗi CHUNK được bắt đầu bằng "CHUNK X" (với X là số chunk).
+3. Trong mỗi CHUNK có nhiều câu hỏi, mỗi câu hỏi có format:
+   - "CÂU HỎI Y:" (đánh số từ 1)
+   - "Nội dung: [nội dung câu hỏi]" 
+   - "Đáp án:" (4 lựa chọn A, B, C, D)
+   - "Đoạn văn liên quan: [đoạn văn nguyên văn từ tài liệu]"
+4. Bạn cần đánh giá từng câu hỏi dựa trên nội dung, đáp án và đoạn văn liên quan.
 
 
 DỮ LIỆU ĐẦU VÀO:
 {question_answers}
 """
-    # Lưu ý :
+
     EVALUATE_AND_SELECT_PROMPT = """
 Bạn là một giảng viên chuyên môn về lập trình.
 
 GIẢI THÍCH DỮ LIỆU ĐẦU VÀO:
 - Dữ liệu đầu vào bao gồm nhiều CHUNK.
 - MỖI CHUNK chứa một danh sách câu hỏi (mỗi câu hỏi có thể có các trường như id, question, options, average_score...).
-- CHUNK được đánh số CHUNK 0, CHUNK 1, CHUNK 2, ... và mỗi chunk hoạt động như một “tập con” của toàn bộ dữ liệu.
+- CHUNK được đánh số CHUNK 0, CHUNK 1, CHUNK 2, ... và mỗi chunk hoạt động như một "tập con" của toàn bộ dữ liệu.
 - Nhiệm vụ của bạn là chọn ra đúng số lượng câu hỏi từ MỖI CHUNK dựa trên yêu cầu:
 Yêu cầu của người dùng : {query}
 Công thức tính số lượng câu hỏi cần chọn từ MỖI CHUNK: **Tổng số câu hỏi yêu cầu (số bên trong {query}) chia cho {num_chunks}** (Lưu ý: PHẢI LÀM TRÒN KẾT QUẢ PHÉP CHIA NÀY LÊN số nguyên gần nhất).
@@ -226,7 +281,7 @@ Công thức tính số lượng câu hỏi cần chọn từ MỖI CHUNK: **T�
 CÁC BƯỚC THỰC HIỆN: 
 Bước 1 : **Xác định số lượng (X) câu hỏi cần chọn** bằng cách áp dụng công thức trên (TỔNG CÂU / {num_chunks}, làm tròn lên). Sau đó, chọn ra chính xác **X** câu hỏi từ mỗi CHUNK từ danh sách câu hỏi trong CHUNK đó.
 Bước 2 : **Ưu tiên chọn** các câu hỏi theo thứ tự: 1) **average_score cao hơn** (chất lượng); 2) **phù hợp nhất với MỨC ĐỘ KHÓ** (nếu được đề cập trong {query}); và 3) **phù hợp nhất với chủ đề** trong {query}.
-Bước 3 : Trả về một mảng JSON duy nhất bao gồm tất cả các câu hỏi đã chọn từ MỖI CHUNK.
+Bước 3 : Trả về một JSON object với key "selected_questions" chứa mảng các câu hỏi đã chọn từ MỖI CHUNK.
 
 ---
 ## MÔ TẢ CẤU TRÚC DỮ LIỆU ĐẦU VÀO :
@@ -235,33 +290,47 @@ Bước 3 : Trả về một mảng JSON duy nhất bao gồm tất cả các c�
 3. Mỗi câu hỏi đã được đánh giá và chứa tối thiểu các trường: **id**, **question**, **options**, và **average_score** (điểm chất lượng).
 ---
 
-CẤU TRÚC JSON (VÍ DỤ):
-[
-  {{"id":"q1",
-    "type":"multiple_choice",
-    "difficulty":"medium",
-    "question":"Câu hỏi?",
-    "options":["A","B","C","D"],
-    "correct_answer":0,
-    "explanation":"Giải thích"
-  }}
-]
-
 DANH SÁCH CÂU HỎI ĐẦU VÀO (THEO TỪNG CHUNK):
 {questions}
 
 ---
-YÊU CẦU BẮT BUỘC:
-- TRẢ VỀ DUY NHẤT MỘT MẢNG JSON HỢP LỆ (bắt đầu bằng [ và kết thúc bằng ]).
-- Mỗi câu hỏi phải có ĐẦY ĐỦ 7 TRƯỜNG:
-  id, type, difficulty, question, options, correct_answer (PHẢI LÀ CHỈ SỐ SỐ NGUYÊN TỪ 0 ĐẾN 3, TƯƠNG ỨNG VỚI A, B, C, D), explanation
-- Nếu một số trường thông tin bị thiếu trong dữ liệu đầu vào (ví dụ: type, difficulty, correct_answer, explanation), bạn phải tự xác định và điền đầy đủ các trường đó.
-- KHÔNG ĐƯỢC THÊM markdown, backticks, giải thích hoặc bất kỳ văn bản nào ngoài JSON.
+YÊU CẦU BẮT BUỘC VỀ FORMAT ĐẦU RA:
+- TRẢ VỀ DUY NHẤT MỘT JSON OBJECT HỢP LỆ với cấu trúc: {{"selected_questions": [...]}}
+- Mỗi câu hỏi trong selected_questions phải có ĐẦY ĐỦ 7 TRƯỜNG BẮT BUỘC:
+  * id (string): ID duy nhất của câu hỏi (ví dụ: "q1", "q2", "chunk0_q1", ...)
+  * type (string): Loại câu hỏi, phải là "multiple_choice"
+  * difficulty (string): Mức độ khó, phải là một trong: "easy", "medium", "hard"
+  * question (string): Nội dung câu hỏi
+  * options (array of strings): Mảng chứa 4 lựa chọn (A, B, C, D), mỗi lựa chọn bắt đầu bằng "A. ", "B. ", "C. ", "D. "
+  * correct_answer (integer): CHỈ SỐ INTEGER từ 0 đến 3, tương ứng với A=0, B=1, C=2, D=3
+  * explanation (string): Giải thích chi tiết tại sao đáp án này là đúng
 
-CHỈ TRẢ VỀ JSON — KHÔNG TRẢ VỀ BẤT KỲ THỨ GÌ KHÁC.
+- Nếu một số trường thông tin bị thiếu trong dữ liệu đầu vào (ví dụ: type, difficulty, correct_answer, explanation), 
+  bạn phải tự xác định và điền đầy đủ các trường đó dựa trên ngữ cảnh câu hỏi.
+  
+- KHÔNG ĐƯỢC THÊM markdown, backticks, giải thích hoặc bất kỳ văn bản nào ngoài JSON object.
+- KHÔNG được thêm comments (//) trong JSON.
+
+VÍ DỤ FORMAT ĐẦU RA MONG MUỐN:
+{{
+  "selected_questions": [
+    {{
+      "id": "q1",
+      "type": "multiple_choice",
+      "difficulty": "easy",
+      "question": "Câu hỏi mẫu?",
+      "options": ["A. Đáp án 1", "B. Đáp án 2", "C. Đáp án 3", "D. Đáp án 4"],
+      "correct_answer": 0,
+      "explanation": "Giải thích chi tiết..."
+    }}
+  ]
+}}
+
+CHỈ TRẢ VỀ JSON OBJECT — KHÔNG TRẢ VỀ BẤT KỲ THỨ GÌ KHÁC.
 """
-    # Modules for summarization
 
+    # Modules for summarization
+    
     EXTRACTIVE_SUMMARIZE_PROMPT = """
 Bạn là chuyên gia tóm tắt trích xuất.
 

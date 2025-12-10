@@ -66,7 +66,6 @@ Note: Think critically before deciding. Do not include
 any extra text beyond the JSON output.
 """
 
-
 def test_summarize_agent():
     """Test Argument Role Evaluation with existing summaries from results folder"""
 
@@ -79,7 +78,6 @@ def test_summarize_agent():
     )
 
     # Đường dẫn thư mục
-    # doc_dir = Path("/home/hungmanh/Documents/CodeMentor/app/data/doc")
     mindmap_dir = Path("/home/hungmanh/Documents/CodeMentor/app/data/data_mindmap")
     results_dir = Path("/home/hungmanh/Documents/CodeMentor/app/tests/results")
     results_dir.mkdir(exist_ok=True)
