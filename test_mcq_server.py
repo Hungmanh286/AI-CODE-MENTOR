@@ -9,13 +9,13 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import the tools directly for testing
+# Import the implementation functions directly for testing
 from mcq_generation_server import (
-    extract_key_concepts,
-    generate_question_stem,
-    generate_correct_answer,
-    generate_distractors,
-    validate_mcq
+    extract_key_concepts_impl,
+    generate_question_stem_impl,
+    generate_correct_answer_impl,
+    generate_distractors_impl,
+    validate_mcq_impl
 )
 
 # Sample educational text for testing
@@ -33,7 +33,8 @@ def test_extract_key_concepts():
     print("🧪 TEST 1: extract_key_concepts")
     print_separator()
     
-    result = extract_key_concepts(
+    # Call the implementation function directly
+    result = extract_key_concepts_impl(
         text=SAMPLE_TEXT,
         level="intermediate"
     )
@@ -51,7 +52,8 @@ def test_generate_question_stem(concept):
     print("🧪 TEST 2: generate_question_stem")
     print_separator()
     
-    result = generate_question_stem(
+    # Call the implementation function directly
+    result = generate_question_stem_impl(
         concept=concept,
         context=SAMPLE_TEXT,
         question_type="definition"
@@ -68,7 +70,8 @@ def test_generate_correct_answer(question):
     print("🧪 TEST 3: generate_correct_answer")
     print_separator()
     
-    result = generate_correct_answer(
+    # Call the implementation function directly
+    result = generate_correct_answer_impl(
         question=question,
         context=SAMPLE_TEXT
     )
@@ -84,7 +87,8 @@ def test_generate_distractors(correct_answer):
     print("🧪 TEST 4: generate_distractors")
     print_separator()
     
-    result = generate_distractors(
+    # Call the implementation function directly
+    result = generate_distractors_impl(
         correct_answer=correct_answer,
         context=SAMPLE_TEXT,
         n=3
@@ -103,7 +107,8 @@ def test_validate_mcq(question, correct_answer, distractors):
     print("🧪 TEST 5: validate_mcq")
     print_separator()
     
-    result = validate_mcq(
+    # Call the implementation function directly
+    result = validate_mcq_impl(
         question=question,
         correct_answer=correct_answer,
         distractors=distractors,
