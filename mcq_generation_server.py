@@ -22,29 +22,18 @@ llm = init_llm(
 )
 
 
-@mcp.tool()
-def extract_key_concepts(
+# ============================================================================
+# IMPLEMENTATION FUNCTIONS (can be tested directly)
+# ============================================================================
+
+def extract_key_concepts_impl(
     text: str,
-    level: Optional[Literal["basic", "intermediate", "advanced"]] = "intermediate"
+    level: str = "intermediate"
 ) -> dict:
-    """
-    Trích xuất các khái niệm chính từ văn bản để tạo câu hỏi trắc nghiệm.
-    Agent sử dụng tool này để xác định điểm ra đề.
-    
-    Args:
-        text (str): Văn bản nguồn để trích xuất khái niệm
-        level (str, optional): Mức độ khái niệm cần trích xuất. 
-                              Mặc định là "intermediate"
-                              - "basic": Khái niệm cơ bản, dễ hiểu
-                              - "intermediate": Khái niệm trung bình
-                              - "advanced": Khái niệm nâng cao, phức tạp
-    
-    Returns:
-        dict: {"concepts": list[str]} - Danh sách các khái niệm chính
-    """
+    """Implementation of key concept extraction logic."""
     prompt = f"""Bạn là chuyên gia phân tích nội dung giáo dục. Nhiệm vụ của bạn là trích xuất các khái niệm chính từ văn bản để tạo câu hỏi trắc nghiệm.
 
-VĂNG BẢN:
+VĂN BẢN:
 {text}
 
 MỨC ĐỘ: {level}
@@ -79,27 +68,12 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
         return {"concepts": [line.strip("- ") for line in response.content.split("\n") if line.strip().startswith("-")][:7]}
 
 
-@mcp.tool()
-def generate_question_stem(
+def generate_question_stem_impl(
     concept: str,
     context: str,
-    question_type: Optional[Literal["definition", "application", "comparison"]] = "definition"
+    question_type: str = "definition"
 ) -> dict:
-    """
-    Sinh phần thân câu hỏi (question stem) từ một khái niệm.
-    Tool này CHỈ sinh câu hỏi, KHÔNG sinh đáp án.
-    
-    Args:
-        concept (str): Khái niệm cần tạo câu hỏi
-        context (str): Ngữ cảnh/nội dung liên quan
-        question_type (str, optional): Loại câu hỏi. Mặc định là "definition"
-                                      - "definition": Hỏi về định nghĩa
-                                      - "application": Hỏi về ứng dụng
-                                      - "comparison": Hỏi về so sánh
-    
-    Returns:
-        dict: {"question": str} - Câu hỏi được sinh ra
-    """
+    """Implementation of question stem generation logic."""
     type_instructions = {
         "definition": "Tạo câu hỏi về định nghĩa, đặc điểm của khái niệm",
         "application": "Tạo câu hỏi về cách áp dụng khái niệm vào tình huống thực tế",
@@ -144,21 +118,11 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
         return {"question": response.content.strip()}
 
 
-@mcp.tool()
-def generate_correct_answer(
+def generate_correct_answer_impl(
     question: str,
     context: str
 ) -> dict:
-    """
-    Sinh đáp án đúng cho một câu hỏi dựa trên ngữ cảnh.
-    
-    Args:
-        question (str): Câu hỏi cần tạo đáp án
-        context (str): Ngữ cảnh/nội dung để tìm đáp án đúng
-    
-    Returns:
-        dict: {"correct_answer": str} - Đáp án đúng
-    """
+    """Implementation of correct answer generation logic."""
     prompt = f"""Bạn là chuyên gia tạo đáp án cho câu hỏi trắc nghiệm. Nhiệm vụ của bạn là tạo ĐÁP ÁN ĐÚNG chính xác nhất.
 
 CÂU HỎI: {question}
@@ -194,24 +158,12 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
         return {"correct_answer": response.content.strip()}
 
 
-@mcp.tool()
-def generate_distractors(
+def generate_distractors_impl(
     correct_answer: str,
     context: str,
-    n: Optional[int] = 3
+    n: int = 3
 ) -> dict:
-    """
-    Sinh các đáp án nhiễu (distractors) - đáp án sai nhưng hợp lý.
-    Tool quan trọng để điều khiển chất lượng MCQ.
-    
-    Args:
-        correct_answer (str): Đáp án đúng
-        context (str): Ngữ cảnh để tạo đáp án nhiễu hợp lý
-        n (int, optional): Số lượng đáp án nhiễu cần tạo. Mặc định là 3
-    
-    Returns:
-        dict: {"distractors": list[str]} - Danh sách các đáp án nhiễu
-    """
+    """Implementation of distractors generation logic."""
     prompt = f"""Bạn là chuyên gia tạo câu hỏi trắc nghiệm. Nhiệm vụ của bạn là tạo CÁC ĐÁP ÁN NHIỄU (distractors) chất lượng cao.
 
 ĐÁP ÁN ĐÚNG: {correct_answer}
@@ -258,29 +210,13 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
         return {"distractors": lines[:n]}
 
 
-@mcp.tool()
-def validate_mcq(
+def validate_mcq_impl(
     question: str,
     correct_answer: str,
-    distractors: list[str],
+    distractors: list,
     context: str
 ) -> dict:
-    """
-    Kiểm tra và đánh giá chất lượng của một câu hỏi trắc nghiệm hoàn chỉnh.
-    
-    Args:
-        question (str): Câu hỏi
-        correct_answer (str): Đáp án đúng
-        distractors (list[str]): Danh sách các đáp án nhiễu
-        context (str): Ngữ cảnh/nội dung gốc
-    
-    Returns:
-        dict: {
-            "is_valid": bool - MCQ có hợp lệ không,
-            "issues": list[str] - Các vấn đề phát hiện (nếu có),
-            "difficulty_estimate": str - Ước lượng độ khó ("easy" | "medium" | "hard")
-        }
-    """
+    """Implementation of MCQ validation logic."""
     distractors_text = "\n".join([f"- {d}" for d in distractors])
     
     prompt = f"""Bạn là chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm. Nhiệm vụ của bạn là KIỂM TRA VÀ ĐÁNH GIÁ câu hỏi MCQ.
@@ -338,6 +274,122 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
             "issues": [],
             "difficulty_estimate": "medium"
         }
+
+
+# ============================================================================
+# MCP TOOL WRAPPERS
+# ============================================================================
+
+@mcp.tool()
+def extract_key_concepts(
+    text: str,
+    level: Optional[Literal["basic", "intermediate", "advanced"]] = "intermediate"
+) -> dict:
+    """
+    Trích xuất các khái niệm chính từ văn bản để tạo câu hỏi trắc nghiệm.
+    Agent sử dụng tool này để xác định điểm ra đề.
+    
+    Args:
+        text (str): Văn bản nguồn để trích xuất khái niệm
+        level (str, optional): Mức độ khái niệm cần trích xuất. 
+                              Mặc định là "intermediate"
+                              - "basic": Khái niệm cơ bản, dễ hiểu
+                              - "intermediate": Khái niệm trung bình
+                              - "advanced": Khái niệm nâng cao, phức tạp
+    
+    Returns:
+        dict: {"concepts": list[str]} - Danh sách các khái niệm chính
+    """
+    return extract_key_concepts_impl(text, level)
+
+
+@mcp.tool()
+def generate_question_stem(
+    concept: str,
+    context: str,
+    question_type: Optional[Literal["definition", "application", "comparison"]] = "definition"
+) -> dict:
+    """
+    Sinh phần thân câu hỏi (question stem) từ một khái niệm.
+    Tool này CHỈ sinh câu hỏi, KHÔNG sinh đáp án.
+    
+    Args:
+        concept (str): Khái niệm cần tạo câu hỏi
+        context (str): Ngữ cảnh/nội dung liên quan
+        question_type (str, optional): Loại câu hỏi. Mặc định là "definition"
+                                      - "definition": Hỏi về định nghĩa
+                                      - "application": Hỏi về ứng dụng
+                                      - "comparison": Hỏi về so sánh
+    
+    Returns:
+        dict: {"question": str} - Câu hỏi được sinh ra
+    """
+    return generate_question_stem_impl(concept, context, question_type)
+
+
+@mcp.tool()
+def generate_correct_answer(
+    question: str,
+    context: str
+) -> dict:
+    """
+    Sinh đáp án đúng cho một câu hỏi dựa trên ngữ cảnh.
+    
+    Args:
+        question (str): Câu hỏi cần tạo đáp án
+        context (str): Ngữ cảnh/nội dung để tìm đáp án đúng
+    
+    Returns:
+        dict: {"correct_answer": str} - Đáp án đúng
+    """
+    return generate_correct_answer_impl(question, context)
+
+
+@mcp.tool()
+def generate_distractors(
+    correct_answer: str,
+    context: str,
+    n: Optional[int] = 3
+) -> dict:
+    """
+    Sinh các đáp án nhiễu (distractors) - đáp án sai nhưng hợp lý.
+    Tool quan trọng để điều khiển chất lượng MCQ.
+    
+    Args:
+        correct_answer (str): Đáp án đúng
+        context (str): Ngữ cảnh để tạo đáp án nhiễu hợp lý
+        n (int, optional): Số lượng đáp án nhiễu cần tạo. Mặc định là 3
+    
+    Returns:
+        dict: {"distractors": list[str]} - Danh sách các đáp án nhiễu
+    """
+    return generate_distractors_impl(correct_answer, context, n)
+
+
+@mcp.tool()
+def validate_mcq(
+    question: str,
+    correct_answer: str,
+    distractors: list[str],
+    context: str
+) -> dict:
+    """
+    Kiểm tra và đánh giá chất lượng của một câu hỏi trắc nghiệm hoàn chỉnh.
+    
+    Args:
+        question (str): Câu hỏi
+        correct_answer (str): Đáp án đúng
+        distractors (list[str]): Danh sách các đáp án nhiễu
+        context (str): Ngữ cảnh/nội dung gốc
+    
+    Returns:
+        dict: {
+            "is_valid": bool - MCQ có hợp lệ không,
+            "issues": list[str] - Các vấn đề phát hiện (nếu có),
+            "difficulty_estimate": str - Ước lượng độ khó ("easy" | "medium" | "hard")
+        }
+    """
+    return validate_mcq_impl(question, correct_answer, distractors, context)
 
 
 if __name__ == "__main__":
