@@ -1,0 +1,308 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="System Class Diagram" id="system_class_diagram">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- Schema Package -->
+        <mxCell id="schema_package" value="&lt;&lt;package&gt;&gt;&#xa;Schema" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="360" height="600" as="geometry"/>
+        </mxCell>
+        
+        <!-- User Class -->
+        <mxCell id="user_class" value="User" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="60" y="100" width="160" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="user_attrs" value="+ id: int&#xa;+ user_id: str&#xa;+ user_name: str&#xa;+ email: str&#xa;+ full_name: str&#xa;+ hashed_password: str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="user_class">
+          <mxGeometry y="30" width="160" height="110" as="geometry"/>
+        </mxCell>
+        
+        <!-- Lesson Class -->
+        <mxCell id="lesson_class" value="Lesson" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="60" y="260" width="160" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson_attrs" value="+ id: int&#xa;+ lesson_name: str&#xa;+ description: str&#xa;+ content: str&#xa;+ multiple_choice: str&#xa;+ practice_exercises: str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="lesson_class">
+          <mxGeometry y="30" width="160" height="110" as="geometry"/>
+        </mxCell>
+        
+        <!-- Question Class -->
+        <mxCell id="question_class" value="Question" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="60" y="420" width="160" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="question_attrs" value="+ id: str&#xa;+ project_id: str&#xa;+ question_id: str&#xa;+ question: str&#xa;+ type: str&#xa;+ difficulty: str&#xa;+ correct_answer: int&#xa;+ explanation: str&#xa;+ answer: int&#xa;+ score: int&#xa;+ created_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="question_class">
+          <mxGeometry y="30" width="160" height="160" as="geometry"/>
+        </mxCell>
+        
+        <!-- Project Class -->
+        <mxCell id="project_class" value="Project" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="240" y="420" width="140" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="project_attrs" value="+ id: str&#xa;+ session_id: str&#xa;+ name: str&#xa;+ source_path: str&#xa;+ created_at: datetime" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="project_class">
+          <mxGeometry y="30" width="140" height="90" as="geometry"/>
+        </mxCell>
+        
+        <!-- State Package -->
+        <mxCell id="state_package" value="&lt;&lt;package&gt;&gt;&#xa;State" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="440" y="40" width="360" height="320" as="geometry"/>
+        </mxCell>
+        
+        <!-- State Class -->
+        <mxCell id="state_class" value="State (MessagesState)" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="460" y="100" width="180" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="state_attrs" value="+ user_question: str&#xa;+ ai_answer: str&#xa;+ documents: List&#xa;+ next: str&#xa;+ file_path: str&#xa;+ collection_name: str&#xa;+ docs: List&#xa;+ summarize_context: str&#xa;+ evaluation_result: str&#xa;+ questions: List[Question]&#xa;+ selected_answers: List[str]&#xa;+ selected_text: str&#xa;+ quizz: list[str]&#xa;+ query: str" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="state_class">
+          <mxGeometry y="30" width="180" height="210" as="geometry"/>
+        </mxCell>
+        
+        <!-- Services Package -->
+        <mxCell id="services_package" value="&lt;&lt;package&gt;&gt;&#xa;Services" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="840" y="40" width="400" height="600" as="geometry"/>
+        </mxCell>
+        
+        <!-- VectorStoreService Class -->
+        <mxCell id="vectorstore_class" value="VectorStoreService" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="860" y="100" width="200" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="vectorstore_methods" value="+ parse_pdf_parallel()&#xa;+ parse_chunk_openai()&#xa;+ parse_chunk_gemini()&#xa;+ process_markdown()&#xa;+ create_vector_store()&#xa;+ get_retriever()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="vectorstore_class">
+          <mxGeometry y="30" width="200" height="120" as="geometry"/>
+        </mxCell>
+        
+        <!-- DataSourceService Class -->
+        <mxCell id="datasource_class" value="DataSourceService" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="860" y="270" width="180" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="datasource_methods" value="+ insert_database()&#xa;+ update_database()&#xa;+ get_active_file_id()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="datasource_class">
+          <mxGeometry y="30" width="180" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- MinIOClient Class -->
+        <mxCell id="minio_class" value="MinIOClient" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="860" y="400" width="180" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="minio_methods" value="+ upload_file()&#xa;+ download_file()&#xa;+ delete_file()&#xa;+ list_files()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="minio_class">
+          <mxGeometry y="30" width="180" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- AuthService Class -->
+        <mxCell id="auth_service_class" value="AuthService" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="860" y="530" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="auth_methods" value="+ verify_token()&#xa;+ create_token()&#xa;+ hash_password()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="auth_service_class">
+          <mxGeometry y="30" width="180" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- Graph Package -->
+        <mxCell id="graph_package" value="&lt;&lt;package&gt;&gt;&#xa;Graph" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="440" y="400" width="360" height="420" as="geometry"/>
+        </mxCell>
+        
+        <!-- WorkflowBuilder Class -->
+        <mxCell id="workflow_class" value="WorkflowBuilder" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="460" y="460" width="160" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="workflow_methods" value="+ build_workflow()&#xa;+ add_node()&#xa;+ add_edge()&#xa;+ compile()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="workflow_class">
+          <mxGeometry y="30" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- NodeHandler Class -->
+        <mxCell id="nodehandler_class" value="NodeHandler" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="460" y="590" width="160" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="nodehandler_methods" value="+ tool_calls_node()&#xa;+ tools_node()&#xa;+ documents_node()&#xa;+ answer_node()&#xa;+ next_questions_node()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="nodehandler_class">
+          <mxGeometry y="30" width="160" height="100" as="geometry"/>
+        </mxCell>
+        
+        <!-- PromptTemplates Class -->
+        <mxCell id="prompts_class" value="PromptTemplates" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="460" y="740" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="prompts_attrs" value="+ QUESTION_GEN_PROMPT&#xa;+ ANSWER_GEN_PROMPT" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="prompts_class">
+          <mxGeometry y="30" width="160" height="30" as="geometry"/>
+        </mxCell>
+        
+        <!-- Agents Package -->
+        <mxCell id="agents_package" value="&lt;&lt;package&gt;&gt;&#xa;Agents" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="40" width="580" height="450" as="geometry"/>
+        </mxCell>
+        
+        <!-- DocumentProcessingAgent -->
+        <mxCell id="docproc_agent" value="DocumentProcessingAgent" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="100" width="180" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="docproc_methods" value="+ process_document()&#xa;+ extract_text()&#xa;+ parse_structure()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="docproc_agent">
+          <mxGeometry y="30" width="180" height="70" as="geometry"/>
+        </mxCell>
+        
+        <!-- MindMapAgent -->
+        <mxCell id="mindmap_agent" value="MindMapAgent" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="220" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="mindmap_methods" value="+ generate_mindmap()&#xa;+ create_nodes()&#xa;+ connect_concepts()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="mindmap_agent">
+          <mxGeometry y="30" width="180" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- QuestionExpertAgent -->
+        <mxCell id="question_agent" value="QuestionExpertAgent" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="330" width="180" height="130" as="geometry"/>
+        </mxCell>
+        <mxCell id="question_methods" value="+ generate_questions()&#xa;+ evaluate_quality()&#xa;+ select_best_questions()&#xa;+ create_distractors()&#xa;+ generate_explanations()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="question_agent">
+          <mxGeometry y="30" width="180" height="100" as="geometry"/>
+        </mxCell>
+        
+        <!-- SummarizeAgent -->
+        <mxCell id="summarize_agent" value="SummarizeAgent" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="100" width="180" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="summarize_methods" value="+ summarize_chunk()&#xa;+ merge_summaries()&#xa;+ extract_key_points()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="summarize_agent">
+          <mxGeometry y="30" width="180" height="70" as="geometry"/>
+        </mxCell>
+        
+        <!-- FeedbacksAnswerAgent -->
+        <mxCell id="feedback_ans_agent" value="FeedbacksAnswerAgent" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="220" width="180" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="feedback_ans_methods" value="+ generate_feedback()&#xa;+ evaluate_answer()&#xa;+ provide_hints()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="feedback_ans_agent">
+          <mxGeometry y="30" width="180" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- FeedbacksQuestionAgent -->
+        <mxCell id="feedback_q_agent" value="FeedbacksQuestionAgent" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="330" width="190" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="feedback_q_methods" value="+ generate_questions()&#xa;+ contextualize_query()&#xa;+ retrieve_docs()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="feedback_q_agent">
+          <mxGeometry y="30" width="190" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- Tools Package -->
+        <mxCell id="tools_package" value="&lt;&lt;package&gt;&gt;&#xa;Tools" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#b1ddf0;strokeColor=#10739e;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="530" width="360" height="290" as="geometry"/>
+        </mxCell>
+        
+        <!-- RetrievalTool -->
+        <mxCell id="retrieval_tool" value="RetrievalTool" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#b1ddf0;strokeColor=#10739e;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="590" width="160" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="retrieval_methods" value="+ retrieve()&#xa;+ search_documents()&#xa;+ rank_results()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="retrieval_tool">
+          <mxGeometry y="30" width="160" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- TutorTool -->
+        <mxCell id="tutor_tool" value="TutorTool" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#b1ddf0;strokeColor=#10739e;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="700" width="160" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="tutor_methods" value="+ provide_explanation()&#xa;+ adapt_content()&#xa;+ track_progress()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="tutor_tool">
+          <mxGeometry y="30" width="160" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- CalculatorTool -->
+        <mxCell id="calc_tool" value="CalculatorTool" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#b1ddf0;strokeColor=#10739e;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="590" width="140" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="calc_methods" value="+ calculate()&#xa;+ evaluate_expr()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="calc_tool">
+          <mxGeometry y="30" width="140" height="40" as="geometry"/>
+        </mxCell>
+        
+        <!-- Routes Package -->
+        <mxCell id="routes_package" value="&lt;&lt;package&gt;&gt;&#xa;Routes (API)" style="shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="40" y="680" width="760" height="260" as="geometry"/>
+        </mxCell>
+        
+        <!-- ChatRouter -->
+        <mxCell id="chat_router" value="ChatRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="60" y="740" width="140" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="chat_router_methods" value="+ websocket_chat()&#xa;+ invoke_workflow()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="chat_router">
+          <mxGeometry y="30" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- UserRouter -->
+        <mxCell id="user_router" value="UserRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="220" y="740" width="140" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="user_router_methods" value="+ create_user()&#xa;+ get_user()&#xa;+ update_user()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="user_router">
+          <mxGeometry y="30" width="140" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- LessonRouter -->
+        <mxCell id="lesson_router" value="LessonRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="380" y="740" width="140" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="lesson_router_methods" value="+ get_lessons()&#xa;+ create_lesson()&#xa;+ update_lesson()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="lesson_router">
+          <mxGeometry y="30" width="140" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- UploadPDFRouter -->
+        <mxCell id="upload_router" value="UploadPDFRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="540" y="740" width="140" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="upload_router_methods" value="+ upload_file()&#xa;+ get_file_status()&#xa;+ delete_file()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="upload_router">
+          <mxGeometry y="30" width="140" height="60" as="geometry"/>
+        </mxCell>
+        
+        <!-- ProcessDataRouter -->
+        <mxCell id="process_router" value="ProcessDataRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="60" y="850" width="160" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="process_router_methods" value="+ process_document()&#xa;+ get_progress()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="process_router">
+          <mxGeometry y="30" width="160" height="40" as="geometry"/>
+        </mxCell>
+        
+        <!-- MindMapRouter -->
+        <mxCell id="mindmap_router" value="MindMapRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="240" y="850" width="160" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="mindmap_router_methods" value="+ generate_mindmap()&#xa;+ get_mindmap()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="mindmap_router">
+          <mxGeometry y="30" width="160" height="40" as="geometry"/>
+        </mxCell>
+        
+        <!-- HistoryChatRouter -->
+        <mxCell id="history_router" value="HistoryChatRouter" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=30;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=#fad9d5;strokeColor=#ae4132;" vertex="1" parent="1">
+          <mxGeometry x="420" y="850" width="160" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="history_router_methods" value="+ get_chat_history()&#xa;+ delete_history()" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;" vertex="1" parent="history_router">
+          <mxGeometry y="30" width="160" height="40" as="geometry"/>
+        </mxCell>
+        
+        <!-- Relationships -->
+        <mxCell id="rel1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=diamond;endFill=1;" edge="1" parent="1" source="project_class" target="question_class">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="workflow_class" target="state_class">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="nodehandler_class" target="question_agent">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="nodehandler_class" target="docproc_agent">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="chat_router" target="workflow_class">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="upload_router" target="vectorstore_class">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="user_router" target="datasource_class">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="rel8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;endFill=0;dashed=1;" edge="1" parent="1" source="question_agent" target="retrieval_tool">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- Title -->
+        <mxCell id="title" value="HỆ THỐNG HỌC TẬP TƯƠNG TÁC - BIỂU ĐỒ LỚP CHI TIẾT" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="560" y="970" width="760" height="40" as="geometry"/>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
