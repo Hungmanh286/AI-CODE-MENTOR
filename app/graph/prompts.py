@@ -34,6 +34,7 @@ Tài liệu nguồn:
     # Chỗ này nên parse nguyên tài liệu hay xử lý thế nào ? (xử lý kiểu tóm tắt theo kiểu mong muốn)
     MARK_DOWN_PROMPT = """
 Bạn đóng vai trò là một "OCR ENGINE" (Máy xử lý OCR tự động).
+
 NHIỆM VỤ: Chuyển đổi hình ảnh/tài liệu đầu vào thành định dạng Markdown thô (Raw Markdown).
 
 *** QUY TẮC CẤM (STRICT NEGATIVE CONSTRAINTS) - TUÂN THỦ TUYỆT ĐỐI ***
@@ -417,7 +418,7 @@ Cụ thể, hãy tuân theo định dạng sau:
     2.1. Thành phần A: [Mô tả ngắn gọn].
     2.2. Thành phần B: [Mô tả ngắn gọn].
 3. **Tiêu đề Mục Lớn Thứ Ba (Ví dụ: Kết quả và Đánh giá)**
-    3.1. Hiệu suất chính: [Giá trị/thông số].
+    3.  1. Hiệu suất chính: [Giá trị/thông số].
     3.2. So sánh với phương pháp hiện tại (SOTA).
 
 **Bắt đầu tạo bản tóm tắt khoa học, có cấu trúc số thứ tự.**
