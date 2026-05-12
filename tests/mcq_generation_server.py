@@ -6,7 +6,7 @@ Uses atomic tool design where each tool performs one specific task.
 import json
 from typing import Literal, Optional
 from fastmcp import FastMCP
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 
 from app.chatmodel import init_llm
 from app.config import settings
@@ -22,14 +22,7 @@ llm = init_llm(
 )
 
 
-# ============================================================================
-# IMPLEMENTATION FUNCTIONS (can be tested directly)
-# ============================================================================
-
-def extract_key_concepts_impl(
-    text: str,
-    level: str = "intermediate"
-) -> dict:
+def extract_key_concepts_impl(text: str, level: str = "intermediate") -> dict:
     """Implementation of key concept extraction logic."""
     prompt = f"""Bạn là chuyên gia phân tích nội dung giáo dục. Nhiệm vụ của bạn là trích xuất các khái niệm chính từ văn bản để tạo câu hỏi trắc nghiệm.
 
@@ -50,7 +43,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
 
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
-    
+
     try:
         # Extract JSON from response
         content = response.content.strip()
@@ -60,26 +53,30 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
-        
+
         result = json.loads(content)
         return result
     except json.JSONDecodeError:
         # Fallback: extract concepts from text
-        return {"concepts": [line.strip("- ") for line in response.content.split("\n") if line.strip().startswith("-")][:7]}
+        return {
+            "concepts": [
+                line.strip("- ")
+                for line in response.content.split("\n")
+                if line.strip().startswith("-")
+            ][:7]
+        }
 
 
 def generate_question_stem_impl(
-    concept: str,
-    context: str,
-    question_type: str = "definition"
+    concept: str, context: str, question_type: str = "definition"
 ) -> dict:
     """Implementation of question stem generation logic."""
     type_instructions = {
         "definition": "Tạo câu hỏi về định nghĩa, đặc điểm của khái niệm",
         "application": "Tạo câu hỏi về cách áp dụng khái niệm vào tình huống thực tế",
-        "comparison": "Tạo câu hỏi so sánh khái niệm với các khái niệm khác"
+        "comparison": "Tạo câu hỏi so sánh khái niệm với các khái niệm khác",
     }
-    
+
     prompt = f"""Bạn là chuyên gia thiết kế câu hỏi trắc nghiệm. Nhiệm vụ của bạn là tạo THÂN CÂU HỎI (question stem) chất lượng cao.
 
 KHÁI NIỆM: {concept}
@@ -103,7 +100,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
 
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
-    
+
     try:
         content = response.content.strip()
         if content.startswith("```"):
@@ -111,17 +108,14 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
-        
+
         result = json.loads(content)
         return result
     except json.JSONDecodeError:
         return {"question": response.content.strip()}
 
 
-def generate_correct_answer_impl(
-    question: str,
-    context: str
-) -> dict:
+def generate_correct_answer_impl(question: str, context: str) -> dict:
     """Implementation of correct answer generation logic."""
     prompt = f"""Bạn là chuyên gia tạo đáp án cho câu hỏi trắc nghiệm. Nhiệm vụ của bạn là tạo ĐÁP ÁN ĐÚNG chính xác nhất.
 
@@ -143,7 +137,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
 
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
-    
+
     try:
         content = response.content.strip()
         if content.startswith("```"):
@@ -151,18 +145,14 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
-        
+
         result = json.loads(content)
         return result
     except json.JSONDecodeError:
         return {"correct_answer": response.content.strip()}
 
 
-def generate_distractors_impl(
-    correct_answer: str,
-    context: str,
-    n: int = 3
-) -> dict:
+def generate_distractors_impl(correct_answer: str, context: str, n: int = 3) -> dict:
     """Implementation of distractors generation logic."""
     prompt = f"""Bạn là chuyên gia tạo câu hỏi trắc nghiệm. Nhiệm vụ của bạn là tạo CÁC ĐÁP ÁN NHIỄU (distractors) chất lượng cao.
 
@@ -193,7 +183,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
 
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
-    
+
     try:
         content = response.content.strip()
         if content.startswith("```"):
@@ -201,24 +191,25 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
-        
+
         result = json.loads(content)
         return result
     except json.JSONDecodeError:
         # Fallback: extract from text
-        lines = [line.strip("- ") for line in response.content.split("\n") if line.strip().startswith("-")]
+        lines = [
+            line.strip("- ")
+            for line in response.content.split("\n")
+            if line.strip().startswith("-")
+        ]
         return {"distractors": lines[:n]}
 
 
 def validate_mcq_impl(
-    question: str,
-    correct_answer: str,
-    distractors: list,
-    context: str
+    question: str, correct_answer: str, distractors: list, context: str
 ) -> dict:
     """Implementation of MCQ validation logic."""
     distractors_text = "\n".join([f"- {d}" for d in distractors])
-    
+
     prompt = f"""Bạn là chuyên gia đánh giá chất lượng câu hỏi trắc nghiệm. Nhiệm vụ của bạn là KIỂM TRA VÀ ĐÁNH GIÁ câu hỏi MCQ.
 
 CÂU HỎI: {question}
@@ -256,7 +247,7 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
 
     messages = [HumanMessage(content=prompt)]
     response = llm.invoke(messages)
-    
+
     try:
         content = response.content.strip()
         if content.startswith("```"):
@@ -264,39 +255,36 @@ CHỈ TRẢ VỀ JSON, KHÔNG CÓ TEXT KHÁC."""
             if content.startswith("json"):
                 content = content[4:]
         content = content.strip()
-        
+
         result = json.loads(content)
         return result
     except json.JSONDecodeError:
         # Fallback: assume valid
-        return {
-            "is_valid": True,
-            "issues": [],
-            "difficulty_estimate": "medium"
-        }
+        return {"is_valid": True, "issues": [], "difficulty_estimate": "medium"}
 
 
 # ============================================================================
 # MCP TOOL WRAPPERS
 # ============================================================================
 
+
 @mcp.tool()
 def extract_key_concepts(
     text: str,
-    level: Optional[Literal["basic", "intermediate", "advanced"]] = "intermediate"
+    level: Optional[Literal["basic", "intermediate", "advanced"]] = "intermediate",
 ) -> dict:
     """
     Trích xuất các khái niệm chính từ văn bản để tạo câu hỏi trắc nghiệm.
     Agent sử dụng tool này để xác định điểm ra đề.
-    
+
     Args:
         text (str): Văn bản nguồn để trích xuất khái niệm
-        level (str, optional): Mức độ khái niệm cần trích xuất. 
+        level (str, optional): Mức độ khái niệm cần trích xuất.
                               Mặc định là "intermediate"
                               - "basic": Khái niệm cơ bản, dễ hiểu
                               - "intermediate": Khái niệm trung bình
                               - "advanced": Khái niệm nâng cao, phức tạp
-    
+
     Returns:
         dict: {"concepts": list[str]} - Danh sách các khái niệm chính
     """
@@ -307,12 +295,14 @@ def extract_key_concepts(
 def generate_question_stem(
     concept: str,
     context: str,
-    question_type: Optional[Literal["definition", "application", "comparison"]] = "definition"
+    question_type: Optional[
+        Literal["definition", "application", "comparison"]
+    ] = "definition",
 ) -> dict:
     """
     Sinh phần thân câu hỏi (question stem) từ một khái niệm.
     Tool này CHỈ sinh câu hỏi, KHÔNG sinh đáp án.
-    
+
     Args:
         concept (str): Khái niệm cần tạo câu hỏi
         context (str): Ngữ cảnh/nội dung liên quan
@@ -320,7 +310,7 @@ def generate_question_stem(
                                       - "definition": Hỏi về định nghĩa
                                       - "application": Hỏi về ứng dụng
                                       - "comparison": Hỏi về so sánh
-    
+
     Returns:
         dict: {"question": str} - Câu hỏi được sinh ra
     """
@@ -328,17 +318,14 @@ def generate_question_stem(
 
 
 @mcp.tool()
-def generate_correct_answer(
-    question: str,
-    context: str
-) -> dict:
+def generate_correct_answer(question: str, context: str) -> dict:
     """
     Sinh đáp án đúng cho một câu hỏi dựa trên ngữ cảnh.
-    
+
     Args:
         question (str): Câu hỏi cần tạo đáp án
         context (str): Ngữ cảnh/nội dung để tìm đáp án đúng
-    
+
     Returns:
         dict: {"correct_answer": str} - Đáp án đúng
     """
@@ -347,19 +334,17 @@ def generate_correct_answer(
 
 @mcp.tool()
 def generate_distractors(
-    correct_answer: str,
-    context: str,
-    n: Optional[int] = 3
+    correct_answer: str, context: str, n: Optional[int] = 3
 ) -> dict:
     """
     Sinh các đáp án nhiễu (distractors) - đáp án sai nhưng hợp lý.
     Tool quan trọng để điều khiển chất lượng MCQ.
-    
+
     Args:
         correct_answer (str): Đáp án đúng
         context (str): Ngữ cảnh để tạo đáp án nhiễu hợp lý
         n (int, optional): Số lượng đáp án nhiễu cần tạo. Mặc định là 3
-    
+
     Returns:
         dict: {"distractors": list[str]} - Danh sách các đáp án nhiễu
     """
@@ -368,20 +353,17 @@ def generate_distractors(
 
 @mcp.tool()
 def validate_mcq(
-    question: str,
-    correct_answer: str,
-    distractors: list[str],
-    context: str
+    question: str, correct_answer: str, distractors: list[str], context: str
 ) -> dict:
     """
     Kiểm tra và đánh giá chất lượng của một câu hỏi trắc nghiệm hoàn chỉnh.
-    
+
     Args:
         question (str): Câu hỏi
         correct_answer (str): Đáp án đúng
         distractors (list[str]): Danh sách các đáp án nhiễu
         context (str): Ngữ cảnh/nội dung gốc
-    
+
     Returns:
         dict: {
             "is_valid": bool - MCQ có hợp lệ không,
