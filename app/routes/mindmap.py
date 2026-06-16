@@ -3,7 +3,7 @@ import base64
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 
 
 from app.config import settings as ds_settings
@@ -14,12 +14,7 @@ from app.services.minio_client import minio_client
 
 router = APIRouter(prefix="/mindmap")
 
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=ds_settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=ds_settings.LANGFUSE_SECRET_KEY,
-    host=ds_settings.LANGFUSE_HOST,
-)
+tracer = CallbackHandler()
 
 
 def create_mindmap(mindmap: MindMap):

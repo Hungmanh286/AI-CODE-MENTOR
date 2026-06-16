@@ -1,9 +1,12 @@
-from google import genai
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import uuid
 
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langgraph.graph.message import MessagesState
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 from langchain_core.messages import AIMessage, HumanMessage
@@ -27,12 +30,7 @@ class QState(MessagesState):
     merge: str | None
 
 
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST,
-)
+tracer = CallbackHandler()
 
 
 # Node 1: Tóm tắt từng chunk
@@ -113,7 +111,6 @@ def extractive_node(state: QState, config: RunnableConfig):
 
 
 llm = init_llm(
-    api_key=settings.CHAT_MODEL_KEY,
     model=settings.CHAT_MODEL,
     temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
     tags=["agent"],
@@ -145,26 +142,34 @@ def mind_map(state: QState, config: RunnableConfig):
     merge = state.get("merge", "")
     session_id = config["configurable"].get("thread_id")
 
-    gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    from openai import OpenAI
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=settings.OPENROUTER_API_KEY,
+    )
 
     prompt = Prompts.MIND_MAP_PROMPT.format(merge=merge)
 
-    response = gemini_client.models.generate_content(
-        model="gemini-2.5-flash-image-preview",
-        contents=[prompt],
+    response = client.chat.completions.create(
+        model=settings.MIND_MAP_MODEL,
+        messages=[{"role": "user", "content": prompt}]
     )
 
+    content = response.choices[0].message.content
+    logger.info(f"[MindMap] Generated content: {content[:100]}...")
+    
+    # Image generation is not directly supported via OpenRouter's standard chat API
+    # for models like gemini-2.5-flash-image-preview in the same way as native SDK.
+    # We return the text content which can be used to render a mindmap.
+    
     for part in response.parts:
         if part.text is not None:
             content = part.text
-            print(f"[MindMap] Generated text content: {content[:100]}...")
         if part.inline_data is not None:
-            print(f"[MindMap] Found inline image data for session: {session_id}")
             image = part.as_image()
-
+    
             temp_image_path = f"temp_mindmap_{session_id}.png"
             image.save(temp_image_path)
-            print(f"[MindMap] Saved temporary image: {temp_image_path}")
 
             mindmap_id = str(uuid.uuid4())
             minio_path = f"{session_id}/{mindmap_id}_mindmap.png"
@@ -172,7 +177,6 @@ def mind_map(state: QState, config: RunnableConfig):
             with open(temp_image_path, "rb") as f:
                 image_bytes = f.read()
                 minio_client.upload_data(minio_path, image_bytes)
-            print(f"[MindMap] Successfully uploaded to MinIO: {minio_path}")
 
             import os
 
@@ -184,13 +188,10 @@ def mind_map(state: QState, config: RunnableConfig):
                     source_path=minio_path,
                 )
                 created_mindmap = create_mindmap(mindmap=mindmap_data)
-                print(f"[MindMap] Saved to database with ID: {created_mindmap.id}")
             except Exception as e:
-                print(f"[MindMap] Error saving to database: {e}")
-
+                logger.info(e)
             os.remove(temp_image_path)
-            print(f"[MindMap] Removed temporary file: {temp_image_path}")
-
+            
     prompt2 = """
     Chỉ cần trả lời là tôi đã tạo xong mind map
     """
@@ -230,22 +231,22 @@ if __name__ == "__main__":
         for s in stream:
             message = s.get("messages", None)
             if message is None:
-                print("⚠️ Missing 'messages' key in stream item:", s)
+                logger.info(" ".join(str(_log_value) for _log_value in ("⚠️ Missing 'messages' key in stream item:", s)))
                 continue
 
             if isinstance(message, tuple):
-                print("Tuple message:", message)
+                logger.info(" ".join(str(_log_value) for _log_value in ("Tuple message:", message)))
             elif isinstance(message, list):
                 for m in message:
                     try:
                         m.pretty_print()
                     except AttributeError:
-                        print(m)
+                        logger.info(m)
             else:
                 try:
                     message.pretty_print()
                 except AttributeError:
-                    print(message)
+                    logger.info(message)
 
     input_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
 

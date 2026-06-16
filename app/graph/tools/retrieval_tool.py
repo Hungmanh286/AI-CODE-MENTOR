@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import os
 import re
 
@@ -78,7 +82,7 @@ def parse_and_chunk_pdf(state: State, config: RunnableConfig):
         # Xóa file tạm
         os.remove(temp_local_path)
     except Exception as e:
-        print(f"Error converting document: {e}")
+        logger.info(f"Error converting document: {e}")
         if os.path.exists(temp_local_path):
             os.remove(temp_local_path)
         return {"documents": None}

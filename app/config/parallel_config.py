@@ -2,6 +2,10 @@
 Cấu hình cho parallel processing.
 Điều chỉnh các giá trị này tùy theo plan API và hardware của bạn.
 """
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 from dataclasses import dataclass
 from typing import Literal
@@ -250,10 +254,10 @@ class Presets:
 if __name__ == "__main__":
     # Example 1: Sử dụng preset
     config = Presets.free_tier()
-    print("Free Tier Config:")
-    print(f"  Max Workers: {config.MAX_WORKERS}")
-    print(f"  RPM Limit: {config.RPM_LIMIT}")
-    print(f"  Chunk Size: {config.CHUNK_SIZE_LARGE}")
+    logger.info("Free Tier Config:")
+    logger.info(f"  Max Workers: {config.MAX_WORKERS}")
+    logger.info(f"  RPM Limit: {config.RPM_LIMIT}")
+    logger.info(f"  Chunk Size: {config.CHUNK_SIZE_LARGE}")
 
     # Example 2: Custom config
     custom_config = ParallelProcessingConfig(

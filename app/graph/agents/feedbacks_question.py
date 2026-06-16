@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 # con agent này
 
 import sys
@@ -16,7 +20,6 @@ TOOLS = []
 
 try:
     llm = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE,
         tags=["feedback_agent"],
@@ -24,7 +27,7 @@ try:
 
     llm_feedback = llm.bind_tools(TOOLS)
 except Exception as e:
-    print(f"Fatal Error: Failed to initialize API agent model: {e}")
+    logger.info(f"Fatal Error: Failed to initialize API agent model: {e}")
     sys.exit(1)
 
 
@@ -55,7 +58,7 @@ if __name__ == "__main__":
         for s in stream:
             message = s["messages"][-1]
             if isinstance(message, tuple):
-                print(message)
+                logger.info(message)
             else:
                 message.pretty_print()
 

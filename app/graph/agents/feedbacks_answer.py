@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import os
 
 #
@@ -45,25 +49,28 @@ def encode_image(image_path):
 
 
 def image_to_text(image_path):
-    client = OpenAI(api_key=settings.CHAT_MODEL_VISION_KEY)
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=settings.OPENROUTER_API_KEY,
+    )
     base64_image = encode_image(image_path)
 
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[
+    response = client.chat.completions.create(
+        model=settings.CHAT_MODEL_VISION,
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": "chuyển ảnh sang text"},
+                    {"type": "text", "text": "chuyển ảnh sang text"},
                     {
-                        "type": "input_image",
-                        "image_url": f"data:image/jpeg;base64,{base64_image}",
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
                     },
                 ],
             }
         ],
     )
-    return response.output_text
+    return response.choices[0].message.content
 
 
 # lấy câu hỏi
@@ -78,10 +85,7 @@ def get_human_message_content(state: State):
             return msg.get("content", "")
     return ""
 
-
-# node : lấy ảnh crop và chuyển sang text
-# đồng thời xóa ảnh ở trong folder
-# xử lý nếu chọn nhiều file cùng lúc
+# node parse pdf text
 def parse_pdf_text(state: State, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
 
@@ -102,7 +106,7 @@ def parse_pdf_text(state: State, config: RunnableConfig):
             minio_client.delete_file(crop_minio_path)
             return {"documents": text}
         except Exception as e:
-            print(f"Error converting image to text: {e}")
+            logger.info(f"Error converting image to text: {e}")
             return {"documents": None}
 
 
@@ -273,7 +277,7 @@ if __name__ == "__main__":
         for s in stream:
             message = s["messages"][-1]
             if isinstance(message, tuple):
-                print(message)
+                logger.info(message)
             else:
                 message.pretty_print()
 

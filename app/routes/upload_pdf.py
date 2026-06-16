@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import os
 import base64
 from io import BytesIO
@@ -324,10 +328,8 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
         if file_record.active and not file_record.has_processed:
             import time
 
-            print(f"🚀 Starting parallel PDF processing for file_id: {file_id}")
-            print(
-                f"⚙️  Config: {PARALLEL_CONFIG.MAX_WORKERS} workers, {PARALLEL_CONFIG.RPM_LIMIT} RPM limit"
-            )
+            logger.info(f"🚀 Starting parallel PDF processing for file_id: {file_id}")
+            logger.info(f"⚙️  Config: {PARALLEL_CONFIG.MAX_WORKERS} workers, {PARALLEL_CONFIG.RPM_LIMIT} RPM limit")
 
             start_time = time.time()
             file_record.has_processed = True
@@ -339,8 +341,8 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
             )
 
             processing_time = time.time() - start_time
-            print(f"✅ Parallel processing completed in {processing_time:.2f}s")
-            print(f"📄 Processed {len(docs):,} characters")
+            logger.info(f"✅ Parallel processing completed in {processing_time:.2f}s")
+            logger.info(f"📄 Processed {len(docs):,} characters")
 
             # Upload docs lên MinIO trong folder session
             docs_minio_path = f"{file_record.session_id}/{file_id}_docs.txt"
@@ -350,20 +352,18 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
 
             minio_client.upload_file(temp_docs_path, docs_minio_path)
 
-            print("🔍 Starting embedding to vector store...")
+            logger.info("🔍 Starting embedding to vector store...")
             embedding_start = time.time()
             embedding_document([docs], file_record.session_id)
             embedding_time = time.time() - embedding_start
-            print(f"✅ Embedding completed in {embedding_time:.2f}s")
+            logger.info(f"✅ Embedding completed in {embedding_time:.2f}s")
 
             os.remove(temp_docs_path)
             session.add(file_record)
             session.commit()
 
             total_time = time.time() - start_time
-            print(
-                f"🎉 Total processing time: {total_time:.2f}s (parsing: {processing_time:.2f}s, embedding: {embedding_time:.2f}s)"
-            )
+            logger.info(f"🎉 Total processing time: {total_time:.2f}s (parsing: {processing_time:.2f}s, embedding: {embedding_time:.2f}s)")
 
         os.remove(temp_local_path)
 
@@ -395,7 +395,7 @@ async def get_files_by_session(session_id: str):
             result = [{"file_id": f.file_id, "file_name": f.file_name} for f in files]
             return result
     except Exception as e:
-        print(f"Error retrieving files for session_id {session_id}: {e}")
+        logger.info(f"Error retrieving files for session_id {session_id}: {e}")
         return []
 
 

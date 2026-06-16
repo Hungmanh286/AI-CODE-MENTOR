@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from typing import Dict
 
 
@@ -39,9 +43,7 @@ def insert_database(
             session.exec(stmt)
             session.commit()
         except Exception:
-            print(
-                f"Error inserting data to {schema}.{table if isinstance(table, str) else table.__tablename__}",
-            )
+            logger.info(f"Error inserting data to {schema}.{table if isinstance(table, str) else table.__tablename__}")
             session.rollback()
             raise
 
@@ -79,9 +81,7 @@ def update_database(
             session.exec(stmt)
             session.commit()
         except Exception:
-            print(
-                f"Error updating data to {schema}.{table_name}",
-            )
+            logger.info(f"Error updating data to {schema}.{table_name}")
             session.rollback()
             raise
 

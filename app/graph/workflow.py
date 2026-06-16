@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import uuid
 from typing import Optional
 from dotenv import load_dotenv
@@ -5,7 +9,7 @@ from fastapi import WebSocket
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.runnables.config import RunnableConfig
 
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.state import CompiledStateGraph
 
@@ -117,7 +121,7 @@ async def invoke_workflow(
                     role=Role.bot, content=msg.content, msg_type=ChatType.stream
                 )
     except Exception as e:
-        print(f"session: {session_uuid}\nquestion: {message}\nerror: {e}")
+        logger.info(f"session: {session_uuid}\nquestion: {message}\nerror: {e}")
         await send_response(
             role=Role.bot,
             content="An error occurred while creating the answer.",

@@ -1,9 +1,13 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import json
 import uuid
 
 from fastapi import APIRouter, Form, HTTPException, Query
 from sqlmodel import SQLModel, Session, select, delete
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langchain_core.runnables.config import RunnableConfig
 
 from app.schema.question import Project, Question, QuestionOption, SessionProject
@@ -14,12 +18,7 @@ from app.config import settings
 
 router = APIRouter()
 
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST,
-)
+tracer = CallbackHandler()
 
 
 async def process_pdf(session_id: str, query: str, document_processing_agent=None):
@@ -61,7 +60,7 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
         insert_database(session_project_data, SessionProject)
     except Exception as e:
         pass
-        print(f"Error inserting session project: {e}")
+        logger.info(f"Error inserting session project: {e}")
 
     for q in questions_data:
         question_id = str(uuid.uuid4())
