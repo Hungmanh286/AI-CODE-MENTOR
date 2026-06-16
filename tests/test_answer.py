@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import asyncio
 from langchain_core.messages import HumanMessage
 from app.graph.agents.feedbacks_answer import feedbacks_answer
@@ -100,13 +104,13 @@ arr = [
 async def test_feedbacks_answer():
     """Test feedbacks_answer agent with 100 questions"""
 
-    print(f"Starting test with {len(arr)} questions...")
-    print("=" * 80)
+    logger.info(f"Starting test with {len(arr)} questions...")
+    logger.info("=" * 80)
 
     results = []
 
     for idx, question in enumerate(arr):
-        print(f"\n[{idx + 1}/{len(arr)}] Processing question: {question[:80]}...")
+        logger.info(f"\n[{idx + 1}/{len(arr)}] Processing question: {question[:80]}...")
 
         try:
             # Tạo input cho agent
@@ -134,10 +138,10 @@ async def test_feedbacks_answer():
                 }
             )
 
-            print(f"✓ Completed: {answer[:100]}...")
+            logger.info(f"✓ Completed: {answer[:100]}...")
 
         except Exception as e:
-            print(f"✗ Error: {str(e)}")
+            logger.info(f"✗ Error: {str(e)}")
             results.append(
                 {
                     "question_index": idx + 1,
@@ -149,16 +153,16 @@ async def test_feedbacks_answer():
             )
 
     # Tổng kết
-    print("\n" + "=" * 80)
-    print("TEST SUMMARY")
-    print("=" * 80)
+    logger.info("\n" + "=" * 80)
+    logger.info("TEST SUMMARY")
+    logger.info("=" * 80)
     success_count = sum(1 for r in results if r["status"] == "success")
     error_count = sum(1 for r in results if r["status"] == "error")
 
-    print(f"Total questions: {len(arr)}")
-    print(f"Successful: {success_count}")
-    print(f"Failed: {error_count}")
-    print(f"Success rate: {success_count / len(arr) * 100:.2f}%")
+    logger.info(f"Total questions: {len(arr)}")
+    logger.info(f"Successful: {success_count}")
+    logger.info(f"Failed: {error_count}")
+    logger.info(f"Success rate: {success_count / len(arr) * 100:.2f}%")
 
     return results
 
