@@ -1,8 +1,12 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import langchain
 import langchain_core
 import langchain_community
 
-print("langchain:", langchain.__version__)
-print("core:", langchain_core.__version__)
-print("community:", langchain_community.__version__)
-print("path:", langchain.__file__)
+logger.info(" ".join(str(_log_value) for _log_value in ("langchain:", langchain.__version__)))
+logger.info(" ".join(str(_log_value) for _log_value in ("core:", langchain_core.__version__)))
+logger.info(" ".join(str(_log_value) for _log_value in ("community:", langchain_community.__version__)))
+logger.info(" ".join(str(_log_value) for _log_value in ("path:", langchain.__file__)))

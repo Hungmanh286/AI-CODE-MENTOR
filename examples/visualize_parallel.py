@@ -2,11 +2,15 @@
 Visualization script để tạo diagrams cho parallel processing workflow.
 Sử dụng ASCII art để minh họa flow.
 """
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 
 def print_sequential_flow():
     """Visualize sequential processing flow"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                    SEQUENTIAL PROCESSING                        │
 │                          (Chậm ❌)                              │
@@ -38,7 +42,7 @@ PROBLEMS:
 
 def print_parallel_flow():
     """Visualize parallel processing flow"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                     PARALLEL PROCESSING                         │
 │                        (Nhanh ✅)                               │
@@ -83,7 +87,7 @@ BENEFITS:
 
 def print_rate_limiting_diagram():
     """Visualize rate limiting mechanism"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                      RATE LIMITING                              │
 │              Prevents 429 Too Many Requests                     │
@@ -117,7 +121,7 @@ def api_call(chunk):
 
 def print_error_handling_flow():
     """Visualize error handling and retry logic"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                   ERROR HANDLING & RETRY                        │
 │                  Graceful Degradation                           │
@@ -168,7 +172,7 @@ Benefits:
 
 def print_architecture_diagram():
     """Visualize overall system architecture"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                   SYSTEM ARCHITECTURE                           │
 └─────────────────────────────────────────────────────────────────┘
@@ -237,7 +241,7 @@ External Services:
 
 def print_performance_comparison():
     """Visualize performance metrics"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                  PERFORMANCE COMPARISON                         │
 └─────────────────────────────────────────────────────────────────┘
@@ -275,7 +279,7 @@ Conclusion: Parallel processing tận dụng tốt hơn resources!
 
 def print_configuration_presets():
     """Visualize configuration presets"""
-    print("""
+    logger.info("""
 ┌─────────────────────────────────────────────────────────────────┐
 │                   CONFIGURATION PRESETS                         │
 └─────────────────────────────────────────────────────────────────┘
@@ -339,19 +343,19 @@ def main():
         ("Config Presets", print_configuration_presets),
     ]
     
-    print("\n" + "=" * 80)
-    print("PARALLEL PDF PROCESSING - VISUAL GUIDE")
-    print("=" * 80)
+    logger.info("\n" + "=" * 80)
+    logger.info("PARALLEL PDF PROCESSING - VISUAL GUIDE")
+    logger.info("=" * 80)
     
     for i, (name, func) in enumerate(diagrams, 1):
-        print(f"\n\n{'=' * 80}")
-        print(f"DIAGRAM {i}/{len(diagrams)}: {name}")
-        print('=' * 80)
+        logger.info(f"\n\n{'=' * 80}")
+        logger.info(f"DIAGRAM {i}/{len(diagrams)}: {name}")
+        logger.info('=' * 80)
         func()
     
-    print("\n\n" + "=" * 80)
-    print("END OF VISUAL GUIDE")
-    print("=" * 80)
+    logger.info("\n\n" + "=" * 80)
+    logger.info("END OF VISUAL GUIDE")
+    logger.info("=" * 80)
 
 
 if __name__ == "__main__":

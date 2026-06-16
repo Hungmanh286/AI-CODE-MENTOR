@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from openai import OpenAI
 import base64
 from pdf2image import convert_from_path
@@ -5,7 +9,7 @@ from io import BytesIO
 
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langgraph.graph.message import MessagesState
 from langchain_core.messages import (
     AIMessage,
@@ -27,16 +31,14 @@ class QState(MessagesState):
 
 
 model = settings.CHAT_MODEL_VISION
-api_key = settings.CHAT_MODEL_VISION_KEY
-client = OpenAI(api_key=api_key)
-
-
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST,
+api_key = settings.OPENROUTER_API_KEY
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
 )
+
+
+tracer = CallbackHandler()
 
 # bước 1 : tóm tắt từng tài liệu (document summarizztion) cho mỗi đoạn
 
@@ -54,7 +56,7 @@ def summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     """
     content = [
         {
-            "type": "input_text",
+            "type": "text",
             "text": Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(
                 document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
             ),
@@ -64,16 +66,16 @@ def summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     for img_b64 in chunk_images:
         content.append(
             {
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{img_b64}",
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
             }
         )
 
-    response = client.responses.create(
-        model=model, input=[{"role": "user", "content": content}]
+    response = client.chat.completions.create(
+        model=model, messages=[{"role": "user", "content": content}]
     )
 
-    return response.output_text
+    return response.choices[0].message.content
 
 
 def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
@@ -112,9 +114,7 @@ def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
                 "summary": chunk_summary,
             }
         )
-        print(
-            f"Đã tóm tắt chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})"
-        )
+        logger.info(f"Đã tóm tắt chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})")
 
     return summaries
 
@@ -135,7 +135,7 @@ def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     """
     content = [
         {
-            "type": "input_text",
+            "type": "text",
             "text": Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(
                 document=f"Đây là phần {chunk_index + 1} của tài liệu (các trang được thể hiện dưới dạng hình ảnh)"
             ),
@@ -143,12 +143,12 @@ def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     ]
     for img_b64 in chunk_images:
         content.append(
-            {"type": "input_image", "image_url": f"data:image/png;base64,{img_b64}"}
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
         )
-    response = client.responses.create(
-        model=model, input=[{"role": "user", "content": content}]
+    response = client.chat.completions.create(
+        model=model, messages=[{"role": "user", "content": content}]
     )
-    return response.output_text
+    return response.choices[0].message.content
 
 
 def extractive_summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
@@ -182,9 +182,7 @@ def extractive_summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> l
                 "summary": chunk_summary,
             }
         )
-        print(
-            f"Đã extractive summarize chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})"
-        )
+        logger.info(f"Đã extractive summarize chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})")
     return summaries
 
 
@@ -252,25 +250,25 @@ if __name__ == "__main__":
             # Kiểm tra xem phần tử có khóa "messages" hay không
             message = s.get("messages", None)
             if message is None:
-                print("⚠️ Missing 'messages' key in stream item:", s)
+                logger.info(" ".join(str(_log_value) for _log_value in ("⚠️ Missing 'messages' key in stream item:", s)))
                 continue
 
             # Nếu message là tuple (thường từ LangGraph astream_events)
             if isinstance(message, tuple):
-                print("Tuple message:", message)
+                logger.info(" ".join(str(_log_value) for _log_value in ("Tuple message:", message)))
             # Nếu là danh sách các message
             elif isinstance(message, list):
                 for m in message:
                     try:
                         m.pretty_print()
                     except AttributeError:
-                        print(m)
+                        logger.info(m)
             # Nếu là object Message duy nhất
             else:
                 try:
                     message.pretty_print()
                 except AttributeError:
-                    print(message)
+                    logger.info(message)
 
     input_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
 

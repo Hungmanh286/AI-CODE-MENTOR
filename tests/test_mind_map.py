@@ -1,18 +1,17 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import json
 from pathlib import Path
 
 
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 
 from app.chatmodel import init_llm
 from app.config import settings
 
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST,
-)
+tracer = CallbackHandler()
 
 
 Fullset_Evaluation_PROMPT = """
@@ -71,7 +70,6 @@ def test_summarize_agent():
 
     # Khởi tạo LLM cho evaluation
     llm = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
         tags=["evaluation"],
@@ -85,14 +83,14 @@ def test_summarize_agent():
     # Lấy danh sách file results đã có
     result_files = sorted(results_dir.glob("*_result.json"))
 
-    print(f"Found {len(result_files)} result files to evaluate")
+    logger.info(f"Found {len(result_files)} result files to evaluate")
 
     all_results = []
 
     for result_file in result_files:
-        print(f"\n{'=' * 80}")
-        print(f"Processing: {result_file.name}")
-        print(f"{'=' * 80}")
+        logger.info(f"\n{'=' * 80}")
+        logger.info(f"Processing: {result_file.name}")
+        logger.info(f"{'=' * 80}")
 
         try:
             # Đọc summary từ file result
@@ -103,15 +101,15 @@ def test_summarize_agent():
             doc_file_name = existing_result.get("document_file", "")
             mindmap_file_name = existing_result.get("mindmap_file", "")
 
-            print(f"\nDocument: {doc_file_name}")
-            print(f"Mindmap file: {mindmap_file_name}")
-            print(f"Summary length: {len(summary)} chars")
+            logger.info(f"\nDocument: {doc_file_name}")
+            logger.info(f"Mindmap file: {mindmap_file_name}")
+            logger.info(f"Summary length: {len(summary)} chars")
 
             # Tìm mindmap file tương ứng
             mindmap_file = mindmap_dir / mindmap_file_name
 
             if not mindmap_file.exists():
-                print(f"Warning: Mindmap file not found: {mindmap_file}")
+                logger.info(f"Warning: Mindmap file not found: {mindmap_file}")
                 continue
 
             # Đọc arguments từ file mindmap
@@ -119,11 +117,11 @@ def test_summarize_agent():
                 mindmap_data = json.load(f)
 
             # DEBUG: In ra cấu trúc của mindmap_data
-            print("\nDEBUG - Mindmap data structure:")
-            print(f"  Type: {type(mindmap_data)}")
+            logger.info("\nDEBUG - Mindmap data structure:")
+            logger.info(f"  Type: {type(mindmap_data)}")
             if isinstance(mindmap_data, dict):
-                print(f"  Keys: {list(mindmap_data.keys())}")
-            print(f"  Content preview: {str(mindmap_data)[:200]}...")
+                logger.info(f"  Keys: {list(mindmap_data.keys())}")
+            logger.info(f"  Content preview: {str(mindmap_data)[:200]}...")
 
             # Chuẩn hóa reference_arguments thành list
             reference_arguments = []
@@ -175,9 +173,7 @@ def test_summarize_agent():
                 else:
                     reference_arguments = [str(reference_arguments)]
 
-            print(
-                f"Loaded {len(reference_arguments)} arguments from: {mindmap_file.name}"
-            )
+            logger.info(f"Loaded {len(reference_arguments)} arguments from: {mindmap_file.name}")
 
             # # COMMENT: Evaluation 1: Fullset Evaluation
             # fullset_prompt = Fullset_Evaluation_PROMPT.format(
@@ -188,15 +184,15 @@ def test_summarize_agent():
             # )
             # fullset_response = llm.invoke(fullset_prompt)
             # fullset_eval = json.loads(fullset_response.content)
-            # print("\nFullset Evaluation:")
-            # print(f"  Rating: {fullset_eval.get('rating')}/4")
-            # print(f"  Explanation: {fullset_eval.get('explanation')}")
+            # logger.info("\nFullset Evaluation:")
+            # logger.info(f"  Rating: {fullset_eval.get('rating')}/4")
+            # logger.info(f"  Explanation: {fullset_eval.get('explanation')}")
 
             fullset_eval = existing_result.get("fullset_evaluation", {})
 
             # Evaluation 2: Argument Role Evaluation - LUÔN CHẠY
             argument_evals = []
-            print(f"\nEvaluating {len(reference_arguments)} arguments individually...")
+            logger.info(f"\nEvaluating {len(reference_arguments)} arguments individually...")
 
             for idx, arg in enumerate(reference_arguments):
                 try:
@@ -213,11 +209,9 @@ def test_summarize_agent():
                             "explanation": arg_eval.get("explanation"),
                         }
                     )
-                    print(
-                        f"  Argument {idx + 1}/{len(reference_arguments)} - Decision: {arg_eval.get('decision')}"
-                    )
+                    logger.info(f"  Argument {idx + 1}/{len(reference_arguments)} - Decision: {arg_eval.get('decision')}")
                 except Exception as e:
-                    print(f"  Error evaluating argument {idx + 1}: {str(e)}")
+                    logger.info(f"  Error evaluating argument {idx + 1}: {str(e)}")
                     argument_evals.append(
                         {
                             "argument_index": idx,
@@ -232,10 +226,10 @@ def test_summarize_agent():
             supported_args = sum(1 for e in argument_evals if e.get("decision") == 1)
             support_rate = (supported_args / total_args * 100) if total_args > 0 else 0
 
-            print("\nArgument Support Summary:")
-            print(f"  Total arguments: {total_args}")
-            print(f"  Supported: {supported_args}")
-            print(f"  Support rate: {support_rate:.1f}%")
+            logger.info("\nArgument Support Summary:")
+            logger.info(f"  Total arguments: {total_args}")
+            logger.info(f"  Supported: {supported_args}")
+            logger.info(f"  Support rate: {support_rate:.1f}%")
 
             # Lưu kết quả
             base_name = result_file.stem.replace("_result", "")
@@ -258,10 +252,10 @@ def test_summarize_agent():
             with open(output_file, "w", encoding="utf-8") as f:
                 json.dump(file_result, f, indent=2, ensure_ascii=False)
 
-            print(f"\nResult saved to: {output_file}")
+            logger.info(f"\nResult saved to: {output_file}")
 
         except Exception as e:
-            print(f"Error processing {result_file.name}: {str(e)}")
+            logger.info(f"Error processing {result_file.name}: {str(e)}")
             import traceback
 
             traceback.print_exc()
@@ -271,10 +265,10 @@ def test_summarize_agent():
     with open(summary_file, "w", encoding="utf-8") as f:
         json.dump(all_results, f, indent=2, ensure_ascii=False)
 
-    print(f"\n{'=' * 80}")
-    print(f"All results saved to: {summary_file}")
-    print(f"Total files processed: {len(all_results)}")
-    print(f"{'=' * 80}")
+    logger.info(f"\n{'=' * 80}")
+    logger.info(f"All results saved to: {summary_file}")
+    logger.info(f"Total files processed: {len(all_results)}")
+    logger.info(f"{'=' * 80}")
 
     return all_results
 

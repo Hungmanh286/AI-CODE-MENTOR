@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import os
 import random
 import typing_extensions as typing
@@ -11,12 +15,12 @@ def extract_passages(pdf_or_txt_path, chunk_size=500):
     ext = os.path.splitext(pdf_or_txt_path)[1].lower()
 
     if ext == ".txt":
-        print("Reading from TXT file:", pdf_or_txt_path)
+        logger.info(" ".join(str(_log_value) for _log_value in ("Reading from TXT file:", pdf_or_txt_path)))
         with open(pdf_or_txt_path, "r", encoding="utf-8") as f:
             text = f.read()
 
     else:
-        print("Processing via Docling:", pdf_or_txt_path)
+        logger.info(" ".join(str(_log_value) for _log_value in ("Processing via Docling:", pdf_or_txt_path)))
         converter = DocumentConverter()
         doc = converter.convert(pdf_or_txt_path)
         text = doc.document.export_to_text()
@@ -89,28 +93,28 @@ if __name__ == "__main__":
     test_indices = [1, 5, 10, 15, 20]
 
     for idx in test_indices:
-        print(f"\n{'=' * 80}")
-        print(f"Testing with insert_index = {idx}")
-        print(f"{'=' * 80}")
+        logger.info(f"\n{'=' * 80}")
+        logger.info(f"Testing with insert_index = {idx}")
+        logger.info(f"{'=' * 80}")
 
         distractor = generate_distractors(passages, related_passage, k=20)
         context_passages = gold_passage(distractor, related_passage, [idx])
 
-        print(f"\nTổng số đoạn văn trong context: {len(context_passages)}")
-        print(f"Gold passage được chèn tại vị trí: {idx}")
+        logger.info(f"\nTổng số đoạn văn trong context: {len(context_passages)}")
+        logger.info(f"Gold passage được chèn tại vị trí: {idx}")
 
         # Sử dụng Gemini để tìm đoạn văn liên quan
-        print("\nĐang sử dụng Gemini để tìm kiếm đoạn văn liên quan...")
+        logger.info("\nĐang sử dụng Gemini để tìm kiếm đoạn văn liên quan...")
         found_passage = search_related_passage_with_gemini(question, context_passages)
 
-        print("\nĐoạn văn Gemini tìm được:")
-        print(found_passage)
+        logger.info("\nĐoạn văn Gemini tìm được:")
+        logger.info(found_passage)
 
         # Kiểm tra xem Gemini có tìm đúng gold passage không
         is_correct = (
             related_passage in found_passage or found_passage in related_passage
         )
-        print(f"\nKết quả: {'✓ ĐÚNG' if is_correct else '✗ SAI'}")
+        logger.info(f"\nKết quả: {'✓ ĐÚNG' if is_correct else '✗ SAI'}")
 
         if is_correct:
-            print(f"Gemini đã tìm đúng gold passage tại vị trí {idx}")
+            logger.info(f"Gemini đã tìm đúng gold passage tại vị trí {idx}")
