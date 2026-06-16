@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from openai import OpenAI
 import json
 import re
@@ -8,9 +12,9 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph.message import MessagesState
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langchain.tools import tool  # noqa
-from langchain_core.pydantic_v1 import BaseModel
+from pydantic import BaseModel
 
 
 from app.config import settings
@@ -30,9 +34,12 @@ from app.graph.agents.mind_map import summarize_agent  # noqa
 
 
 model = settings.CHAT_MODEL_VISION
-api_key = settings.CHAT_MODEL_VISION_KEY
+api_key = settings.OPENROUTER_API_KEY
 
-client = OpenAI(api_key=api_key)
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
 
 
 class QState(MessagesState):
@@ -49,19 +56,13 @@ class QState(MessagesState):
     query: str | None = None
 
 
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST,
-)
+tracer = CallbackHandler()
 
 
 max_retry = 2
 
 
 llm = init_llm(
-    api_key=settings.CHAT_MODEL_KEY,
     model=settings.CHAT_MODEL,
     temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
     tags=["agent"],
@@ -190,13 +191,12 @@ def format_question_answer_dict(data: dict) -> str:
             elif char == "}":
                 depth -= 1
                 if depth == 0 and start_idx is not None:
-                    # Found complete JSON object
                     obj_text = text[start_idx : i + 1]
                     try:
                         obj = json.loads(obj_text)
                         objects.append(obj)
                     except json.JSONDecodeError as e:
-                        print(f"Failed to parse object: {obj_text[:100]}... Error: {e}")
+                        logger.info(f"Failed to parse object: {obj_text[:100]}... Error: {e}")
                     start_idx = None
 
         return objects
@@ -230,8 +230,8 @@ def format_question_answer_dict(data: dict) -> str:
                 qa_items = parse_nested_json(json_str)
             except Exception as e:
                 formatted += f"Lỗi parse JSON: {e}\n\n"
-                print(f"Error parsing chunk {chunk_id}: {e}")
-                print(f"Content preview: {str(json_str)[:200]}...")
+                logger.info(f"Error parsing chunk {chunk_id}: {e}")
+                logger.info(f"Content preview: {str(json_str)[:200]}...")
                 continue
 
             if not qa_items:
@@ -299,11 +299,9 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     chunk_size = content_length // num_parts
                     overlap_size = chunk_size // 20
 
-                print(f"File {file_id}: Total content length = {content_length} chars")
-                print(
-                    f"Splitting into {num_parts} parts with {overlap_size} chars overlap"
-                )
-                print(f"Each chunk: ~{chunk_size} chars")
+                logger.info(f"File {file_id}: Total content length = {content_length} chars")
+                logger.info(f"Splitting into {num_parts} parts with {overlap_size} chars overlap")
+                logger.info(f"Each chunk: ~{chunk_size} chars")
 
                 for part_idx in range(num_parts):
                     start_idx = max(
@@ -314,11 +312,9 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     part_content = docs_content[start_idx:end_idx]
                     document_chunks.append(part_content)
 
-                    print(
-                        f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})"
-                    )
+                    logger.info(f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})")
 
-                print(f"\nCreated {len(document_chunks)} chunks with overlap")
+                logger.info(f"\nCreated {len(document_chunks)} chunks with overlap")
     return {"document_chunks": document_chunks, "query": query}
 
 
@@ -356,7 +352,7 @@ def question_node(state: QState, config: RunnableConfig):
                             }
                         )
                 except Exception as e:
-                    print(f"[SSE] Warning: Could not send progress: {e}")
+                    logger.info(f"[SSE] Warning: Could not send progress: {e}")
 
             if retry_count == 0:
                 prompt = Prompts.QUESTION_GENERATION_PROMPT.format(chunk=chunk)
@@ -372,7 +368,7 @@ def question_node(state: QState, config: RunnableConfig):
             return (idx, question)
 
         except Exception as e:
-            print(f"Error processing chunk {idx}: {e}")
+            logger.info(f"Error processing chunk {idx}: {e}")
             return (idx, f"[ERROR: Failed to generate question for chunk {idx}]")
 
     max_workers = 30
@@ -391,7 +387,7 @@ def question_node(state: QState, config: RunnableConfig):
                 check_questions[key] = []
             check_questions[key].append(results[idx])
 
-        print(f"Generated {len(check_questions)} questions in parallel")
+        logger.info(f"Generated {len(check_questions)} questions in parallel")
 
     else:
         if bad_questions is not None and len(bad_questions) > 0:
@@ -413,7 +409,7 @@ def question_node(state: QState, config: RunnableConfig):
                     check_questions[key] = []
                 check_questions[key].append(results[idx])
 
-            print(f"Regenerated {len(check_questions)} questions in parallel")
+            logger.info(f"Regenerated {len(check_questions)} questions in parallel")
 
     return {
         "check_questions": check_questions,
@@ -443,7 +439,7 @@ def answer_node(state: QState, config: RunnableConfig):
                         }
                     )
                 except Exception as e:
-                    print(f"[SSE] Warning: Could not send progress: {e}")
+                    logger.info(f"[SSE] Warning: Could not send progress: {e}")
 
             formatted_questions = ""
             for q_str in questions:
@@ -476,12 +472,12 @@ def answer_node(state: QState, config: RunnableConfig):
             # Format the structured response for judge node
             formatted_json = format_qa_for_judge(response_obj, str(idx))
             
-            print(f"Chunk {idx} - Generated {len(response_obj.questions)} questions with answers")
+            logger.info(f"Chunk {idx} - Generated {len(response_obj.questions)} questions with answers")
             
             return (idx, formatted_json)
 
         except Exception as e:
-            print(f"Error generating answer for chunk {idx}: {e}")
+            logger.info(f"Error generating answer for chunk {idx}: {e}")
             import traceback
             traceback.print_exc()
             return (idx, None)  # Return None for error cases
@@ -511,14 +507,14 @@ def answer_node(state: QState, config: RunnableConfig):
         
         # Skip error cases (None)
         if answer_data is None:
-            print(f"Skipping chunk {chunk_idx} due to error in answer generation")
+            logger.info(f"Skipping chunk {chunk_idx} due to error in answer generation")
             continue
             
         if chunk_idx not in question_answers:
             question_answers[chunk_idx] = []
         question_answers[chunk_idx].append(answer_data)
         
-    print(f"Generated answers for {len(question_answers)} chunks in parallel")
+    logger.info(f"Generated answers for {len(question_answers)} chunks in parallel")
 
     return {
         "question_answers": question_answers,
@@ -544,9 +540,7 @@ def judge(state: QState, config: RunnableConfig):
         1, (num_chunks + batch_size - 1) // batch_size
     )  # Ceiling division
 
-    print(
-        f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
-    )
+    logger.info(f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})")
 
     def process_judge_batch(batch_data):
         """Process một batch của question_answers"""
@@ -561,7 +555,7 @@ def judge(state: QState, config: RunnableConfig):
                         }
                     )
                 except Exception as e:
-                    print(f"[SSE] Warning: Could not send progress: {e}")
+                    logger.info(f"[SSE] Warning: Could not send progress: {e}")
             
             # batch_dict values are now formatted text strings from format_qa_for_judge()
             # Concatenate all text chunks in the batch
@@ -578,12 +572,12 @@ def judge(state: QState, config: RunnableConfig):
             try:
                 result = json.loads(judgment)
             except json.JSONDecodeError as e:
-                print(f"JSONDecodeError in batch {batch_id}: {e}")
-                print(f"Error position: line {e.lineno}, column {e.colno}")
+                logger.info(f"JSONDecodeError in batch {batch_id}: {e}")
+                logger.info(f"Error position: line {e.lineno}, column {e.colno}")
 
                 error_start = max(0, e.pos - 100)
                 error_end = min(len(judgment), e.pos + 100)
-                print(f"Content around error:\n{judgment[error_start:error_end]}")
+                logger.info(f"Content around error:\n{judgment[error_start:error_end]}")
 
                 try:
                     if judgment.count("{") > judgment.count("}"):
@@ -596,9 +590,9 @@ def judge(state: QState, config: RunnableConfig):
                         )
                     result = json.loads(judgment_fixed)
 
-                    print(f"Fixed JSON successfully for batch {batch_id}")
+                    logger.info(f"Fixed JSON successfully for batch {batch_id}")
                 except json.JSONDecodeError as e2:
-                    print(f"Still failed after fix in batch {batch_id}: {e2}")
+                    logger.info(f"Still failed after fix in batch {batch_id}: {e2}")
 
                     try:
                         valid_json = judgment[: e.pos].rstrip()
@@ -610,13 +604,11 @@ def judge(state: QState, config: RunnableConfig):
                             if partial.count("[") > partial.count("]"):
                                 partial += "]"
                             result = json.loads(partial)
-                            print(f"Using partial JSON for batch {batch_id}")
+                            logger.info(f"Using partial JSON for batch {batch_id}")
                         else:
                             raise e2
                     except Exception as e3:
-                        print(
-                            f"All fixes failed for batch {batch_id}: {e3}, using empty result"
-                        )
+                        logger.info(f"All fixes failed for batch {batch_id}: {e3}, using empty result")
                         result = {
                             "good_question_answer": {},
                             "bad_questions": {},
@@ -626,7 +618,7 @@ def judge(state: QState, config: RunnableConfig):
             return (batch_id, result)
 
         except Exception as e:
-            print(f"Error judging batch {batch_id}: {e}")
+            logger.info(f"Error judging batch {batch_id}: {e}")
             return (
                 batch_id,
                 {
@@ -730,9 +722,7 @@ def judge(state: QState, config: RunnableConfig):
 
     retry += 1
 
-    print(
-        f"Judge completed: {len(all_good_question_answer)} good, {len(all_bad_questions)} bad chunks"
-    )
+    logger.info(f"Judge completed: {len(all_good_question_answer)} good, {len(all_bad_questions)} bad chunks")
 
     return {
         "bad_questions": all_bad_questions,
@@ -785,8 +775,10 @@ class QuestionWithAnswerList(BaseModel):
     questions: list[QuestionWithAnswer]
 
 
-structured_llm = llm.with_structured_output(QuestionList, method="json_mode")
-structured_llm_answer = llm.with_structured_output(QuestionWithAnswerList, method="json_mode")
+structured_llm = llm.with_structured_output(QuestionList, method="json_schema")
+structured_llm_answer = llm.with_structured_output(
+    QuestionWithAnswerList, method="json_schema"
+)
 
 def format_qa_for_judge(qa_list: QuestionWithAnswerList, chunk_id: str) -> str:
     """Format structured QuestionWithAnswerList thành text đẹp cho judge node
@@ -849,9 +841,7 @@ def validate(state: QState, config: RunnableConfig):
     batch_size = 2
     max_workers = max(1, (num_chunks + batch_size - 1) // batch_size)
 
-    print(
-        f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
-    )
+    logger.info(f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})")
 
     def process_validate_batch(batch_data):
         """Process một batch của question_answers để validate"""
@@ -866,7 +856,7 @@ def validate(state: QState, config: RunnableConfig):
                         }
                     )
                 except Exception as e:
-                    print(f"[SSE] Warning: Could not send progress: {e}")
+                    logger.info(f"[SSE] Warning: Could not send progress: {e}")
 
             formatted_questions = ""
             for chunk_idx, questions_list in batch_dict.items():
@@ -879,7 +869,7 @@ def validate(state: QState, config: RunnableConfig):
                     questions_json = str(questions_list)
 
                 formatted_questions += questions_json + "\n"
-                print(num_chunks)
+                logger.info(num_chunks)
             prompt_template = Prompts.EVALUATE_AND_SELECT_PROMPT
             prompt = (
                 prompt_template.replace("{query}", query)
@@ -891,18 +881,18 @@ def validate(state: QState, config: RunnableConfig):
             response_obj = structured_llm.invoke(input=prompt, config=config)
             
             # Print for debugging
-            print(f"Batch {batch_id} - Response type: {type(response_obj)}")
-            print(f"Batch {batch_id} - Questions count: {len(response_obj.selected_questions)}")
+            logger.info(f"Batch {batch_id} - Response type: {type(response_obj)}")
+            logger.info(f"Batch {batch_id} - Questions count: {len(response_obj.selected_questions)}")
             
             return (batch_id, response_obj)
 
         except Exception as e:
-            print(f" Error validating batch {batch_id}: {e}")
+            logger.info(f" Error validating batch {batch_id}: {e}")
             import traceback
 
             traceback.print_exc()
-            print(f"   Batch data keys: {list(batch_dict.keys())}")
-            print(f"   Sample data (first 500 chars): {str(batch_dict)[:500]}...")
+            logger.info(f"   Batch data keys: {list(batch_dict.keys())}")
+            logger.info(f"   Sample data (first 500 chars): {str(batch_dict)[:500]}...")
             return (batch_id, None)  # Return None for error cases
 
     # Chia data_to_validate thành batches
@@ -926,7 +916,7 @@ def validate(state: QState, config: RunnableConfig):
 
         # Skip error cases (None)
         if response_obj is None:
-            print(f"Skipping error batch {batch_id}")
+            logger.info(f"Skipping error batch {batch_id}")
             continue
 
         # Handle QuestionList Pydantic object
@@ -935,13 +925,11 @@ def validate(state: QState, config: RunnableConfig):
                 # Convert Pydantic Question object to dict
                 all_questions.append(question.dict())
         else:
-            print(f"Unexpected response type for batch {batch_id}: {type(response_obj)}")
+            logger.info(f"Unexpected response type for batch {batch_id}: {type(response_obj)}")
             continue
     final_quizz_json = json.dumps(all_questions, ensure_ascii=False, indent=2)
 
-    print(
-        f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions"
-    )
+    logger.info(f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions")
 
     return {
         "quizz": final_quizz_json,
@@ -987,7 +975,7 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         import asyncio
 
         sse_event_queues[session_id] = asyncio.Queue()
-        print(f"[DocumentProcessing] Created SSE queue for session_id: {session_id}")
+        logger.info(f"[DocumentProcessing] Created SSE queue for session_id: {session_id}")
 
     queue = sse_event_queues.get(session_id)
 
@@ -995,17 +983,15 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         # Send start event
         if queue:
             await queue.put({"type": "start", "message": "Bắt đầu xử lý tài liệu..."})
-            print(f"[DocumentProcessing] SSE 'start' event sent to {session_id}")
+            logger.info(f"[DocumentProcessing] SSE 'start' event sent to {session_id}")
 
         # Process
-        print(f"[DocumentProcessing] Starting process_pdf for session_id: {session_id}")
+        logger.info(f"[DocumentProcessing] Starting process_pdf for session_id: {session_id}")
         result = await process_pdf(
             session_id, document_processing_agent=document_processing_agent, query=query
         )
-        print(
-            f"[DocumentProcessing] process_pdf completed for session_id: {session_id}"
-        )
-        print(f"[DocumentProcessing] Result: {result}")
+        logger.info(f"[DocumentProcessing] process_pdf completed for session_id: {session_id}")
+        logger.info(f"[DocumentProcessing] Result: {result}")
 
         import asyncio
 
@@ -1013,25 +999,19 @@ async def document_processing_tool(query: str, config: RunnableConfig):
             current_queue = sse_event_queues.get(session_id)
             if current_queue:
                 await current_queue.put("document_done")
-                print(
-                    f"[DocumentProcessing] SSE 'done' event (string) sent to {session_id}"
-                )
+                logger.info(f"[DocumentProcessing] SSE 'done' event (string) sent to {session_id}")
                 break
             else:
                 if i < 4:
-                    print(
-                        f"[DocumentProcessing] SSE queue not found, retrying in 1s ({i + 1}/5)..."
-                    )
+                    logger.info(f"[DocumentProcessing] SSE queue not found, retrying in 1s ({i + 1}/5)...")
                     await asyncio.sleep(1)
                 else:
-                    print(
-                        f"[DocumentProcessing] SSE queue not found for session_id: {session_id} after retries (Client disconnected)"
-                    )
+                    logger.info(f"[DocumentProcessing] SSE queue not found for session_id: {session_id} after retries (Client disconnected)")
 
         return "Đã tạo câu hỏi thành công từ tài liệu."
 
     except Exception as e:
-        print(f"[DocumentProcessing] Error during processing: {e}")
+        logger.info(f"[DocumentProcessing] Error during processing: {e}")
         import traceback
 
         traceback.print_exc()
@@ -1062,7 +1042,7 @@ async def question_generation_tool(query: str, config: RunnableConfig):
     # Ensure SSE queue exists
     if session_id not in sse_event_queues:
         sse_event_queues[session_id] = asyncio.Queue()
-        print(f"[QuestionGen] Created SSE queue for session_id: {session_id}")
+        logger.info(f"[QuestionGen] Created SSE queue for session_id: {session_id}")
 
     queue = sse_event_queues.get(session_id)
 
@@ -1070,42 +1050,34 @@ async def question_generation_tool(query: str, config: RunnableConfig):
         # Send start event
         if queue:
             await queue.put({"type": "start", "message": "Đang tạo câu hỏi..."})
-            print(f"[QuestionGen] SSE 'start' event sent to {session_id}")
+            logger.info(f"[QuestionGen] SSE 'start' event sent to {session_id}")
 
         # Process using process_pdf with question_agent
-        print(
-            f"[QuestionGen] Starting question generation for session_id: {session_id}"
-        )
+        logger.info(f"[QuestionGen] Starting question generation for session_id: {session_id}")
         result = await process_pdf(
             session_id, document_processing_agent=question_agent, query=query
         )
-        print(
-            f"[QuestionGen] Question generation completed for session_id: {session_id}"
-        )
-        print(f"[QuestionGen] Result: {result}")
+        logger.info(f"[QuestionGen] Question generation completed for session_id: {session_id}")
+        logger.info(f"[QuestionGen] Result: {result}")
 
         # Send done event
         for i in range(5):
             current_queue = sse_event_queues.get(session_id)
             if current_queue:
                 await current_queue.put("question_done")
-                print(f"[QuestionGen] SSE 'done' event sent to {session_id}")
+                logger.info(f"[QuestionGen] SSE 'done' event sent to {session_id}")
                 break
             else:
                 if i < 4:
-                    print(
-                        f"[QuestionGen] SSE queue not found, retrying in 1s ({i + 1}/5)..."
-                    )
+                    logger.info(f"[QuestionGen] SSE queue not found, retrying in 1s ({i + 1}/5)...")
                     await asyncio.sleep(1)
                 else:
-                    print(
-                        f"[QuestionGen] SSE queue not found for session_id: {session_id} after retries"
-                    )
+                    logger.info(f"[QuestionGen] SSE queue not found for session_id: {session_id} after retries")
 
         return "Đã tạo câu hỏi thành công."
 
     except Exception as e:
-        print(f"[QuestionGen] Error: {e}")
+        logger.info(f"[QuestionGen] Error: {e}")
         import traceback
 
         traceback.print_exc()
@@ -1135,7 +1107,7 @@ async def mindmap_tool(query: str, config: RunnableConfig):
         import asyncio
 
         sse_event_queues[session_id] = asyncio.Queue()
-        print(f"[MindMap] Created SSE queue for session_id: {session_id}")
+        logger.info(f"[MindMap] Created SSE queue for session_id: {session_id}")
 
     queue = sse_event_queues.get(session_id)
 
@@ -1143,14 +1115,14 @@ async def mindmap_tool(query: str, config: RunnableConfig):
         # Send start event
         if queue:
             await queue.put({"type": "start", "message": "Bắt đầu tạo mind map..."})
-            print(f"[MindMap] SSE 'start' event sent to {session_id}")
+            logger.info(f"[MindMap] SSE 'start' event sent to {session_id}")
 
         # Process
-        print(f"[MindMap] Starting mind map generation for session_id: {session_id}")
+        logger.info(f"[MindMap] Starting mind map generation for session_id: {session_id}")
         response_msg = await pdf_summarize_agent.ainvoke(
             {"messages": [HumanMessage(content="Tóm tắt tài liệu")]}, config=config
         )
-        print(f"[MindMap] Mind map generation completed for session_id: {session_id}")
+        logger.info(f"[MindMap] Mind map generation completed for session_id: {session_id}")
 
         content = response_msg["messages"][-1].content
 
@@ -1168,25 +1140,19 @@ async def mindmap_tool(query: str, config: RunnableConfig):
                         "mindmap_path": mindmap_path,
                     }
                 )
-                print(
-                    f"[MindMap] SSE 'mindmap_done' event sent to {session_id} with path: {mindmap_path}"
-                )
+                logger.info(f"[MindMap] SSE 'mindmap_done' event sent to {session_id} with path: {mindmap_path}")
                 break
             else:
                 if i < 4:
-                    print(
-                        f"[MindMap] SSE queue not found, retrying in 1s ({i + 1}/5)..."
-                    )
+                    logger.info(f"[MindMap] SSE queue not found, retrying in 1s ({i + 1}/5)...")
                     await asyncio.sleep(1)
                 else:
-                    print(
-                        f"[MindMap] SSE queue not found for session_id: {session_id} after retries"
-                    )
+                    logger.info(f"[MindMap] SSE queue not found for session_id: {session_id} after retries")
 
         return content
 
     except Exception as e:
-        print(f"[MindMap] Error during processing: {e}")
+        logger.info(f"[MindMap] Error during processing: {e}")
         import traceback
 
         traceback.print_exc()
@@ -1238,7 +1204,7 @@ if __name__ == "__main__":
 
     def print_stream(stream):
         for s in stream:
-            print(s)
+            logger.info(s)
 
     inputs = {"messages": [HumanMessage(content="Test")]}
     print_stream(

@@ -1,10 +1,13 @@
-from langchain.chat_models import init_chat_model
+from langchain_openrouter import ChatOpenRouter
 from langchain.chat_models.base import BaseChatModel
+
+from app.config import settings
 
 
 def init_llm(model: str, **kwargs) -> BaseChatModel:
     """
     Initialize the chat model with the given model name and configuration.
+    Uses ChatOpenRouter to route requests through OpenRouter API.
     Args:
         model (str): The name of the chat model to initialize.
         **kwargs: Additional keyword arguments for the chat model initialization.
@@ -13,8 +16,8 @@ def init_llm(model: str, **kwargs) -> BaseChatModel:
         BaseChatModel: An instance of the initialized chat model.
     """
 
-    model = "google_genai:" + model if model.startswith("gemini") else model
     llm_config = dict(
+        api_key=settings.OPENROUTER_API_KEY,
         max_tokens=10000,
         temperature=0,
         timeout=None,
@@ -23,4 +26,4 @@ def init_llm(model: str, **kwargs) -> BaseChatModel:
     )
     llm_config.update(kwargs)
 
-    return init_chat_model(model=model, **llm_config)
+    return ChatOpenRouter(model=model, **llm_config)

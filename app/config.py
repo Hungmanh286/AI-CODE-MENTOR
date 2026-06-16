@@ -17,17 +17,15 @@ class GlobalConfig(BaseSettings):
     TRACING_ENV_FILE: Optional[str] = Field(default="app/config/tracing_env.json")
 
     # ChatModel
-    CHAT_MODEL_KEY: Optional[str] = Field(default=None)
     CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
     CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
 
-    # Chat mmind map
-    GEMINI_API_KEY: Optional[str] = Field(default=None)
-
     # Chat model vision (Openai)
-    CHAT_MODEL_VISION_KEY: Optional[str] = Field(default=None)
     CHAT_MODEL_VISION: Optional[str] = Field(default="gpt-5-nano")
     CHAT_MODEL_TEMPERATURE_VISION: Optional[float] = Field(default=0)
+
+    # OpenRouter
+    OPENROUTER_API_KEY: Optional[str] = Field(default=None)
 
     EMBEDDING_KEY: Optional[str] = Field(default=None)
     EMBEDDING_MODEL: Optional[str] = Field(default="voyage-3-large")
@@ -72,7 +70,6 @@ class GlobalConfig(BaseSettings):
     MINIO_BUCKET: Optional[str] = Field(default="mybucket")
 
     # MINDMAP_API
-    MINDMAP_API_KEY: Optional[str] = Field(default=None)
     MIND_MAP_MODEL: Optional[str] = Field(default="gemini-2.5-flash")
 
     _accounts: dict = PrivateAttr()

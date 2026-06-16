@@ -65,7 +65,6 @@ def documents_node(state: State) -> dict:
 
 
 llm = init_llm(
-    api_key=settings.CHAT_MODEL_KEY,
     model=settings.CHAT_MODEL,
     temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
     tags=["agent"],
