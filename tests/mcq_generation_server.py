@@ -16,7 +16,6 @@ mcp = FastMCP("MCQGenerationServer")
 
 # Initialize LLM
 llm = init_llm(
-    api_key=settings.CHAT_MODEL_KEY,
     model=settings.CHAT_MODEL,
     temperature=0.7,
 )
