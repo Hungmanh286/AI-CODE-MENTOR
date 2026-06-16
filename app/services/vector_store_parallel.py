@@ -7,13 +7,15 @@ Các cải tiến so với vector_store.py:
 3. Progress Tracking: Theo dõi tiến trình thời gian thực
 4. Error Handling: Xử lý lỗi chunk riêng lẻ không ảnh hưởng toàn bộ
 """
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 import os
 from openai import OpenAI
 from io import BytesIO
 import base64
-from google import genai
-from google.genai import types
 import datetime
 import concurrent.futures
 import time
@@ -21,8 +23,6 @@ from typing import List, Tuple
 from dataclasses import dataclass
 
 from pdf2image import convert_from_path
-from langchain_docling import DoclingLoader
-from langchain_docling.loader import ExportType
 from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
@@ -39,7 +39,7 @@ try:
     HAS_RATEGUARD = True
 except ImportError:
     HAS_RATEGUARD = False
-    print("Warning: rateguard not installed. Install with: pip install rateguard")
+    logger.info("Warning: rateguard not installed. Install with: pip install rateguard")
 
 
 # Configuration
@@ -60,9 +60,11 @@ embeddings = VoyageAIEmbeddings(
     output_dimension=settings.EMBEDDING_DIMS,
 )
 model = settings.CHAT_MODEL_VISION
-api_key = settings.CHAT_MODEL_VISION_KEY
-openai_client = OpenAI(api_key=api_key)
-gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+api_key = settings.OPENROUTER_API_KEY
+openai_client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
 
 url = "http://localhost:6333"
 prompt = Prompts.MARK_DOWN_PROMPT
@@ -101,54 +103,46 @@ def parse_chunk_openai(chunk_images: List[str]) -> str:
     Returns:
         Văn bản markdown từ chunk
     """
-    content = [{"type": "input_text", "text": prompt}]
+    content = [{"type": "text", "text": prompt}]
 
     for img_b64 in chunk_images:
         content.append(
             {
-                "type": "input_image",
-                "image_url": f"data:image/png;base64,{img_b64}",
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
             }
         )
 
-    response = openai_client.responses.create(
-        model=model, input=[{"role": "user", "content": content}]
+    response = openai_client.chat.completions.create(
+        model=model, messages=[{"role": "user", "content": content}]
     )
 
-    return response.output_text or ""
+    return response.choices[0].message.content or ""
 
 
 @rate_limit(rpm=ParallelConfig.RPM_LIMIT)
 def parse_chunk_gemini(chunk_images: List[str]) -> str:
     """
-    Parse chunk sử dụng Gemini API với rate limiting.
-
-    Args:
-        chunk_images: Danh sách các ảnh base64
-
-    Returns:
-        Văn bản markdown từ chunk
+    Parse chunk sử dụng OpenRouter API với Gemini model.
     """
-    # Tạo client mới cho mỗi thread để tránh thread-safety issues
-    thread_gemini_client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-    prompt_text = prompt
-    contents = [prompt_text]
+    model = settings.MIND_MAP_MODEL  # Hoặc dùng model cụ thể cho parsing
+    
+    content = [{"type": "text", "text": prompt}]
 
     for img_b64 in chunk_images:
-        img_bytes = base64.b64decode(img_b64)
-        contents.append(
-            types.Part.from_bytes(
-                data=img_bytes,
-                mime_type="image/png",
-            )
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+            }
         )
 
-    response = thread_gemini_client.models.generate_content(
-        model="gemini-2.5-pro", contents=contents
+    response = openai_client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": content}]
     )
 
-    return response.text or ""
+    return response.choices[0].message.content or ""
 
 
 def process_single_chunk(
@@ -177,14 +171,10 @@ def process_single_chunk(
 
         except Exception as e:
             if attempt < ParallelConfig.RETRY_ATTEMPTS - 1:
-                print(
-                    f"⚠️  Chunk {chunk_index} failed (attempt {attempt + 1}/{ParallelConfig.RETRY_ATTEMPTS}): {str(e)}"
-                )
+                logger.info(f"⚠️  Chunk {chunk_index} failed (attempt {attempt + 1}/{ParallelConfig.RETRY_ATTEMPTS}): {str(e)}")
                 time.sleep(ParallelConfig.RETRY_DELAY)
             else:
-                print(
-                    f"❌ Chunk {chunk_index} failed after {ParallelConfig.RETRY_ATTEMPTS} attempts: {str(e)}"
-                )
+                logger.info(f"❌ Chunk {chunk_index} failed after {ParallelConfig.RETRY_ATTEMPTS} attempts: {str(e)}")
                 return (chunk_index, f"[ERROR: Failed to parse chunk {chunk_index}]")
 
 
@@ -204,10 +194,10 @@ def parse_pdf_parallel(
     Returns:
         Chuỗi markdown chứa nội dung toàn bộ PDF
     """
-    print(f"🚀 Starting parallel PDF parsing: {file_path}")
+    logger.info(f"🚀 Starting parallel PDF parsing: {file_path}")
     start_time = datetime.datetime.now()
 
-    print("📄 Converting PDF to images...")
+    logger.info("📄 Converting PDF to images...")
     images = convert_from_path(file_path)
     image_b64_list = []
 
@@ -218,10 +208,10 @@ def parse_pdf_parallel(
         image_b64_list.append(img_b64)
 
     total_pages = len(image_b64_list)
-    print(f"📊 Total pages: {total_pages}")
+    logger.info(f"📊 Total pages: {total_pages}")
 
     chunk_size = 8
-    print(f"📦 Chunk size: {chunk_size} pages/chunk")
+    logger.info(f"📦 Chunk size: {chunk_size} pages/chunk")
 
     chunks_data = []
     start = 0
@@ -235,15 +225,13 @@ def parse_pdf_parallel(
         chunk_index += 1
 
     total_chunks = len(chunks_data)
-    print(f"🔢 Total chunks: {total_chunks}")
+    logger.info(f"🔢 Total chunks: {total_chunks}")
 
     # Optimize worker count: use minimum of total_chunks and max_workers
     optimal_workers = min(total_chunks, max_workers)
-    print(
-        f"👷 Using {optimal_workers} worker threads (optimized from max {max_workers})"
-    )
-    print(f"⏱️  Rate limit: {ParallelConfig.RPM_LIMIT} requests/minute")
-    print(f"🤖 Using {'Gemini' if use_gemini else 'OpenAI'} API\n")
+    logger.info(f"👷 Using {optimal_workers} worker threads (optimized from max {max_workers})")
+    logger.info(f"⏱️  Rate limit: {ParallelConfig.RPM_LIMIT} requests/minute")
+    logger.info(f"🤖 Using {'Gemini' if use_gemini else 'OpenAI'} API\n")
 
     results = {}
 
@@ -269,12 +257,10 @@ def parse_pdf_parallel(
     end_time = datetime.datetime.now()
     duration = end_time - start_time
 
-    print("\nParsing complete!")
-    print(f"Total time: {duration.total_seconds():.2f} seconds")
-    print(
-        f"Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds"
-    )
-    print(f"Total characters: {len(document_str):,}")
+    logger.info("\nParsing complete!")
+    logger.info(f"Total time: {duration.total_seconds():.2f} seconds")
+    logger.info(f"Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds")
+    logger.info(f"Total characters: {len(document_str):,}")
 
     return document_str
 
@@ -284,6 +270,9 @@ def parse_pdf_text(file_path: str):
     try:
         if not os.path.exists(file_path):
             return None
+        from langchain_docling import DoclingLoader
+        from langchain_docling.loader import ExportType
+
         loader = DoclingLoader(
             file_path=file_path,
             export_type=ExportType.MARKDOWN,
@@ -291,7 +280,7 @@ def parse_pdf_text(file_path: str):
         docs = loader.load()
         return docs
     except Exception as e:
-        print(f"Error parsing PDF text: {e}")
+        logger.info(f"Error parsing PDF text: {e}")
         return None
 
 
@@ -331,5 +320,5 @@ def embedding_document(docs, session_id: str):
     except Exception as e:
         import traceback
 
-        print("Error in embedding_document:", str(e))
-        print(traceback.format_exc())
+        logger.info(" ".join(str(_log_value) for _log_value in ("Error in embedding_document:", str(e))))
+        logger.info(traceback.format_exc())

@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import sys
 import json
 
@@ -44,7 +48,6 @@ TOOLS = [
 try:
     # LLM: Generate answer
     llm = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE,
         tags=["toolcalls"],
@@ -53,12 +56,12 @@ try:
     # LLM: Tool choice
     llm_with_tools = llm.bind_tools(
         TOOLS,
-        tool_choice=True,
+        tool_choice="any",
     )
 
 
 except Exception as e:
-    print(f"Error initializing model: {e}")
+    logger.info(f"Error initializing model: {e}")
     sys.exit(1)
 
 
