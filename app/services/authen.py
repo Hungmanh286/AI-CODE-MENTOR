@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from typing import Any, List, Tuple
 
 from fastapi import Depends
@@ -13,6 +11,8 @@ from app.error import UnauthorizedException
 from app.schema.authen import UserInDB
 from app.config import settings
 
+
+logger = structlog.get_logger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="token",

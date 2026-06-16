@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import os
 import base64
 from io import BytesIO
@@ -21,6 +19,8 @@ from app.services.vector_store_parallel import parse_pdf_parallel, embedding_doc
 
 # from app.config.parallel_processing import Presets
 from app.services.minio_client import minio_client
+
+logger = structlog.get_logger(__name__)
 
 """
 Cấu hình cho parallel processing.
@@ -329,7 +329,9 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
             import time
 
             logger.info(f"🚀 Starting parallel PDF processing for file_id: {file_id}")
-            logger.info(f"⚙️  Config: {PARALLEL_CONFIG.MAX_WORKERS} workers, {PARALLEL_CONFIG.RPM_LIMIT} RPM limit")
+            logger.info(
+                f"⚙️  Config: {PARALLEL_CONFIG.MAX_WORKERS} workers, {PARALLEL_CONFIG.RPM_LIMIT} RPM limit"
+            )
 
             start_time = time.time()
             file_record.has_processed = True
@@ -363,7 +365,9 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
             session.commit()
 
             total_time = time.time() - start_time
-            logger.info(f"🎉 Total processing time: {total_time:.2f}s (parsing: {processing_time:.2f}s, embedding: {embedding_time:.2f}s)")
+            logger.info(
+                f"🎉 Total processing time: {total_time:.2f}s (parsing: {processing_time:.2f}s, embedding: {embedding_time:.2f}s)"
+            )
 
         os.remove(temp_local_path)
 

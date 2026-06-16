@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -11,6 +9,8 @@ from passlib.context import CryptContext
 from app.config import settings
 from app.schema import UserToken
 
+
+logger = structlog.get_logger(__name__)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

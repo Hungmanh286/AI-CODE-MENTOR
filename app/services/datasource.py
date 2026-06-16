@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from typing import Dict
 
 
@@ -14,6 +12,8 @@ from sqlmodel import SQLModel, Session, inspect, select, Table
 from app.config import settings
 from app.schema.upload import UploadFileStatus
 
+
+logger = structlog.get_logger(__name__)
 
 load_dotenv()
 
@@ -43,7 +43,9 @@ def insert_database(
             session.exec(stmt)
             session.commit()
         except Exception:
-            logger.info(f"Error inserting data to {schema}.{table if isinstance(table, str) else table.__tablename__}")
+            logger.info(
+                f"Error inserting data to {schema}.{table if isinstance(table, str) else table.__tablename__}"
+            )
             session.rollback()
             raise
 

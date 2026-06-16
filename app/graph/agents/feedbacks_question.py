@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 # con agent này
 
 import sys
@@ -15,6 +13,8 @@ from app.schema import MessageName
 from app.graph.state import State
 from app.config import settings
 
+
+logger = structlog.get_logger(__name__)
 
 TOOLS = []
 
@@ -46,6 +46,7 @@ def build_feedbacks_workflow():
     workflow.add_edge("tools_node", END)
 
     return workflow
+
 
 workflow = build_feedbacks_workflow()
 feedbacks_question = workflow.compile()

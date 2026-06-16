@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import os
 import re
 
@@ -21,6 +19,8 @@ from app.config import settings
 from app.services.minio_client import minio_client
 from app.services.datasource import get_active_file_id
 from app.schema.upload import UploadFileStatus
+
+logger = structlog.get_logger(__name__)
 
 converter = DocumentConverter()
 

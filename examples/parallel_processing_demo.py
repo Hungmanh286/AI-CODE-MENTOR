@@ -9,21 +9,22 @@ This script shows various use cases:
 4. Error handling
 5. Integration with vector store
 """
+
 import structlog
 
-logger = structlog.get_logger(__name__)
 
-
-import sys
+import datetime
 import os
+import sys
+
+logger = structlog.get_logger(__name__)
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from app.services.vector_store_parallel import parse_pdf_parallel
-from app.services.vector_store import parse_pdf_text2, embedding_document
-from app.config.parallel_config import ParallelProcessingConfig, Presets
-import datetime
+from app.services.vector_store_parallel import parse_pdf_parallel  # noqa: E402
+from app.services.vector_store import parse_pdf_text2, embedding_document  # noqa: E402
+from app.config.parallel_config import ParallelProcessingConfig, Presets  # noqa: E402
 
 
 def example_1_basic_usage():
@@ -70,14 +71,14 @@ def example_3_compare_sequential_vs_parallel():
     # Sequential
     logger.info("\n📊 Sequential Processing...")
     start = datetime.datetime.now()
-    seq_result = parse_pdf_text2(pdf_path)
+    parse_pdf_text2(pdf_path)
     seq_duration = (datetime.datetime.now() - start).total_seconds()
     logger.info(f"✅ Sequential: {seq_duration:.2f}s")
 
     # Parallel
     logger.info("\n📊 Parallel Processing...")
     start = datetime.datetime.now()
-    par_result = parse_pdf_parallel(pdf_path, max_workers=10)
+    parse_pdf_parallel(pdf_path, max_workers=10)
     par_duration = (datetime.datetime.now() - start).total_seconds()
     logger.info(f"✅ Parallel: {par_duration:.2f}s")
 
@@ -150,7 +151,9 @@ def example_6_batch_processing():
 
     results = {}
     for i, pdf_file in enumerate(pdf_files, 1):
-        logger.info(f"\n[{i}/{len(pdf_files)}] Processing {os.path.basename(pdf_file)}...")
+        logger.info(
+            f"\n[{i}/{len(pdf_files)}] Processing {os.path.basename(pdf_file)}..."
+        )
 
         try:
             result = parse_pdf_parallel(pdf_file, max_workers=5)

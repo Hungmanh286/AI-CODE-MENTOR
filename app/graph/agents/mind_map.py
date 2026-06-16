@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
 from langfuse.langchain import CallbackHandler
@@ -15,6 +13,9 @@ from app.graph.prompts import Prompts
 from app.chatmodel import init_llm
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
+
+
+logger = structlog.get_logger(__name__)
 
 
 class QState(MessagesState):
@@ -66,8 +67,12 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     chunk_size = content_length // num_parts
                     overlap_size = chunk_size // 20
 
-                logger.info(f"File {file_id}: Total content length = {content_length} chars")
-                logger.info(f"Splitting into {num_parts} parts with {overlap_size} chars overlap")
+                logger.info(
+                    f"File {file_id}: Total content length = {content_length} chars"
+                )
+                logger.info(
+                    f"Splitting into {num_parts} parts with {overlap_size} chars overlap"
+                )
                 logger.info(f"Each chunk: ~{chunk_size} chars")
 
                 for part_idx in range(num_parts):
@@ -79,7 +84,9 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     part_content = docs_content[start_idx:end_idx]
                     document_chunks.append(part_content)
 
-                    logger.info(f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})")
+                    logger.info(
+                        f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})"
+                    )
 
                 logger.info(f"\nCreated {len(document_chunks)} chunks with overlap")
 
@@ -100,7 +107,9 @@ def summarize_node(state: QState, config: RunnableConfig):
         """Process một chunk và tạo summary"""
         idx, chunk_text = chunk_data
         try:
-            logger.info(f"Processing summary for chunk {idx + 1}/{len(document_chunks)}")
+            logger.info(
+                f"Processing summary for chunk {idx + 1}/{len(document_chunks)}"
+            )
             prompt = Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(document=chunk_text)
             response = llm.invoke(input=prompt, config=config)
             return (idx, response.content)
@@ -145,7 +154,9 @@ def extractive_node(state: QState, config: RunnableConfig):
         """Process một chunk và tạo extractive summary"""
         idx, chunk_text = chunk_data
         try:
-            logger.info(f"Processing extractive summary for chunk {idx + 1}/{len(document_chunks)}")
+            logger.info(
+                f"Processing extractive summary for chunk {idx + 1}/{len(document_chunks)}"
+            )
             prompt = Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(chunk_text=chunk_text)
             response = llm.invoke(input=prompt, config=config)
             return (idx, response.content)
@@ -172,7 +183,9 @@ def extractive_node(state: QState, config: RunnableConfig):
     # Sắp xếp theo index để đảm bảo thứ tự
     extractive_summaries = [results[idx] for idx in sorted(results.keys())]
 
-    logger.info(f"Generated {len(extractive_summaries)} extractive summaries in parallel")
+    logger.info(
+        f"Generated {len(extractive_summaries)} extractive summaries in parallel"
+    )
     return {"extractive_summaries": extractive_summaries}
 
 

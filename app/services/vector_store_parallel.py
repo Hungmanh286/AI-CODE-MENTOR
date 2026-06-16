@@ -7,9 +7,8 @@ Các cải tiến so với vector_store.py:
 3. Progress Tracking: Theo dõi tiến trình thời gian thực
 4. Error Handling: Xử lý lỗi chunk riêng lẻ không ảnh hưởng toàn bộ
 """
-import structlog
 
-logger = structlog.get_logger(__name__)
+import structlog
 
 
 import os
@@ -31,6 +30,8 @@ from tqdm import tqdm
 
 from app.graph.prompts import Prompts
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 # Import rate_limit nếu có rateguard, hoặc tự implement
 try:
@@ -89,7 +90,8 @@ if not HAS_RATEGUARD:
 
             return wrapper
 
-    rate_limit = lambda rpm: SimpleRateLimiter(rpm)
+    def rate_limit(rpm):
+        return SimpleRateLimiter(rpm)
 
 
 @rate_limit(rpm=ParallelConfig.RPM_LIMIT)
@@ -126,7 +128,7 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
     Parse chunk sử dụng OpenRouter API với Gemini model.
     """
     model = settings.MIND_MAP_MODEL  # Hoặc dùng model cụ thể cho parsing
-    
+
     content = [{"type": "text", "text": prompt}]
 
     for img_b64 in chunk_images:
@@ -138,8 +140,7 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
         )
 
     response = openai_client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": content}]
+        model=model, messages=[{"role": "user", "content": content}]
     )
 
     return response.choices[0].message.content or ""
@@ -171,10 +172,14 @@ def process_single_chunk(
 
         except Exception as e:
             if attempt < ParallelConfig.RETRY_ATTEMPTS - 1:
-                logger.info(f"⚠️  Chunk {chunk_index} failed (attempt {attempt + 1}/{ParallelConfig.RETRY_ATTEMPTS}): {str(e)}")
+                logger.info(
+                    f"⚠️  Chunk {chunk_index} failed (attempt {attempt + 1}/{ParallelConfig.RETRY_ATTEMPTS}): {str(e)}"
+                )
                 time.sleep(ParallelConfig.RETRY_DELAY)
             else:
-                logger.info(f"❌ Chunk {chunk_index} failed after {ParallelConfig.RETRY_ATTEMPTS} attempts: {str(e)}")
+                logger.info(
+                    f"❌ Chunk {chunk_index} failed after {ParallelConfig.RETRY_ATTEMPTS} attempts: {str(e)}"
+                )
                 return (chunk_index, f"[ERROR: Failed to parse chunk {chunk_index}]")
 
 
@@ -229,7 +234,9 @@ def parse_pdf_parallel(
 
     # Optimize worker count: use minimum of total_chunks and max_workers
     optimal_workers = min(total_chunks, max_workers)
-    logger.info(f"👷 Using {optimal_workers} worker threads (optimized from max {max_workers})")
+    logger.info(
+        f"👷 Using {optimal_workers} worker threads (optimized from max {max_workers})"
+    )
     logger.info(f"⏱️  Rate limit: {ParallelConfig.RPM_LIMIT} requests/minute")
     logger.info(f"🤖 Using {'Gemini' if use_gemini else 'OpenAI'} API\n")
 
@@ -259,7 +266,9 @@ def parse_pdf_parallel(
 
     logger.info("\nParsing complete!")
     logger.info(f"Total time: {duration.total_seconds():.2f} seconds")
-    logger.info(f"Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds")
+    logger.info(
+        f"Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds"
+    )
     logger.info(f"Total characters: {len(document_str):,}")
 
     return document_str
@@ -320,5 +329,10 @@ def embedding_document(docs, session_id: str):
     except Exception as e:
         import traceback
 
-        logger.info(" ".join(str(_log_value) for _log_value in ("Error in embedding_document:", str(e))))
+        logger.info(
+            " ".join(
+                str(_log_value)
+                for _log_value in ("Error in embedding_document:", str(e))
+            )
+        )
         logger.info(traceback.format_exc())

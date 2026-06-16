@@ -331,7 +331,7 @@ CHỈ TRẢ VỀ JSON OBJECT — KHÔNG TRẢ VỀ BẤT KỲ THỨ GÌ KHÁC.
 """
 
     # Modules for summarization
-    
+
     EXTRACTIVE_SUMMARIZE_PROMPT = """
 Bạn là chuyên gia tóm tắt trích xuất.
 

@@ -1,10 +1,10 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from fastapi import APIRouter, status, Form
 from app.schema.lesson import Lesson
 from app.services.datasource import insert_database
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 

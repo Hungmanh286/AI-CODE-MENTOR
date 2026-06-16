@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import sys
 
 from langgraph.prebuilt import ToolNode
@@ -14,6 +12,8 @@ from app.chatmodel import init_llm
 from app.graph.state import State
 from app.schema import MessageName
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 search = DuckDuckGoSearchRun()
 

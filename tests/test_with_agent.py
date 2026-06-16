@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import json
 import re
 from typing import List, Dict
@@ -23,7 +21,8 @@ from app.graph.test_prompt import (
 
 from app.services.minio_client import minio_client
 from app.graph.agents.document_processing import document_processing_agent
-from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 tracer = CallbackHandler()
 
@@ -234,7 +233,9 @@ class QualityTester:
         logger.info("   Score Distribution (count per level):")
         for metric in self.evaluation_prompts.keys():
             dist = score_distribution[metric]
-            logger.info(f"   {metric:20s}: [1⭐:{dist[1]:3d}] [2⭐:{dist[2]:3d}] [3⭐:{dist[3]:3d}] [4⭐:{dist[4]:3d}] (avg: {avg_scores[metric]:.2f})")
+            logger.info(
+                f"   {metric:20s}: [1⭐:{dist[1]:3d}] [2⭐:{dist[2]:3d}] [3⭐:{dist[3]:3d}] [4⭐:{dist[4]:3d}] (avg: {avg_scores[metric]:.2f})"
+            )
 
         return folder_result
 
@@ -315,11 +316,41 @@ class QualityTester:
         for metric in all_metrics:
             dist = overall_distribution[metric]
             total = sum(dist.values())
-            logger.info(" ".join(str(_log_value) for _log_value in (f"{metric:20s}: ",)))
-            logger.info(" ".join(str(_log_value) for _log_value in (f"[1⭐:{dist[1]:4d} ({dist[1] / total * 100:5.1f}%)] ",)))
-            logger.info(" ".join(str(_log_value) for _log_value in (f"[2⭐:{dist[2]:4d} ({dist[2] / total * 100:5.1f}%)] ",)))
-            logger.info(" ".join(str(_log_value) for _log_value in (f"[3⭐:{dist[3]:4d} ({dist[3] / total * 100:5.1f}%)] ",)))
-            logger.info(" ".join(str(_log_value) for _log_value in (f"[4⭐:{dist[4]:4d} ({dist[4] / total * 100:5.1f}%)] ",)))
+            logger.info(
+                " ".join(str(_log_value) for _log_value in (f"{metric:20s}: ",))
+            )
+            logger.info(
+                " ".join(
+                    str(_log_value)
+                    for _log_value in (
+                        f"[1⭐:{dist[1]:4d} ({dist[1] / total * 100:5.1f}%)] ",
+                    )
+                )
+            )
+            logger.info(
+                " ".join(
+                    str(_log_value)
+                    for _log_value in (
+                        f"[2⭐:{dist[2]:4d} ({dist[2] / total * 100:5.1f}%)] ",
+                    )
+                )
+            )
+            logger.info(
+                " ".join(
+                    str(_log_value)
+                    for _log_value in (
+                        f"[3⭐:{dist[3]:4d} ({dist[3] / total * 100:5.1f}%)] ",
+                    )
+                )
+            )
+            logger.info(
+                " ".join(
+                    str(_log_value)
+                    for _log_value in (
+                        f"[4⭐:{dist[4]:4d} ({dist[4] / total * 100:5.1f}%)] ",
+                    )
+                )
+            )
             logger.info(f"(avg: {overall_by_metric[metric]:.2f})")
 
         overall_avg = sum(overall_by_metric.values()) / len(overall_by_metric)

@@ -1,9 +1,8 @@
 """
 MinIO Client Service - Quản lý lưu trữ file trên MinIO Object Storage
 """
-import structlog
 
-logger = structlog.get_logger(__name__)
+import structlog
 
 
 import os
@@ -11,6 +10,9 @@ from datetime import timedelta
 
 from minio import Minio
 from minio.error import S3Error
+
+
+logger = structlog.get_logger(__name__)
 
 
 class MinIOClient:
@@ -235,7 +237,9 @@ class MinIOClient:
             self._bucket_ready = False
             return []
 
-    def get_presigned_url(self, object_name: str, expiry_seconds: int = 3600) -> str | None:
+    def get_presigned_url(
+        self, object_name: str, expiry_seconds: int = 3600
+    ) -> str | None:
         """
         Tạo presigned URL để truy cập object trong thời gian giới hạn.
         """

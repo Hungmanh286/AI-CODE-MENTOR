@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import json
 from pathlib import Path
 
@@ -10,6 +8,8 @@ from langfuse.langchain import CallbackHandler
 
 from app.chatmodel import init_llm
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 tracer = CallbackHandler()
 
@@ -64,6 +64,7 @@ decision>",
 Note: Think critically before deciding. Do not include
 any extra text beyond the JSON output.
 """
+
 
 def test_summarize_agent():
     """Test Argument Role Evaluation with existing summaries from results folder"""
@@ -173,7 +174,9 @@ def test_summarize_agent():
                 else:
                     reference_arguments = [str(reference_arguments)]
 
-            logger.info(f"Loaded {len(reference_arguments)} arguments from: {mindmap_file.name}")
+            logger.info(
+                f"Loaded {len(reference_arguments)} arguments from: {mindmap_file.name}"
+            )
 
             # # COMMENT: Evaluation 1: Fullset Evaluation
             # fullset_prompt = Fullset_Evaluation_PROMPT.format(
@@ -192,7 +195,9 @@ def test_summarize_agent():
 
             # Evaluation 2: Argument Role Evaluation - LUÔN CHẠY
             argument_evals = []
-            logger.info(f"\nEvaluating {len(reference_arguments)} arguments individually...")
+            logger.info(
+                f"\nEvaluating {len(reference_arguments)} arguments individually..."
+            )
 
             for idx, arg in enumerate(reference_arguments):
                 try:
@@ -209,7 +214,9 @@ def test_summarize_agent():
                             "explanation": arg_eval.get("explanation"),
                         }
                     )
-                    logger.info(f"  Argument {idx + 1}/{len(reference_arguments)} - Decision: {arg_eval.get('decision')}")
+                    logger.info(
+                        f"  Argument {idx + 1}/{len(reference_arguments)} - Decision: {arg_eval.get('decision')}"
+                    )
                 except Exception as e:
                     logger.info(f"  Error evaluating argument {idx + 1}: {str(e)}")
                     argument_evals.append(

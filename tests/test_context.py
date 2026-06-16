@@ -1,12 +1,12 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import os
 import random
 import typing_extensions as typing
 from docling.document_converter import DocumentConverter
 from google import genai
+
+logger = structlog.get_logger(__name__)
 
 client = genai.Client(api_key="AIzaSyCNaj6br2Z27r68fQ_SpHzN_1wBxs4KalE")
 
@@ -15,12 +15,22 @@ def extract_passages(pdf_or_txt_path, chunk_size=500):
     ext = os.path.splitext(pdf_or_txt_path)[1].lower()
 
     if ext == ".txt":
-        logger.info(" ".join(str(_log_value) for _log_value in ("Reading from TXT file:", pdf_or_txt_path)))
+        logger.info(
+            " ".join(
+                str(_log_value)
+                for _log_value in ("Reading from TXT file:", pdf_or_txt_path)
+            )
+        )
         with open(pdf_or_txt_path, "r", encoding="utf-8") as f:
             text = f.read()
 
     else:
-        logger.info(" ".join(str(_log_value) for _log_value in ("Processing via Docling:", pdf_or_txt_path)))
+        logger.info(
+            " ".join(
+                str(_log_value)
+                for _log_value in ("Processing via Docling:", pdf_or_txt_path)
+            )
+        )
         converter = DocumentConverter()
         doc = converter.convert(pdf_or_txt_path)
         text = doc.document.export_to_text()
@@ -71,7 +81,7 @@ def search_related_passage_with_gemini(
     """
     Sử dụng Gemini để tìm đoạn văn liên quan nhất cho câu hỏi.
     """
-    prompt = f"""Câu hỏi: {question}
+    _prompt = f"""Câu hỏi: {question}
 
 Dưới đây là danh sách các đoạn văn. Hãy tìm và trả về CHÍNH XÁC đoạn văn liên quan nhất để trả lời câu hỏi trên.
 Chỉ trả về nội dung đoạn văn, không thêm giải thích hay nội dung khác.
