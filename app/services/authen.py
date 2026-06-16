@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from typing import Any, List, Tuple
 
 from fastapi import Depends
@@ -45,7 +49,7 @@ def jwt_decode(token_str: str) -> Tuple[UserInDB, List]:
             user_info = get_user(settings._accounts, username=username)
         return user_info, token_scopes
     except Exception as e:
-        print(e)
+        logger.info(e)
         return None, None
 
 

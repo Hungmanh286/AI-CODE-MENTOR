@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 import sys
 
 from langgraph.prebuilt import ToolNode
@@ -17,7 +21,6 @@ TOOLS = []
 
 try:
     model = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE,
         tags=["student_agent"],
@@ -25,7 +28,7 @@ try:
 
     llm_student = model.bind_tools(TOOLS)
 except Exception as e:
-    print(f"Error initializing model: {e}")
+    logger.info(f"Error initializing model: {e}")
     sys.exit(1)
 
 
@@ -67,7 +70,7 @@ if __name__ == "__main__":
         for s in stream:
             message = s["messages"][-1]
             if isinstance(message, tuple):
-                print(message)
+                logger.info(message)
             else:
                 message.pretty_print()
 

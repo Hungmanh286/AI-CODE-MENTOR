@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from fastapi import APIRouter, status, Form
 from app.schema.lesson import Lesson
 from app.services.datasource import insert_database
@@ -29,5 +33,5 @@ async def create_lesson_handler(
         insert_database(lesson.model_dump(exclude_unset=True), Lesson)
         return {"message": "Lesson created successfully"}
     except Exception as e:
-        print(f"Error creating lesson: {e}")
+        logger.info(f"Error creating lesson: {e}")
         return {"error": str(e)}

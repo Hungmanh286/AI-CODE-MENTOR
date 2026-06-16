@@ -1,6 +1,10 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from langgraph.graph import StateGraph, START, END
 from langchain_core.runnables import RunnableConfig
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langgraph.graph.message import MessagesState
 import concurrent.futures
 from tqdm import tqdm
@@ -22,12 +26,7 @@ class QState(MessagesState):
     merge: str | None
 
 
-tracer = CallbackHandler(
-    tags=["code"],
-    public_key=settings.LANGFUSE_PUBLIC_KEY,
-    secret_key=settings.LANGFUSE_SECRET_KEY,
-    host=settings.LANGFUSE_HOST,
-)
+tracer = CallbackHandler()
 
 
 # Node 0: Tiền xử lý tài liệu
@@ -67,11 +66,9 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     chunk_size = content_length // num_parts
                     overlap_size = chunk_size // 20
 
-                print(f"File {file_id}: Total content length = {content_length} chars")
-                print(
-                    f"Splitting into {num_parts} parts with {overlap_size} chars overlap"
-                )
-                print(f"Each chunk: ~{chunk_size} chars")
+                logger.info(f"File {file_id}: Total content length = {content_length} chars")
+                logger.info(f"Splitting into {num_parts} parts with {overlap_size} chars overlap")
+                logger.info(f"Each chunk: ~{chunk_size} chars")
 
                 for part_idx in range(num_parts):
                     start_idx = max(
@@ -82,11 +79,9 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     part_content = docs_content[start_idx:end_idx]
                     document_chunks.append(part_content)
 
-                    print(
-                        f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})"
-                    )
+                    logger.info(f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})")
 
-                print(f"\nCreated {len(document_chunks)} chunks with overlap")
+                logger.info(f"\nCreated {len(document_chunks)} chunks with overlap")
 
     return {"document_chunks": document_chunks, "query": query}
 
@@ -96,7 +91,6 @@ def summarize_node(state: QState, config: RunnableConfig):
     document_chunks = state.get("document_chunks", [])
 
     llm = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
         tags=["agent"],
@@ -106,12 +100,12 @@ def summarize_node(state: QState, config: RunnableConfig):
         """Process một chunk và tạo summary"""
         idx, chunk_text = chunk_data
         try:
-            print(f"Processing summary for chunk {idx + 1}/{len(document_chunks)}")
+            logger.info(f"Processing summary for chunk {idx + 1}/{len(document_chunks)}")
             prompt = Prompts.SUMMARIZE_CHUNK_SUMMARY_PROMPT.format(document=chunk_text)
             response = llm.invoke(input=prompt, config=config)
             return (idx, response.content)
         except Exception as e:
-            print(f"Error summarizing chunk {idx}: {e}")
+            logger.info(f"Error summarizing chunk {idx}: {e}")
             return (idx, f"[ERROR: Failed to summarize chunk {idx}]")
 
     max_workers = min(30, len(document_chunks))
@@ -133,7 +127,7 @@ def summarize_node(state: QState, config: RunnableConfig):
     # Sắp xếp theo index để đảm bảo thứ tự
     summaries = [results[idx] for idx in sorted(results.keys())]
 
-    print(f"Generated {len(summaries)} summaries in parallel")
+    logger.info(f"Generated {len(summaries)} summaries in parallel")
     return {"summaries": summaries}
 
 
@@ -142,7 +136,6 @@ def extractive_node(state: QState, config: RunnableConfig):
     document_chunks = state.get("document_chunks", [])
 
     llm = init_llm(
-        api_key=settings.CHAT_MODEL_KEY,
         model=settings.CHAT_MODEL,
         temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
         tags=["agent"],
@@ -152,14 +145,12 @@ def extractive_node(state: QState, config: RunnableConfig):
         """Process một chunk và tạo extractive summary"""
         idx, chunk_text = chunk_data
         try:
-            print(
-                f"Processing extractive summary for chunk {idx + 1}/{len(document_chunks)}"
-            )
+            logger.info(f"Processing extractive summary for chunk {idx + 1}/{len(document_chunks)}")
             prompt = Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(chunk_text=chunk_text)
             response = llm.invoke(input=prompt, config=config)
             return (idx, response.content)
         except Exception as e:
-            print(f"Error extractive summarizing chunk {idx}: {e}")
+            logger.info(f"Error extractive summarizing chunk {idx}: {e}")
             return (idx, f"[ERROR: Failed to extractive summarize chunk {idx}]")
 
     max_workers = min(30, len(document_chunks))
@@ -181,12 +172,11 @@ def extractive_node(state: QState, config: RunnableConfig):
     # Sắp xếp theo index để đảm bảo thứ tự
     extractive_summaries = [results[idx] for idx in sorted(results.keys())]
 
-    print(f"Generated {len(extractive_summaries)} extractive summaries in parallel")
+    logger.info(f"Generated {len(extractive_summaries)} extractive summaries in parallel")
     return {"extractive_summaries": extractive_summaries}
 
 
 llm = init_llm(
-    api_key=settings.CHAT_MODEL_KEY,
     model=settings.CHAT_MODEL,
     temperature=settings.CHAT_MODEL_TEMPERATURE_VISION,
     tags=["agent"],

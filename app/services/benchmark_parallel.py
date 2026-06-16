@@ -4,6 +4,10 @@ Script benchmark để so sánh hiệu suất giữa sequential và parallel pro
 Usage:
     python benchmark_parallel.py --pdf <path_to_pdf> --workers <num_workers>
 """
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 
 import argparse
 import datetime
@@ -14,9 +18,9 @@ from vector_store_parallel import parse_pdf_parallel
 
 def benchmark_sequential(pdf_path: str):
     """Benchmark sequential processing"""
-    print("\n" + "=" * 80)
-    print("📊 SEQUENTIAL PROCESSING")
-    print("=" * 80)
+    logger.info("\n" + "=" * 80)
+    logger.info("📊 SEQUENTIAL PROCESSING")
+    logger.info("=" * 80)
     
     start = datetime.datetime.now()
     result = parse_sequential(pdf_path)
@@ -34,9 +38,9 @@ def benchmark_sequential(pdf_path: str):
 
 def benchmark_parallel(pdf_path: str, max_workers: int = 10, use_gemini: bool = True):
     """Benchmark parallel processing"""
-    print("\n" + "=" * 80)
-    print("📊 PARALLEL PROCESSING")
-    print("=" * 80)
+    logger.info("\n" + "=" * 80)
+    logger.info("📊 PARALLEL PROCESSING")
+    logger.info("=" * 80)
     
     start = datetime.datetime.now()
     result = parse_pdf_parallel(
@@ -83,29 +87,29 @@ def main():
     results.append(par_result)
     
     # Summary
-    print("\n" + "=" * 80)
-    print("📈 BENCHMARK SUMMARY")
-    print("=" * 80)
+    logger.info("\n" + "=" * 80)
+    logger.info("📈 BENCHMARK SUMMARY")
+    logger.info("=" * 80)
     
     for r in results:
-        print(f"\n🔹 Method: {r['method'].upper()}")
+        logger.info(f"\n🔹 Method: {r['method'].upper()}")
         if "max_workers" in r:
-            print(f"   Workers: {r['max_workers']}")
-            print(f"   API: {'Gemini' if r['use_gemini'] else 'OpenAI'}")
-        print(f"   Duration: {r['duration_seconds']:.2f} seconds")
-        print(f"   Output length: {r['result_length']:,} characters")
+            logger.info(f"   Workers: {r['max_workers']}")
+            logger.info(f"   API: {'Gemini' if r['use_gemini'] else 'OpenAI'}")
+        logger.info(f"   Duration: {r['duration_seconds']:.2f} seconds")
+        logger.info(f"   Output length: {r['result_length']:,} characters")
     
     # Calculate speedup
     if len(results) == 2:
         speedup = results[0]['duration_seconds'] / results[1]['duration_seconds']
-        print(f"\n🚀 Speedup: {speedup:.2f}x faster with parallel processing!")
+        logger.info(f"\n🚀 Speedup: {speedup:.2f}x faster with parallel processing!")
     
     # Save results
     output_file = f"benchmark_results_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
     
-    print(f"\n💾 Results saved to: {output_file}")
+    logger.info(f"\n💾 Results saved to: {output_file}")
 
 
 if __name__ == "__main__":

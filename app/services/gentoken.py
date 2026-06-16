@@ -1,3 +1,7 @@
+import structlog
+
+logger = structlog.get_logger(__name__)
+
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -50,7 +54,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         )
         return encoded_jwt
     except Exception as e:
-        print(f"Failed to create JWT token: {str(e)}")
+        logger.info(f"Failed to create JWT token: {str(e)}")
         raise
 
 
@@ -65,7 +69,7 @@ def verify_access_token(token: str) -> Optional[dict]:
         dict: Decoded payload if token is valid, None otherwise
     """
     if not token or not isinstance(token, str):
-        print("Invalid token format provided")
+        logger.info("Invalid token format provided")
         return None
     try:
         payload = jwt.decode(
@@ -73,7 +77,7 @@ def verify_access_token(token: str) -> Optional[dict]:
         )
         return payload
     except JWTError as e:
-        print(f"Unexpected error during token verification: {str(e)}")
+        logger.info(f"Unexpected error during token verification: {str(e)}")
         return None
 
 
@@ -83,11 +87,11 @@ if __name__ == "__main__":
     # parser = argparse.ArgumentParser(description="Generate hash password from plain text string")
     # parser.add_argument("--pwd", dest="pwd", type=str, help="Plain text password")
     # args = parser.parse_args()
-    # print(get_password_hash(args.pwd))
+    # logger.info(get_password_hash(args.pwd))
     user_token = UserToken(
         user_id="000005",
         username="tester03",
         token_limit=1000000000,
     )
 
-    print(create_access_token(user_token.model_dump()))
+    logger.info(create_access_token(user_token.model_dump()))
