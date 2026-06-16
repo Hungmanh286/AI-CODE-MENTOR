@@ -1,11 +1,11 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 import asyncio
 import json
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -29,21 +29,27 @@ async def sse_notify(request: Request, session_id: str):
                 try:
                     # Tăng timeout lên 1000 giây (16.7 phút)
                     event = await asyncio.wait_for(queue.get(), timeout=1000)
-                    
+
                     logger.info(f"[SSE] Event received for {session_id}: {event}")
 
                     if isinstance(event, dict):
                         event_json = json.dumps(event)
                         yield f"data: {event_json}\n\n"
-                        logger.info(f"[SSE] Sent dict event to {session_id}: {event_json}")
-                        
+                        logger.info(
+                            f"[SSE] Sent dict event to {session_id}: {event_json}"
+                        )
+
                         if event.get("type") == "done":
-                            logger.info(f"[SSE] ✅ 'done' event sent to client {session_id}, closing connection")
+                            logger.info(
+                                f"[SSE] ✅ 'done' event sent to client {session_id}, closing connection"
+                            )
                             break
                     elif event == "done":
                         # Client expects: event.data === "done" (string, not JSON)
-                        yield f"data: done\n\n"
-                        logger.info(f"[SSE] ✅ String 'done' sent to client {session_id}, closing connection")
+                        yield "data: done\n\n"
+                        logger.info(
+                            f"[SSE] ✅ String 'done' sent to client {session_id}, closing connection"
+                        )
                         break
                     else:
                         yield f"data: {event}\n\n"

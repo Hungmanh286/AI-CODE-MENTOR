@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import asyncio
 import json
 from contextlib import asynccontextmanager
@@ -35,6 +33,8 @@ from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken
 from app.services import UserUsage, verify_access_token, safe_send
 from app.config import settings
 
+
+logger = structlog.get_logger(__name__)
 
 load_dotenv()
 

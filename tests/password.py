@@ -1,8 +1,8 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import secrets
+
+logger = structlog.get_logger(__name__)
 
 password = secrets.token_urlsafe(16)
 

@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import uuid
 from typing import Optional
 from dotenv import load_dotenv
@@ -22,6 +20,8 @@ from app.graph.node import (
 from app.graph.state import State
 from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken, MessageName
 from app.services import safe_send
+
+logger = structlog.get_logger(__name__)
 
 load_dotenv()
 

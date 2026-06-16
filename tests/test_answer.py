@@ -1,11 +1,11 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import asyncio
 from langchain_core.messages import HumanMessage
 from app.graph.agents.feedbacks_answer import feedbacks_answer
 
+
+logger = structlog.get_logger(__name__)
 
 arr = [
     "Vai trò của mạng ARPANET trong sự phát triển của Internet là gì?",

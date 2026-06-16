@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import sys
 import json
 
@@ -35,6 +33,9 @@ from app.graph.agents.document_processing import (
 from app.graph.prompts import Prompts
 from app.schema import MessageName
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
+
 # from app.graph.tools import retriever_tool
 
 TOOLS = [

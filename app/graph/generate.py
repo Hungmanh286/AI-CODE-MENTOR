@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import sys
 
 from langgraph.prebuilt import ToolNode
@@ -15,6 +13,8 @@ from app.graph.tools import calculator_tool  # noqa
 
 from app.config import settings
 
+
+logger = structlog.get_logger(__name__)
 
 TOOLS = []
 

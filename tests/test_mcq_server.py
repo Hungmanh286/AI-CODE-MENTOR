@@ -2,19 +2,20 @@
 Test script for MCQ Generation Server
 Tests each atomic tool individually to verify functionality
 """
-import structlog
 
-logger = structlog.get_logger(__name__)
+import structlog
 
 
 import sys
 import os
 
+logger = structlog.get_logger(__name__)
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the implementation functions directly for testing
-from tests.mcq_generation_server import (
+from tests.mcq_generation_server import (  # noqa: E402
     extract_key_concepts_impl,
     generate_question_stem_impl,
     generate_correct_answer_impl,
@@ -174,8 +175,12 @@ def run_complete_workflow():
         for i, distractor in enumerate(distractors, 2):
             logger.info(f"{chr(64 + i)}) {distractor}")
         logger.info("\nCorrect Answer: A")
-        logger.info(f"\nValidation: {'✅ VALID' if validation_result.get('is_valid') else '❌ INVALID'}")
-        logger.info(f"Difficulty: {validation_result.get('difficulty_estimate', 'N/A').upper()}")
+        logger.info(
+            f"\nValidation: {'✅ VALID' if validation_result.get('is_valid') else '❌ INVALID'}"
+        )
+        logger.info(
+            f"Difficulty: {validation_result.get('difficulty_estimate', 'N/A').upper()}"
+        )
         logger.info("\n" + "=" * 80)
 
         logger.info("\n✅ ALL TESTS COMPLETED SUCCESSFULLY!\n")

@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import json
 import uuid
 
@@ -15,6 +13,8 @@ from app.services.datasource import insert_database
 from app.services.datasource import get_active_file_id
 from app.services.minio_client import minio_client
 from app.config import settings
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 

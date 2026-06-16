@@ -2,13 +2,15 @@
 Cấu hình cho parallel processing.
 Điều chỉnh các giá trị này tùy theo plan API và hardware của bạn.
 """
-import structlog
 
-logger = structlog.get_logger(__name__)
+import structlog
 
 
 from dataclasses import dataclass
 from typing import Literal
+
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass

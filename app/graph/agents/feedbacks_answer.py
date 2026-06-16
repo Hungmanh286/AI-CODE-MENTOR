@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import os
 
 #
@@ -30,6 +28,8 @@ from app.graph.state import (
 )
 from app.services.minio_client import minio_client
 
+
+logger = structlog.get_logger(__name__)
 
 # TOOLS = []
 
@@ -84,6 +84,7 @@ def get_human_message_content(state: State):
         if isinstance(msg, dict) and msg.get("role") == "user":
             return msg.get("content", "")
     return ""
+
 
 # node parse pdf text
 def parse_pdf_text(state: State, config: RunnableConfig):
@@ -169,7 +170,6 @@ def information_retriever_image(state: State, config: RunnableConfig) -> str:
 def documents_node(state: State, config: RunnableConfig) -> dict:
     """Add documents to state."""
     docs = state.get("docs", [])
-    query = get_human_message_content(state)
 
     documents = "\n".join(item["page_content"] for item in docs)
     return {"documents": documents}

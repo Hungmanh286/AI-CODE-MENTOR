@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from openai import OpenAI
 import json
 import re
@@ -32,6 +30,8 @@ from app.graph.generate import generate_agent  # noqa
 from app.graph.agents.question_expert import question_agent  # noqa
 from app.graph.agents.mind_map import summarize_agent  # noqa
 
+
+logger = structlog.get_logger(__name__)
 
 model = settings.CHAT_MODEL_VISION
 api_key = settings.OPENROUTER_API_KEY
@@ -73,12 +73,13 @@ llm = init_llm(
 # HELPER FUNCTIONS
 # ============================================================================
 
+
 def clean_markdown_json(content: str) -> str:
     """Remove markdown code blocks from JSON/text response
-    
+
     Args:
         content: Raw content from LLM that may contain ```json or ``` markers
-        
+
     Returns:
         Cleaned content without markdown markers
     """
@@ -93,17 +94,17 @@ def execute_parallel_tasks(
     tasks_data: list,
     max_workers: int,
     desc: str = "Processing",
-    disable_progress: bool = True
+    disable_progress: bool = True,
 ) -> dict:
     """Execute tasks in parallel with standardized error handling
-    
+
     Args:
         process_func: Function to process each task, should return (task_id, result)
         tasks_data: List of task data to process
         max_workers: Maximum number of parallel workers
         desc: Description for progress bar
         disable_progress: Whether to disable tqdm progress bar
-        
+
     Returns:
         Dictionary mapping task_id to results
     """
@@ -112,20 +113,21 @@ def execute_parallel_tasks(
             executor.submit(process_func, task_data): task_data
             for task_data in tasks_data
         }
-        
+
         results = {}
         with tqdm(total=len(futures), desc=desc, disable=disable_progress) as pbar:
             for future in concurrent.futures.as_completed(futures):
                 task_id, result = future.result()
                 results[task_id] = result
                 pbar.update(1)
-    
+
     return results
 
 
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
+
 
 def format_dict_to_markdown(data: dict) -> str:
     """Format dict Q&A thành chuỗi Markdown dễ đọc"""
@@ -196,7 +198,9 @@ def format_question_answer_dict(data: dict) -> str:
                         obj = json.loads(obj_text)
                         objects.append(obj)
                     except json.JSONDecodeError as e:
-                        logger.info(f"Failed to parse object: {obj_text[:100]}... Error: {e}")
+                        logger.info(
+                            f"Failed to parse object: {obj_text[:100]}... Error: {e}"
+                        )
                     start_idx = None
 
         return objects
@@ -299,8 +303,12 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     chunk_size = content_length // num_parts
                     overlap_size = chunk_size // 20
 
-                logger.info(f"File {file_id}: Total content length = {content_length} chars")
-                logger.info(f"Splitting into {num_parts} parts with {overlap_size} chars overlap")
+                logger.info(
+                    f"File {file_id}: Total content length = {content_length} chars"
+                )
+                logger.info(
+                    f"Splitting into {num_parts} parts with {overlap_size} chars overlap"
+                )
                 logger.info(f"Each chunk: ~{chunk_size} chars")
 
                 for part_idx in range(num_parts):
@@ -312,7 +320,9 @@ def document_preprocessing(state: QState, config: RunnableConfig):
                     part_content = docs_content[start_idx:end_idx]
                     document_chunks.append(part_content)
 
-                    logger.info(f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})")
+                    logger.info(
+                        f"Part {part_idx + 1}/{num_parts}: {len(part_content)} chars (from {start_idx} to {end_idx})"
+                    )
 
                 logger.info(f"\nCreated {len(document_chunks)} chunks with overlap")
     return {"document_chunks": document_chunks, "query": query}
@@ -379,7 +389,7 @@ def question_node(state: QState, config: RunnableConfig):
             process_single_question,
             chunks_data,
             max_workers=max_workers,
-            desc="Generating questions"
+            desc="Generating questions",
         )
         for idx in sorted(results.keys()):
             key = idx
@@ -400,7 +410,7 @@ def question_node(state: QState, config: RunnableConfig):
                 process_single_question,
                 chunks_to_regenerate,
                 max_workers=max_workers,
-                desc="Regenerating questions"
+                desc="Regenerating questions",
             )
 
             for idx in sorted(results.keys()):
@@ -465,20 +475,23 @@ def answer_node(state: QState, config: RunnableConfig):
             formatted_prompt = f"CHUNK {idx}\n{formatted_questions}"
 
             prompt = Prompts.ANSWER_GENERATION_PROMPT.format(questions=formatted_prompt)
-            
+
             # Use structured_llm_answer to get QuestionWithAnswerList object
             response_obj = structured_llm_answer.invoke(input=prompt, config=config)
-            
+
             # Format the structured response for judge node
             formatted_json = format_qa_for_judge(response_obj, str(idx))
-            
-            logger.info(f"Chunk {idx} - Generated {len(response_obj.questions)} questions with answers")
-            
+
+            logger.info(
+                f"Chunk {idx} - Generated {len(response_obj.questions)} questions with answers"
+            )
+
             return (idx, formatted_json)
 
         except Exception as e:
             logger.info(f"Error generating answer for chunk {idx}: {e}")
             import traceback
+
             traceback.print_exc()
             return (idx, None)  # Return None for error cases
 
@@ -504,16 +517,16 @@ def answer_node(state: QState, config: RunnableConfig):
     ):
         chunk_idx = str(idx)
         answer_data = results[idx]
-        
+
         # Skip error cases (None)
         if answer_data is None:
             logger.info(f"Skipping chunk {chunk_idx} due to error in answer generation")
             continue
-            
+
         if chunk_idx not in question_answers:
             question_answers[chunk_idx] = []
         question_answers[chunk_idx].append(answer_data)
-        
+
     logger.info(f"Generated answers for {len(question_answers)} chunks in parallel")
 
     return {
@@ -540,7 +553,9 @@ def judge(state: QState, config: RunnableConfig):
         1, (num_chunks + batch_size - 1) // batch_size
     )  # Ceiling division
 
-    logger.info(f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})")
+    logger.info(
+        f"Judge node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
+    )
 
     def process_judge_batch(batch_data):
         """Process một batch của question_answers"""
@@ -556,14 +571,14 @@ def judge(state: QState, config: RunnableConfig):
                     )
                 except Exception as e:
                     logger.info(f"[SSE] Warning: Could not send progress: {e}")
-            
+
             # batch_dict values are now formatted text strings from format_qa_for_judge()
             # Concatenate all text chunks in the batch
             batch_text = ""
             for chunk_id, text_list in batch_dict.items():
                 for text in text_list:
                     batch_text += text + "\n\n"
-            
+
             prompt = Prompts.EVALUATE_QA_PROMPT.format(question_answers=batch_text)
             response_msg = llm.invoke(input=prompt, config=config)
 
@@ -608,7 +623,9 @@ def judge(state: QState, config: RunnableConfig):
                         else:
                             raise e2
                     except Exception as e3:
-                        logger.info(f"All fixes failed for batch {batch_id}: {e3}, using empty result")
+                        logger.info(
+                            f"All fixes failed for batch {batch_id}: {e3}, using empty result"
+                        )
                         result = {
                             "good_question_answer": {},
                             "bad_questions": {},
@@ -639,10 +656,7 @@ def judge(state: QState, config: RunnableConfig):
     all_good_question = {}
 
     results = execute_parallel_tasks(
-        process_judge_batch,
-        batches,
-        max_workers=max_workers,
-        desc="Judging batches"
+        process_judge_batch, batches, max_workers=max_workers, desc="Judging batches"
     )
 
     # Merge results from all batches - nối các kết quả lại thành một dictionary hoàn chỉnh
@@ -722,7 +736,9 @@ def judge(state: QState, config: RunnableConfig):
 
     retry += 1
 
-    logger.info(f"Judge completed: {len(all_good_question_answer)} good, {len(all_bad_questions)} bad chunks")
+    logger.info(
+        f"Judge completed: {len(all_good_question_answer)} good, {len(all_bad_questions)} bad chunks"
+    )
 
     return {
         "bad_questions": all_bad_questions,
@@ -748,6 +764,7 @@ def should_continue(state: QState) -> str:
 
 class Question(BaseModel):
     """Schema for a single question"""
+
     id: str
     type: str
     difficulty: str
@@ -759,11 +776,13 @@ class Question(BaseModel):
 
 class QuestionList(BaseModel):
     """Schema for list of selected questions"""
+
     selected_questions: list[Question]
 
 
 class QuestionWithAnswer(BaseModel):
     """Schema for a single question with answer options"""
+
     id: int
     question: str
     options: list[str]  # List of 4 options starting with A., B., C., D.
@@ -772,6 +791,7 @@ class QuestionWithAnswer(BaseModel):
 
 class QuestionWithAnswerList(BaseModel):
     """Schema for list of questions with answers"""
+
     questions: list[QuestionWithAnswer]
 
 
@@ -780,13 +800,14 @@ structured_llm_answer = llm.with_structured_output(
     QuestionWithAnswerList, method="json_schema"
 )
 
+
 def format_qa_for_judge(qa_list: QuestionWithAnswerList, chunk_id: str) -> str:
     """Format structured QuestionWithAnswerList thành text đẹp cho judge node
-    
+
     Args:
         qa_list: QuestionWithAnswerList object từ answer node
         chunk_id: ID của chunk
-        
+
     Returns:
         Formatted text string with structure:
         CHUNK X
@@ -797,27 +818,27 @@ def format_qa_for_judge(qa_list: QuestionWithAnswerList, chunk_id: str) -> str:
         B. ...
         C. ...
         D. ...
-        
+
         Đoạn văn liên quan:
         [related_passage]
     """
     formatted_text = f"CHUNK {chunk_id}\n"
-    
+
     for i, question in enumerate(qa_list.questions, 1):
         formatted_text += f"CÂU HỎI {i}:\n"
         formatted_text += f"Nội dung: {question.question}\n"
-        
+
         # Add options (đáp án trắc nghiệm)
         formatted_text += "Đáp án:\n"
         for option in question.options:
             formatted_text += f"{option}\n"
-        
+
         formatted_text += f"\nĐoạn văn liên quan:\n{question.related_passage}\n"
-        
+
         # Add separator between questions (except for the last one)
         if i < len(qa_list.questions):
             formatted_text += "\n"
-    
+
     return formatted_text
 
 
@@ -841,7 +862,9 @@ def validate(state: QState, config: RunnableConfig):
     batch_size = 2
     max_workers = max(1, (num_chunks + batch_size - 1) // batch_size)
 
-    logger.info(f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})")
+    logger.info(
+        f"Validate node: Processing {num_chunks} chunks with {max_workers} workers (batch_size={batch_size})"
+    )
 
     def process_validate_batch(batch_data):
         """Process một batch của question_answers để validate"""
@@ -879,11 +902,13 @@ def validate(state: QState, config: RunnableConfig):
 
             # Invoke structured_llm - response will be a QuestionList Pydantic object
             response_obj = structured_llm.invoke(input=prompt, config=config)
-            
+
             # Print for debugging
             logger.info(f"Batch {batch_id} - Response type: {type(response_obj)}")
-            logger.info(f"Batch {batch_id} - Questions count: {len(response_obj.selected_questions)}")
-            
+            logger.info(
+                f"Batch {batch_id} - Questions count: {len(response_obj.selected_questions)}"
+            )
+
             return (batch_id, response_obj)
 
         except Exception as e:
@@ -906,7 +931,7 @@ def validate(state: QState, config: RunnableConfig):
         process_validate_batch,
         batches,
         max_workers=max_workers,
-        desc="Validating batches"
+        desc="Validating batches",
     )
 
     # Collect all questions from structured responses
@@ -925,11 +950,15 @@ def validate(state: QState, config: RunnableConfig):
                 # Convert Pydantic Question object to dict
                 all_questions.append(question.dict())
         else:
-            logger.info(f"Unexpected response type for batch {batch_id}: {type(response_obj)}")
+            logger.info(
+                f"Unexpected response type for batch {batch_id}: {type(response_obj)}"
+            )
             continue
     final_quizz_json = json.dumps(all_questions, ensure_ascii=False, indent=2)
 
-    logger.info(f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions")
+    logger.info(
+        f"Validate completed: Processed {len(results)} batches, total {len(all_questions)} questions"
+    )
 
     return {
         "quizz": final_quizz_json,
@@ -975,7 +1004,9 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         import asyncio
 
         sse_event_queues[session_id] = asyncio.Queue()
-        logger.info(f"[DocumentProcessing] Created SSE queue for session_id: {session_id}")
+        logger.info(
+            f"[DocumentProcessing] Created SSE queue for session_id: {session_id}"
+        )
 
     queue = sse_event_queues.get(session_id)
 
@@ -986,11 +1017,15 @@ async def document_processing_tool(query: str, config: RunnableConfig):
             logger.info(f"[DocumentProcessing] SSE 'start' event sent to {session_id}")
 
         # Process
-        logger.info(f"[DocumentProcessing] Starting process_pdf for session_id: {session_id}")
+        logger.info(
+            f"[DocumentProcessing] Starting process_pdf for session_id: {session_id}"
+        )
         result = await process_pdf(
             session_id, document_processing_agent=document_processing_agent, query=query
         )
-        logger.info(f"[DocumentProcessing] process_pdf completed for session_id: {session_id}")
+        logger.info(
+            f"[DocumentProcessing] process_pdf completed for session_id: {session_id}"
+        )
         logger.info(f"[DocumentProcessing] Result: {result}")
 
         import asyncio
@@ -999,14 +1034,20 @@ async def document_processing_tool(query: str, config: RunnableConfig):
             current_queue = sse_event_queues.get(session_id)
             if current_queue:
                 await current_queue.put("document_done")
-                logger.info(f"[DocumentProcessing] SSE 'done' event (string) sent to {session_id}")
+                logger.info(
+                    f"[DocumentProcessing] SSE 'done' event (string) sent to {session_id}"
+                )
                 break
             else:
                 if i < 4:
-                    logger.info(f"[DocumentProcessing] SSE queue not found, retrying in 1s ({i + 1}/5)...")
+                    logger.info(
+                        f"[DocumentProcessing] SSE queue not found, retrying in 1s ({i + 1}/5)..."
+                    )
                     await asyncio.sleep(1)
                 else:
-                    logger.info(f"[DocumentProcessing] SSE queue not found for session_id: {session_id} after retries (Client disconnected)")
+                    logger.info(
+                        f"[DocumentProcessing] SSE queue not found for session_id: {session_id} after retries (Client disconnected)"
+                    )
 
         return "Đã tạo câu hỏi thành công từ tài liệu."
 
@@ -1053,11 +1094,15 @@ async def question_generation_tool(query: str, config: RunnableConfig):
             logger.info(f"[QuestionGen] SSE 'start' event sent to {session_id}")
 
         # Process using process_pdf with question_agent
-        logger.info(f"[QuestionGen] Starting question generation for session_id: {session_id}")
+        logger.info(
+            f"[QuestionGen] Starting question generation for session_id: {session_id}"
+        )
         result = await process_pdf(
             session_id, document_processing_agent=question_agent, query=query
         )
-        logger.info(f"[QuestionGen] Question generation completed for session_id: {session_id}")
+        logger.info(
+            f"[QuestionGen] Question generation completed for session_id: {session_id}"
+        )
         logger.info(f"[QuestionGen] Result: {result}")
 
         # Send done event
@@ -1069,10 +1114,14 @@ async def question_generation_tool(query: str, config: RunnableConfig):
                 break
             else:
                 if i < 4:
-                    logger.info(f"[QuestionGen] SSE queue not found, retrying in 1s ({i + 1}/5)...")
+                    logger.info(
+                        f"[QuestionGen] SSE queue not found, retrying in 1s ({i + 1}/5)..."
+                    )
                     await asyncio.sleep(1)
                 else:
-                    logger.info(f"[QuestionGen] SSE queue not found for session_id: {session_id} after retries")
+                    logger.info(
+                        f"[QuestionGen] SSE queue not found for session_id: {session_id} after retries"
+                    )
 
         return "Đã tạo câu hỏi thành công."
 
@@ -1118,11 +1167,15 @@ async def mindmap_tool(query: str, config: RunnableConfig):
             logger.info(f"[MindMap] SSE 'start' event sent to {session_id}")
 
         # Process
-        logger.info(f"[MindMap] Starting mind map generation for session_id: {session_id}")
+        logger.info(
+            f"[MindMap] Starting mind map generation for session_id: {session_id}"
+        )
         response_msg = await pdf_summarize_agent.ainvoke(
             {"messages": [HumanMessage(content="Tóm tắt tài liệu")]}, config=config
         )
-        logger.info(f"[MindMap] Mind map generation completed for session_id: {session_id}")
+        logger.info(
+            f"[MindMap] Mind map generation completed for session_id: {session_id}"
+        )
 
         content = response_msg["messages"][-1].content
 
@@ -1140,14 +1193,20 @@ async def mindmap_tool(query: str, config: RunnableConfig):
                         "mindmap_path": mindmap_path,
                     }
                 )
-                logger.info(f"[MindMap] SSE 'mindmap_done' event sent to {session_id} with path: {mindmap_path}")
+                logger.info(
+                    f"[MindMap] SSE 'mindmap_done' event sent to {session_id} with path: {mindmap_path}"
+                )
                 break
             else:
                 if i < 4:
-                    logger.info(f"[MindMap] SSE queue not found, retrying in 1s ({i + 1}/5)...")
+                    logger.info(
+                        f"[MindMap] SSE queue not found, retrying in 1s ({i + 1}/5)..."
+                    )
                     await asyncio.sleep(1)
                 else:
-                    logger.info(f"[MindMap] SSE queue not found for session_id: {session_id} after retries")
+                    logger.info(
+                        f"[MindMap] SSE queue not found for session_id: {session_id} after retries"
+                    )
 
         return content
 

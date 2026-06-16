@@ -2,10 +2,10 @@
 Visualization script để tạo diagrams cho parallel processing workflow.
 Sử dụng ASCII art để minh họa flow.
 """
+
 import structlog
 
 logger = structlog.get_logger(__name__)
-
 
 
 def print_sequential_flow():
@@ -342,17 +342,17 @@ def main():
         ("Performance", print_performance_comparison),
         ("Config Presets", print_configuration_presets),
     ]
-    
+
     logger.info("\n" + "=" * 80)
     logger.info("PARALLEL PDF PROCESSING - VISUAL GUIDE")
     logger.info("=" * 80)
-    
+
     for i, (name, func) in enumerate(diagrams, 1):
         logger.info(f"\n\n{'=' * 80}")
         logger.info(f"DIAGRAM {i}/{len(diagrams)}: {name}")
-        logger.info('=' * 80)
+        logger.info("=" * 80)
         func()
-    
+
     logger.info("\n\n" + "=" * 80)
     logger.info("END OF VISUAL GUIDE")
     logger.info("=" * 80)

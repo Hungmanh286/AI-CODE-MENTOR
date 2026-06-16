@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 from openai import OpenAI
 import base64
 from pdf2image import convert_from_path
@@ -18,6 +16,9 @@ from langchain_core.messages import (
 from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
+
+
+logger = structlog.get_logger(__name__)
 
 
 # sử dụng phương pháp merge bằng việc kết hợp giữa tóm tắt và tóm tắt trích xuất để tóm tắt
@@ -114,7 +115,9 @@ def summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> list:
                 "summary": chunk_summary,
             }
         )
-        logger.info(f"Đã tóm tắt chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})")
+        logger.info(
+            f"Đã tóm tắt chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})"
+        )
 
     return summaries
 
@@ -143,7 +146,10 @@ def extractive_summarize_chunk(chunk_images: list, chunk_index: int) -> str:
     ]
     for img_b64 in chunk_images:
         content.append(
-            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+            }
         )
     response = client.chat.completions.create(
         model=model, messages=[{"role": "user", "content": content}]
@@ -182,7 +188,9 @@ def extractive_summarize_pdf_by_chunks(file_path: str, chunk_size: int = 3) -> l
                 "summary": chunk_summary,
             }
         )
-        logger.info(f"Đã extractive summarize chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})")
+        logger.info(
+            f"Đã extractive summarize chunk {i // chunk_size + 1} (trang {i + 1}-{min(i + chunk_size, total_pages)})"
+        )
     return summaries
 
 
@@ -250,12 +258,24 @@ if __name__ == "__main__":
             # Kiểm tra xem phần tử có khóa "messages" hay không
             message = s.get("messages", None)
             if message is None:
-                logger.info(" ".join(str(_log_value) for _log_value in ("⚠️ Missing 'messages' key in stream item:", s)))
+                logger.info(
+                    " ".join(
+                        str(_log_value)
+                        for _log_value in (
+                            "⚠️ Missing 'messages' key in stream item:",
+                            s,
+                        )
+                    )
+                )
                 continue
 
             # Nếu message là tuple (thường từ LangGraph astream_events)
             if isinstance(message, tuple):
-                logger.info(" ".join(str(_log_value) for _log_value in ("Tuple message:", message)))
+                logger.info(
+                    " ".join(
+                        str(_log_value) for _log_value in ("Tuple message:", message)
+                    )
+                )
             # Nếu là danh sách các message
             elif isinstance(message, list):
                 for m in message:

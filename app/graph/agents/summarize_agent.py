@@ -1,7 +1,5 @@
 import structlog
 
-logger = structlog.get_logger(__name__)
-
 import uuid
 
 from langgraph.graph import StateGraph, START, END
@@ -20,6 +18,9 @@ from app.graph.generate import generate_agent
 from app.chatmodel import init_llm
 from app.routes.mindmap import create_mindmap
 from app.schema.mindmap import MindMap
+
+
+logger = structlog.get_logger(__name__)
 
 
 class QState(MessagesState):
@@ -143,6 +144,7 @@ def mind_map(state: QState, config: RunnableConfig):
     session_id = config["configurable"].get("thread_id")
 
     from openai import OpenAI
+
     client = OpenAI(
         base_url="https://openrouter.ai/api/v1",
         api_key=settings.OPENROUTER_API_KEY,
@@ -151,23 +153,22 @@ def mind_map(state: QState, config: RunnableConfig):
     prompt = Prompts.MIND_MAP_PROMPT.format(merge=merge)
 
     response = client.chat.completions.create(
-        model=settings.MIND_MAP_MODEL,
-        messages=[{"role": "user", "content": prompt}]
+        model=settings.MIND_MAP_MODEL, messages=[{"role": "user", "content": prompt}]
     )
 
     content = response.choices[0].message.content
     logger.info(f"[MindMap] Generated content: {content[:100]}...")
-    
+
     # Image generation is not directly supported via OpenRouter's standard chat API
     # for models like gemini-2.5-flash-image-preview in the same way as native SDK.
     # We return the text content which can be used to render a mindmap.
-    
+
     for part in response.parts:
         if part.text is not None:
             content = part.text
         if part.inline_data is not None:
             image = part.as_image()
-    
+
             temp_image_path = f"temp_mindmap_{session_id}.png"
             image.save(temp_image_path)
 
@@ -187,11 +188,11 @@ def mind_map(state: QState, config: RunnableConfig):
                     name=f"mindmap_{session_id}",
                     source_path=minio_path,
                 )
-                created_mindmap = create_mindmap(mindmap=mindmap_data)
+                create_mindmap(mindmap=mindmap_data)
             except Exception as e:
                 logger.info(e)
             os.remove(temp_image_path)
-            
+
     prompt2 = """
     Chỉ cần trả lời là tôi đã tạo xong mind map
     """
@@ -231,11 +232,23 @@ if __name__ == "__main__":
         for s in stream:
             message = s.get("messages", None)
             if message is None:
-                logger.info(" ".join(str(_log_value) for _log_value in ("⚠️ Missing 'messages' key in stream item:", s)))
+                logger.info(
+                    " ".join(
+                        str(_log_value)
+                        for _log_value in (
+                            "⚠️ Missing 'messages' key in stream item:",
+                            s,
+                        )
+                    )
+                )
                 continue
 
             if isinstance(message, tuple):
-                logger.info(" ".join(str(_log_value) for _log_value in ("Tuple message:", message)))
+                logger.info(
+                    " ".join(
+                        str(_log_value) for _log_value in ("Tuple message:", message)
+                    )
+                )
             elif isinstance(message, list):
                 for m in message:
                     try:
