@@ -72,6 +72,15 @@ class GlobalConfig(BaseSettings):
     # MINDMAP_API
     MIND_MAP_MODEL: Optional[str] = Field(default="gemini-2.5-flash")
 
+    # PDF parsing
+    PDF_PARSE_MAX_WORKERS: int = Field(default=50)
+    PDF_PARSE_RPM_LIMIT: int = Field(default=500)
+    PDF_PARSE_CHUNK_SIZE_SMALL: int = Field(default=15)
+    PDF_PARSE_CHUNK_SIZE_LARGE: int = Field(default=30)
+    PDF_PARSE_CHUNK_SIZE_THRESHOLD: int = Field(default=50)
+    PDF_PARSE_RETRY_ATTEMPTS: int = Field(default=3)
+    PDF_PARSE_RETRY_DELAY: int = Field(default=2)
+
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()
     _tracing_env: dict = PrivateAttr()

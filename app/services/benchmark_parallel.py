@@ -38,16 +38,14 @@ def benchmark_sequential(pdf_path: str):
     }
 
 
-def benchmark_parallel(pdf_path: str, max_workers: int = 10, use_gemini: bool = True):
+def benchmark_parallel(pdf_path: str, max_workers: int = 10):
     """Benchmark parallel processing"""
     logger.info("\n" + "=" * 80)
     logger.info("📊 PARALLEL PROCESSING")
     logger.info("=" * 80)
 
     start = datetime.datetime.now()
-    result = parse_pdf_parallel(
-        pdf_path, use_gemini=use_gemini, max_workers=max_workers
-    )
+    result = parse_pdf_parallel(pdf_path, max_workers=max_workers)
     end = datetime.datetime.now()
 
     duration = (end - start).total_seconds()
@@ -55,7 +53,6 @@ def benchmark_parallel(pdf_path: str, max_workers: int = 10, use_gemini: bool = 
     return {
         "method": "parallel",
         "max_workers": max_workers,
-        "use_gemini": use_gemini,
         "duration_seconds": duration,
         "result_length": len(result) if result else 0,
         "timestamp": start.isoformat(),
@@ -71,10 +68,6 @@ def main():
     parser.add_argument(
         "--skip-sequential", action="store_true", help="Skip sequential test"
     )
-    parser.add_argument(
-        "--use-openai", action="store_true", help="Use OpenAI instead of Gemini"
-    )
-
     args = parser.parse_args()
 
     results = []
@@ -85,9 +78,7 @@ def main():
         results.append(seq_result)
 
     # Parallel benchmark
-    par_result = benchmark_parallel(
-        args.pdf, max_workers=args.workers, use_gemini=not args.use_openai
-    )
+    par_result = benchmark_parallel(args.pdf, max_workers=args.workers)
     results.append(par_result)
 
     # Summary
@@ -99,7 +90,7 @@ def main():
         logger.info(f"\n🔹 Method: {r['method'].upper()}")
         if "max_workers" in r:
             logger.info(f"   Workers: {r['max_workers']}")
-            logger.info(f"   API: {'Gemini' if r['use_gemini'] else 'OpenAI'}")
+            logger.info("   API: Gemini")
         logger.info(f"   Duration: {r['duration_seconds']:.2f} seconds")
         logger.info(f"   Output length: {r['result_length']:,} characters")
 
