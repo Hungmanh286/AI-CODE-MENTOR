@@ -39,7 +39,7 @@ def test_chunk_order_preservation():
         return False
 
     # Parse PDF
-    result = parse_pdf_parallel(test_pdf, use_gemini=True, max_workers=3)
+    result = parse_pdf_parallel(test_pdf, max_workers=3)
 
     # Verify
     logger.info(f"\n📊 Result length: {len(result):,} characters")
@@ -88,7 +88,7 @@ def test_chunk_completeness():
 
     # Parse PDF and count chunks processed
     # (We'll check logs for "Processing chunks" progress)
-    result = parse_pdf_parallel(test_pdf, use_gemini=True, max_workers=3)
+    result = parse_pdf_parallel(test_pdf, max_workers=3)
 
     # Verify result is not empty
     if len(result) == 0:
@@ -138,7 +138,7 @@ def test_sequential_vs_parallel_accuracy():
 
     logger.info("\n📊 Processing with PARALLEL method...")
     start = time.time()
-    par_result = parse_pdf_parallel(test_pdf, use_gemini=True, max_workers=3)
+    par_result = parse_pdf_parallel(test_pdf, max_workers=3)
     par_time = time.time() - start
     par_len = len(par_result)
 
@@ -197,7 +197,7 @@ def test_performance_benchmark():
         logger.info(f"\n📊 Testing: {config_name}")
 
         start = time.time()
-        result = parse_pdf_parallel(test_pdf, use_gemini=True, max_workers=workers)
+        result = parse_pdf_parallel(test_pdf, max_workers=workers)
         elapsed = time.time() - start
 
         results.append(
@@ -241,7 +241,7 @@ def test_error_handling():
     fake_pdf = "/tmp/nonexistent_file.pdf"
 
     try:
-        parse_pdf_parallel(fake_pdf, use_gemini=True, max_workers=3)
+        parse_pdf_parallel(fake_pdf, max_workers=3)
         logger.info("❌ FAILED: Should have raised an error!")
         return False
     except Exception as e:

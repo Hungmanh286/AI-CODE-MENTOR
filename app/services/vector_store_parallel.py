@@ -1,27 +1,18 @@
-"""
-Vector Store với xử lý song song để tăng tốc độ parsing PDF dài (300+ trang).
-
-Các cải tiến so với vector_store.py:
-1. ThreadPoolExecutor: Xử lý song song các chunks
-2. Rate Limiting: Tránh vượt giới hạn API (RPM)
-3. Progress Tracking: Theo dõi tiến trình thời gian thực
-4. Error Handling: Xử lý lỗi chunk riêng lẻ không ảnh hưởng toàn bộ
-"""
+"""Vector store helpers with batched Gemini PDF parsing."""
 
 import structlog
 
 
 import os
-from openai import OpenAI
 from io import BytesIO
+from openai import OpenAI
 import base64
 import datetime
-import concurrent.futures
 import time
 from typing import List, Tuple
-from dataclasses import dataclass
 
 from pdf2image import convert_from_path
+from langchain_core.runnables import RunnableLambda
 from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
@@ -33,58 +24,22 @@ from app.config import settings
 
 logger = structlog.get_logger(__name__)
 
-# Import rate_limit nếu có rateguard, hoặc tự implement
 try:
     from rateguard import rate_limit
-
-    HAS_RATEGUARD = True
 except ImportError:
-    HAS_RATEGUARD = False
     logger.info("Warning: rateguard not installed. Install with: pip install rateguard")
-
-
-# Configuration
-@dataclass(frozen=True)
-class ParallelConfig:
-    MAX_WORKERS: int = 50
-    RPM_LIMIT: int = 500
-    CHUNK_SIZE_SMALL: int = 15
-    CHUNK_SIZE_LARGE: int = 30
-    RETRY_ATTEMPTS: int = 3
-    RETRY_DELAY: int = 2
-
-
-# Initialize clients
-embeddings = VoyageAIEmbeddings(
-    api_key=settings.EMBEDDING_KEY,
-    model=settings.EMBEDDING_MODEL,
-    output_dimension=settings.EMBEDDING_DIMS,
-)
-model = settings.CHAT_MODEL_VISION
-api_key = settings.OPENROUTER_API_KEY
-openai_client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=api_key,
-)
-
-url = "http://localhost:6333"
-prompt = Prompts.MARK_DOWN_PROMPT
-
-
-if not HAS_RATEGUARD:
 
     class SimpleRateLimiter:
         def __init__(self, rpm: int):
-            self.rpm = rpm
             self.interval = 60.0 / rpm
-            self.last_call = 0
+            self.last_call = 0.0
 
         def __call__(self, func):
             def wrapper(*args, **kwargs):
                 now = time.time()
-                time_since_last = now - self.last_call
-                if time_since_last < self.interval:
-                    time.sleep(self.interval - time_since_last)
+                elapsed = now - self.last_call
+                if elapsed < self.interval:
+                    time.sleep(self.interval - elapsed)
                 self.last_call = time.time()
                 return func(*args, **kwargs)
 
@@ -93,42 +48,24 @@ if not HAS_RATEGUARD:
     def rate_limit(rpm):
         return SimpleRateLimiter(rpm)
 
+embeddings = VoyageAIEmbeddings(
+    api_key=settings.EMBEDDING_KEY,
+    model=settings.EMBEDDING_MODEL,
+    output_dimension=settings.EMBEDDING_DIMS,
+)
 
-@rate_limit(rpm=ParallelConfig.RPM_LIMIT)
-def parse_chunk_openai(chunk_images: List[str]) -> str:
-    """
-    Parse chunk sử dụng OpenAI API với rate limiting.
+openrouter_client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=settings.OPENROUTER_API_KEY,
+)
 
-    Args:
-        chunk_images: Danh sách các ảnh base64
-
-    Returns:
-        Văn bản markdown từ chunk
-    """
-    content = [{"type": "text", "text": prompt}]
-
-    for img_b64 in chunk_images:
-        content.append(
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{img_b64}"},
-            }
-        )
-
-    response = openai_client.chat.completions.create(
-        model=model, messages=[{"role": "user", "content": content}]
-    )
-
-    return response.choices[0].message.content or ""
+url = "http://localhost:6333"
+prompt = Prompts.MARK_DOWN_PROMPT
 
 
-@rate_limit(rpm=ParallelConfig.RPM_LIMIT)
+@rate_limit(rpm=settings.PDF_PARSE_RPM_LIMIT)
 def parse_chunk_gemini(chunk_images: List[str]) -> str:
-    """
-    Parse chunk sử dụng OpenRouter API với Gemini model.
-    """
-    model = settings.MIND_MAP_MODEL  # Hoặc dùng model cụ thể cho parsing
-
+    """Parse one image chunk with Gemini through OpenRouter."""
     content = [{"type": "text", "text": prompt}]
 
     for img_b64 in chunk_images:
@@ -139,138 +76,101 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
             }
         )
 
-    response = openai_client.chat.completions.create(
-        model=model, messages=[{"role": "user", "content": content}]
+    response = openrouter_client.chat.completions.create(
+        model=settings.MIND_MAP_MODEL,
+        messages=[{"role": "user", "content": content}],
     )
 
     return response.choices[0].message.content or ""
 
 
-def process_single_chunk(
-    chunk_data: Tuple[int, List[str]], use_gemini: bool = True
-) -> Tuple[int, str]:
-    """
-    Xử lý một chunk với retry logic.
-
-    Args:
-        chunk_data: Tuple (chunk_index, chunk_images)
-        use_gemini: True để dùng Gemini, False để dùng OpenAI
-
-    Returns:
-        Tuple (chunk_index, parsed_text)
-    """
+def process_single_chunk(chunk_data: Tuple[int, List[str]]) -> Tuple[int, str]:
+    """Parse one chunk with retry logic."""
     chunk_index, chunk_images = chunk_data
 
-    for attempt in range(ParallelConfig.RETRY_ATTEMPTS):
+    for attempt in range(settings.PDF_PARSE_RETRY_ATTEMPTS):
         try:
-            if use_gemini:
-                result = parse_chunk_gemini(chunk_images)
-            else:
-                result = parse_chunk_openai(chunk_images)
-
-            return (chunk_index, result)
-
+            return (chunk_index, parse_chunk_gemini(chunk_images))
         except Exception as e:
-            if attempt < ParallelConfig.RETRY_ATTEMPTS - 1:
-                logger.info(
-                    f"⚠️  Chunk {chunk_index} failed (attempt {attempt + 1}/{ParallelConfig.RETRY_ATTEMPTS}): {str(e)}"
-                )
-                time.sleep(ParallelConfig.RETRY_DELAY)
-            else:
-                logger.info(
-                    f"❌ Chunk {chunk_index} failed after {ParallelConfig.RETRY_ATTEMPTS} attempts: {str(e)}"
-                )
+            is_last_attempt = attempt == settings.PDF_PARSE_RETRY_ATTEMPTS - 1
+            if is_last_attempt:
+                logger.info(f"Chunk {chunk_index} failed: {e}")
                 return (chunk_index, f"[ERROR: Failed to parse chunk {chunk_index}]")
+            time.sleep(settings.PDF_PARSE_RETRY_DELAY)
+
+
+def create_chunk_processor(pbar: tqdm) -> RunnableLambda:
+    """Tạo runnable processor dùng cho batch xử lý danh sách chunks."""
+
+    def run_chunk(chunk_data: Tuple[int, List[str]]) -> Tuple[int, str]:
+        try:
+            return process_single_chunk(chunk_data)
+        finally:
+            pbar.update(1)
+
+    return RunnableLambda(run_chunk)
+
+
+def encode_pdf_pages(file_path: str) -> List[str]:
+    images = convert_from_path(file_path)
+    encoded_pages = []
+
+    for image in images:
+        buffered = BytesIO()
+        image.save(buffered, format="PNG")
+        encoded_pages.append(base64.b64encode(buffered.getvalue()).decode())
+
+    return encoded_pages
+
+
+def build_chunks(pages: List[str]) -> List[Tuple[int, List[str]]]:
+    chunk_size = (
+        settings.PDF_PARSE_CHUNK_SIZE_SMALL
+        if len(pages) < settings.PDF_PARSE_CHUNK_SIZE_THRESHOLD
+        else settings.PDF_PARSE_CHUNK_SIZE_LARGE
+    )
+    return [
+        (index, pages[start : start + chunk_size])
+        for index, start in enumerate(range(0, len(pages), chunk_size))
+    ]
 
 
 def parse_pdf_parallel(
     file_path: str,
-    use_gemini: bool = False,
-    max_workers: int = ParallelConfig.MAX_WORKERS,
+    max_workers: int | None = None,
 ) -> str:
-    """
-    Parse PDF với xử lý song song các chunks.
-
-    Args:
-        file_path: Đường dẫn tới file PDF
-        use_gemini: True để dùng Gemini API, False để dùng OpenAI
-        max_workers: Số lượng worker threads
-
-    Returns:
-        Chuỗi markdown chứa nội dung toàn bộ PDF
-    """
-    logger.info(f"🚀 Starting parallel PDF parsing: {file_path}")
+    """Parse PDF pages in batches with Gemini and return markdown."""
     start_time = datetime.datetime.now()
 
-    logger.info("📄 Converting PDF to images...")
-    images = convert_from_path(file_path)
-    image_b64_list = []
-
-    for img in images:
-        buffered = BytesIO()
-        img.save(buffered, format="PNG")
-        img_b64 = base64.b64encode(buffered.getvalue()).decode()
-        image_b64_list.append(img_b64)
-
-    total_pages = len(image_b64_list)
-    logger.info(f"📊 Total pages: {total_pages}")
-
-    chunk_size = 8
-    logger.info(f"📦 Chunk size: {chunk_size} pages/chunk")
-
-    chunks_data = []
-    start = 0
-    chunk_index = 0
-
-    while start < total_pages:
-        end = min(start + chunk_size, total_pages)
-        chunk = image_b64_list[start:end]
-        chunks_data.append((chunk_index, chunk))
-        start += chunk_size
-        chunk_index += 1
-
+    pages = encode_pdf_pages(file_path)
+    chunks_data = build_chunks(pages)
     total_chunks = len(chunks_data)
-    logger.info(f"🔢 Total chunks: {total_chunks}")
+    if total_chunks == 0:
+        return ""
 
-    # Optimize worker count: use minimum of total_chunks and max_workers
-    optimal_workers = min(total_chunks, max_workers)
+    worker_limit = max_workers or settings.PDF_PARSE_MAX_WORKERS
+    max_concurrency = min(total_chunks, worker_limit)
     logger.info(
-        f"👷 Using {optimal_workers} worker threads (optimized from max {max_workers})"
+        f"Parsing PDF with Gemini: {len(pages)} pages, {total_chunks} chunks, {max_concurrency} workers"
     )
-    logger.info(f"⏱️  Rate limit: {ParallelConfig.RPM_LIMIT} requests/minute")
-    logger.info(f"🤖 Using {'Gemini' if use_gemini else 'OpenAI'} API\n")
+
+    with tqdm(total=total_chunks, desc="Processing chunks", unit="chunk") as pbar:
+        chunk_processor = create_chunk_processor(pbar=pbar)
+        parallel_results = chunk_processor.batch(
+            chunks_data,
+            config={"max_concurrency": max_concurrency},
+        )
 
     results = {}
+    for chunk_idx, chunk_text in parallel_results:
+        results[chunk_idx] = chunk_text
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=optimal_workers) as executor:
-        futures = {
-            executor.submit(process_single_chunk, chunk_data, use_gemini): chunk_data[0]
-            for chunk_data in chunks_data
-        }
-
-        # Process results as they complete with progress bar
-        with tqdm(total=total_chunks, desc="Processing chunks", unit="chunk") as pbar:
-            for future in concurrent.futures.as_completed(futures):
-                chunk_idx, chunk_text = future.result()
-                results[chunk_idx] = chunk_text
-                pbar.update(1)
-
-    # Reconstruct document in correct order, filter out None values
     document_parts = [results[i] for i in sorted(results.keys()) if results[i]]
-
     document_str = "\n\n".join(document_parts)
 
-    # Calculate statistics
-    end_time = datetime.datetime.now()
-    duration = end_time - start_time
-
-    logger.info("\nParsing complete!")
-    logger.info(f"Total time: {duration.total_seconds():.2f} seconds")
     logger.info(
-        f"Average time per chunk: {duration.total_seconds() / total_chunks:.2f} seconds"
+        f"PDF parsing completed in {(datetime.datetime.now() - start_time).total_seconds():.2f}s"
     )
-    logger.info(f"Total characters: {len(document_str):,}")
-
     return document_str
 
 
