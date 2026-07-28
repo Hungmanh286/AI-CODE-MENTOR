@@ -1,24 +1,21 @@
-import structlog
-
 import uuid
 
-from langgraph.graph import StateGraph, START, END
-from langchain_core.runnables import RunnableConfig
-from langfuse.langchain import CallbackHandler
-from langgraph.graph.message import MessagesState
-from langchain_text_splitters import MarkdownHeaderTextSplitter
+import structlog
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langfuse.langchain import CallbackHandler
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import MessagesState
 
-
-from app.config import settings
-from app.graph.prompts import Prompts
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
-from app.graph.generate import generate_agent
 from app.chatmodel import init_llm
+from app.config import settings
+from app.graph.generate import generate_agent
+from app.graph.prompts import Prompts
 from app.routes.mindmap import create_mindmap
 from app.schema.mindmap import MindMap
-
+from app.services.datasource import get_active_file_id
+from app.services.minio_client import minio_client
 
 logger = structlog.get_logger(__name__)
 

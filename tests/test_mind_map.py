@@ -1,9 +1,7 @@
-import structlog
-
 import json
 from pathlib import Path
 
-
+import structlog
 from langfuse.langchain import CallbackHandler
 
 from app.chatmodel import init_llm

@@ -1,18 +1,17 @@
-from typing import List, TypedDict, Optional
+from typing import List, Optional, TypedDict
 
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
     HumanMessage,
-    ToolMessage,
     SystemMessage,
+    ToolMessage,
     trim_messages,
 )
 from langgraph.graph.message import MessagesState
 
-
-from app.schema import MessageName
 from app.config import settings
+from app.schema import MessageName
 
 
 class Question(TypedDict):

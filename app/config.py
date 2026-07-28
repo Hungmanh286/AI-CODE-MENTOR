@@ -1,9 +1,9 @@
 import json
-from typing import Optional, List
-
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional
+
 from pydantic import Field, PrivateAttr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import Engine, create_engine
 
 ENV_FILE = "./.env"

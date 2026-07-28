@@ -1,7 +1,7 @@
-import structlog
-
 import os
 import random
+
+import structlog
 import typing_extensions as typing
 from docling.document_converter import DocumentConverter
 from google import genai

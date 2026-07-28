@@ -1,13 +1,13 @@
-from .chat import router as chat_router
-from .user import router as user_router
-from .progress_user import router as progress_user_router
-from .lesson import router as lesson_router
-from .upload_pdf import router as upload_pdf_router
-from .process_data import router as process_data_router
-from .history_chat import router as history_chat_router
-from .notify import router as notify_router
 from .auth_router import router as auth_router
+from .chat import router as chat_router
+from .history_chat import router as history_chat_router
+from .lesson import router as lesson_router
 from .mindmap import router as mindmap_router
+from .notify import router as notify_router
+from .process_data import router as process_data_router
+from .progress_user import router as progress_user_router
+from .upload_pdf import router as upload_pdf_router
+from .user import router as user_router
 
 
 class Routers:

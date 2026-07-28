@@ -9,12 +9,11 @@ Test cases:
 4. Compare performance: sequential vs parallel
 """
 
-import structlog
-
-
-import sys
 import os
+import sys
 import time
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -67,8 +66,9 @@ def test_chunk_completeness():
     logger.info("TEST 2: Chunk Completeness")
     logger.info("=" * 80)
 
-    from app.services.vector_store_parallel import parse_pdf_parallel
     from pdf2image import convert_from_path
+
+    from app.services.vector_store_parallel import parse_pdf_parallel
 
     test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
 
@@ -119,6 +119,7 @@ def test_sequential_vs_parallel_accuracy():
     logger.info("=" * 80)
 
     from app.services.vector_store import parse_pdf_text2
+
     from app.services.vector_store_parallel import parse_pdf_parallel
 
     test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"

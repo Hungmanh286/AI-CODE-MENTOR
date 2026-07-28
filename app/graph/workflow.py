@@ -1,24 +1,23 @@
-import structlog
-
 import uuid
 from typing import Optional
+
+import structlog
 from dotenv import load_dotenv
 from fastapi import WebSocket
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables.config import RunnableConfig
-
 from langfuse.langchain import CallbackHandler
-from langgraph.graph import StateGraph, START, END
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.graph.node import (
+    answer_node,
+    documents_node,
     tool_calls_node,
     tools_node,
-    documents_node,
-    answer_node,
 )
 from app.graph.state import State
-from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken, MessageName
+from app.schema import ChatResponse, ChatType, ErrorCode, MessageName, Role, UserToken
 from app.services import safe_send
 
 logger = structlog.get_logger(__name__)

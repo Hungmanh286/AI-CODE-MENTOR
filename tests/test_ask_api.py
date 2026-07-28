@@ -1,6 +1,7 @@
+from typing import Optional
+
 import pytest
 import requests
-from typing import Optional
 
 
 class TestAskAPI:

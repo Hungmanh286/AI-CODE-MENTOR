@@ -1,6 +1,6 @@
 import structlog
+from fastapi import APIRouter, Form, status
 
-from fastapi import APIRouter, status, Form
 from app.schema.lesson import Lesson
 from app.services.datasource import insert_database
 

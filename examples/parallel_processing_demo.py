@@ -10,21 +10,21 @@ This script shows various use cases:
 5. Integration with vector store
 """
 
-import structlog
-
-
 import datetime
 import os
 import sys
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from app.services.vector_store_parallel import parse_pdf_parallel  # noqa: E402
-from app.services.vector_store import parse_pdf_text2, embedding_document  # noqa: E402
+from app.services.vector_store import embedding_document, parse_pdf_text2  # noqa: E402
+
 from app.config.parallel_config import ParallelProcessingConfig, Presets  # noqa: E402
+from app.services.vector_store_parallel import parse_pdf_parallel  # noqa: E402
 
 
 def example_1_basic_usage():

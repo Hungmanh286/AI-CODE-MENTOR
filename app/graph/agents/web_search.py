@@ -1,17 +1,15 @@
-import structlog
-
 import sys
 
-from langgraph.prebuilt import ToolNode
-from langchain_core.runnables import RunnableConfig
-from langgraph.graph import StateGraph, START, END
+import structlog
 from langchain_community.tools import DuckDuckGoSearchRun
-
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph import END, START, StateGraph
+from langgraph.prebuilt import ToolNode
 
 from app.chatmodel import init_llm
+from app.config import settings
 from app.graph.state import State
 from app.schema import MessageName
-from app.config import settings
 
 logger = structlog.get_logger(__name__)
 

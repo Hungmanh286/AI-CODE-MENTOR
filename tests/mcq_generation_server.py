@@ -5,6 +5,7 @@ Uses atomic tool design where each tool performs one specific task.
 
 import json
 from typing import Literal, Optional
+
 from fastmcp import FastMCP
 from langchain_core.messages import HumanMessage
 

@@ -1,5 +1,4 @@
 import numexpr as ne
-
 from fastmcp import FastMCP
 
 mcp = FastMCP("PDFExtractor")

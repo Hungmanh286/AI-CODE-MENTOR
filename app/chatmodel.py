@@ -1,5 +1,5 @@
-from langchain_openrouter import ChatOpenRouter
 from langchain.chat_models.base import BaseChatModel
+from langchain_openrouter import ChatOpenRouter
 
 from app.config import settings
 

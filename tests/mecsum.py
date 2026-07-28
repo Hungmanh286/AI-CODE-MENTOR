@@ -1,22 +1,20 @@
-import structlog
-
-from openai import OpenAI
 import base64
-from pdf2image import convert_from_path
 from io import BytesIO
 
-from langgraph.graph import StateGraph, START, END
-from langchain_core.runnables import RunnableConfig
-from langfuse.langchain import CallbackHandler
-from langgraph.graph.message import MessagesState
+import structlog
 from langchain_core.messages import (
     AIMessage,
 )
+from langchain_core.runnables import RunnableConfig
+from langfuse.langchain import CallbackHandler
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import MessagesState
+from openai import OpenAI
+from pdf2image import convert_from_path
 
 from app.config import settings
 from app.graph.generate import generate_agent
 from app.graph.prompts import Prompts
-
 
 logger = structlog.get_logger(__name__)
 

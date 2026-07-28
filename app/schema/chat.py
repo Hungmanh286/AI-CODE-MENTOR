@@ -1,9 +1,10 @@
 """Schemas for the chat app."""
 
-from pydantic import BaseModel, Field
-from typing import Optional
-from fastapi import status
 from enum import Enum
+from typing import Optional
+
+from fastapi import status
+from pydantic import BaseModel, Field
 
 
 class MessageName:
