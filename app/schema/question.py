@@ -1,7 +1,8 @@
-from typing import Optional, List
-from sqlmodel import Field, SQLModel, Relationship
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import List, Optional
+
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class Project(SQLModel, table=True):

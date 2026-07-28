@@ -5,15 +5,13 @@ Usage:
     python benchmark_parallel.py --pdf <path_to_pdf> --workers <num_workers>
 """
 
-import structlog
-
-
 import argparse
 import datetime
 import json
+
+import structlog
 from vector_store import parse_pdf_text2 as parse_sequential
 from vector_store_parallel import parse_pdf_parallel
-
 
 logger = structlog.get_logger(__name__)
 

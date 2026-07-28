@@ -1,17 +1,14 @@
-import structlog
-
 from typing import Dict
 
-
+import structlog
 from dotenv import load_dotenv
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.engine import Engine
-from sqlmodel import SQLModel, Session, inspect, select, Table
+from sqlalchemy.ext.automap import automap_base
+from sqlmodel import Session, SQLModel, Table, inspect, select
 
 from app.config import settings
 from app.schema.upload import UploadFileStatus
-
 
 logger = structlog.get_logger(__name__)
 

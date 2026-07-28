@@ -1,5 +1,5 @@
-from sqlmodel import SQLModel, Field
 import sqlalchemy as sa
+from sqlmodel import Field, SQLModel
 
 
 class Lesson(SQLModel, table=True):

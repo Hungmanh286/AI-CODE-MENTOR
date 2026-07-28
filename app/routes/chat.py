@@ -1,38 +1,30 @@
-import structlog
-
 import asyncio
 import json
 from contextlib import asynccontextmanager
 
+import structlog
 from dotenv import load_dotenv
 from fastapi import (
-    FastAPI,
     APIRouter,
     Depends,
+    FastAPI,
+    Query,
     WebSocket,
     WebSocketDisconnect,
-    Query,
     status,
 )
 from langchain_community.callbacks import get_openai_callback
-
 from langfuse.langchain import CallbackHandler
-
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph.state import CompiledStateGraph
-from redis.asyncio import Redis as AsyncRedis, ConnectionPool
+from redis.asyncio import ConnectionPool
+from redis.asyncio import Redis as AsyncRedis
 from starlette.websockets import WebSocketState
 
-
-from app.graph.workflow import build_workflow, invoke_workflow  # noqa
-
-
-from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken
-
-
-from app.services import UserUsage, verify_access_token, safe_send
 from app.config import settings
-
+from app.graph.workflow import build_workflow, invoke_workflow  # noqa
+from app.schema import ChatResponse, ChatType, ErrorCode, Role, UserToken
+from app.services import UserUsage, safe_send, verify_access_token
 
 logger = structlog.get_logger(__name__)
 
@@ -79,18 +71,6 @@ async def get_graph():
     except Exception as e:
         logger.info(f"Error initializing graph with checkpointer: {e}")
         raise
-
-
-# async def get_pedagogical_graph():
-#     """Get pedagogical agent graph"""
-#     async for graph in get_graph(type="pedagogical"):
-#         return graph
-
-
-# async def get_feedback_graph():
-#     """Get feedback agent graph"""
-#     async for graph in get_graph(type="feedback"):
-#         return graph
 
 
 @asynccontextmanager
@@ -154,6 +134,10 @@ async def handle_message(
         tracer (CallbackHandler): LLM tracer object
     """
     try:
+        # Example user for testing purposes, replace with actual user token verification in production
+        user_token = UserToken(
+            user_id="000005", username="Tester01", token_limit=1000000
+        )
         is_limited = await usage_client.isratelimit(
             user_id=user_token.user_id, rate_limit=user_token.token_limit
         )

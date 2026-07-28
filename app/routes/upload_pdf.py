@@ -1,21 +1,18 @@
-import structlog
-
-import os
 import base64
+import os
 from io import BytesIO
 
-from fastapi import APIRouter, UploadFile, File, Form
+import structlog
+from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from pdf2image import convert_from_path
-from sqlmodel import Session, select, delete
+from sqlmodel import Session, delete, select
 
-
+from app.config import settings as ds_settings
 from app.schema.upload import UploadFileStatus
 from app.services.datasource import insert_database
-from app.config import settings as ds_settings
-from app.services.vector_store_parallel import parse_pdf_parallel, embedding_document
-
 from app.services.minio_client import minio_client
+from app.services.vector_store_parallel import embedding_document, parse_pdf_parallel
 
 logger = structlog.get_logger(__name__)
 

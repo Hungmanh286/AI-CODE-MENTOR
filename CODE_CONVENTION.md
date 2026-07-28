@@ -99,12 +99,11 @@ Sử dụng Absolute Import (from app.x import y) thay vì Relative Import (from
 
 ```python
 # Tốt
-def get_user(user_id: str) -> User | None:
-    ...
+def get_user(user_id: str) -> User | None: ...
+
 
 # Không tốt
-def get_user(user_id):
-    ...
+def get_user(user_id): ...
 ```
 
 ### 4.4. Docstrings
@@ -140,6 +139,7 @@ async def get_data():
     async with httpx.AsyncClient() as client:
         response = await client.get("https://api.example.com")
         return response.json()
+
 
 # Sai (Block event loop)
 async def get_data():
@@ -208,14 +208,14 @@ api_key = settings.CHAT_MODEL_KEY
 ```python
 # Tốt: Sử dụng Depends để inject service
 async def get_chat_response(
-    message: str,
-    chat_service: ChatService = Depends(get_chat_service)
+    message: str, chat_service: ChatService = Depends(get_chat_service)
 ):
     return await chat_service.process(message)
 
+
 # Không tốt: Khởi tạo trực tiếp
 async def get_chat_response(message: str):
-    service = ChatService() # Khó test, khó quản lý connection
+    service = ChatService()  # Khó test, khó quản lý connection
     return await service.process(message)
 ```
 
@@ -233,6 +233,7 @@ async def lifespan(app: FastAPI):
     # Shutdown: Clean up
     await db.disconnect()
     ml_models.clear()
+
 
 app = FastAPI(lifespan=lifespan)
 ```

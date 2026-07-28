@@ -1,18 +1,16 @@
-import structlog
-
 import json
 import uuid
 
+import structlog
 from fastapi import APIRouter, Form, HTTPException, Query
-from sqlmodel import SQLModel, Session, select, delete
-from langfuse.langchain import CallbackHandler
 from langchain_core.runnables.config import RunnableConfig
+from langfuse.langchain import CallbackHandler
+from sqlmodel import Session, SQLModel, delete, select
 
-from app.schema.question import Project, Question, QuestionOption, SessionProject
-from app.services.datasource import insert_database
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
 from app.config import settings
+from app.schema.question import Project, Question, QuestionOption, SessionProject
+from app.services.datasource import get_active_file_id, insert_database
+from app.services.minio_client import minio_client
 
 logger = structlog.get_logger(__name__)
 
@@ -201,8 +199,8 @@ def delete_session_data(session_id: str, user_id: str = Query(None)):
     """
     Xóa một session cụ thể. Nếu có user_id, sẽ kiểm tra quyền sở hữu.
     """
-    from app.services.datasource import settings as ds_settings
     from app.schema.upload import UploadFileStatus
+    from app.services.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     SQLModel.metadata.create_all(engine)
@@ -276,8 +274,8 @@ def delete_all_user_sessions(user_id: str):
     """
     Xóa tất cả sessions của một user cụ thể
     """
-    from app.services.datasource import settings as ds_settings
     from app.schema.upload import UploadFileStatus
+    from app.services.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     SQLModel.metadata.create_all(engine)

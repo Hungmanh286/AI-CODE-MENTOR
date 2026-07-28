@@ -1,6 +1,7 @@
-from datetime import datetime
-from sqlmodel import Field, SQLModel
 import uuid
+from datetime import datetime
+
+from sqlmodel import Field, SQLModel
 
 
 class MindMap(SQLModel, table=True):

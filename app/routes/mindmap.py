@@ -2,15 +2,13 @@ import base64
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from sqlmodel import Session, select
 from langfuse.langchain import CallbackHandler
-
+from sqlmodel import Session, select
 
 from app.config import settings as ds_settings
 from app.schema.mindmap import MindMap
 from app.services.datasource import insert_database
 from app.services.minio_client import minio_client
-
 
 router = APIRouter(prefix="/mindmap")
 

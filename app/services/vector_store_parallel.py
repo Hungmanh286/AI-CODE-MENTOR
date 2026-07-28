@@ -1,26 +1,24 @@
 """Vector store helpers with batched Gemini PDF parsing."""
 
-import structlog
-
-
-import os
-from io import BytesIO
-from openai import OpenAI
 import base64
 import datetime
+import os
 import time
+from io import BytesIO
 from typing import List, Tuple
 
-from pdf2image import convert_from_path
+import structlog
 from langchain_core.runnables import RunnableLambda
-from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 from langchain_text_splitters import MarkdownHeaderTextSplitter
+from langchain_voyageai.embeddings import VoyageAIEmbeddings
+from openai import OpenAI
+from pdf2image import convert_from_path
+from qdrant_client import QdrantClient
 from tqdm import tqdm
 
-from app.graph.prompts import Prompts
 from app.config import settings
+from app.graph.prompts import Prompts
 
 logger = structlog.get_logger(__name__)
 
@@ -47,6 +45,7 @@ except ImportError:
 
     def rate_limit(rpm):
         return SimpleRateLimiter(rpm)
+
 
 embeddings = VoyageAIEmbeddings(
     api_key=settings.EMBEDDING_KEY,

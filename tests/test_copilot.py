@@ -1,11 +1,9 @@
-from dotenv import load_dotenv
-
-from fastapi import FastAPI
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from dotenv import load_dotenv
+from fastapi import FastAPI
 
 from app.graph.agents.question_expert import question_expert
-
 
 load_dotenv()
 

@@ -3,11 +3,10 @@ Test script for MCQ Generation Server
 Tests each atomic tool individually to verify functionality
 """
 
-import structlog
-
-
-import sys
 import os
+import sys
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -17,9 +16,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Import the implementation functions directly for testing
 from tests.mcq_generation_server import (  # noqa: E402
     extract_key_concepts_impl,
-    generate_question_stem_impl,
     generate_correct_answer_impl,
     generate_distractors_impl,
+    generate_question_stem_impl,
     validate_mcq_impl,
 )
 
