@@ -1,5 +1,4 @@
 import uuid
-from typing import Optional
 
 import structlog
 from dotenv import load_dotenv
@@ -72,7 +71,7 @@ async def invoke_workflow(
         role: Role,
         content: str,
         msg_type: ChatType,
-        error_code: Optional[ErrorCode] = None,
+        error_code: ErrorCode | None = None,
     ):
         resp = SessionChatResponse(
             role=role, content=content, type=msg_type, error_code=error_code
@@ -129,7 +128,13 @@ async def invoke_workflow(
         )
     finally:
         await send_response(role=Role.bot, content="", msg_type=ChatType.end)
-        tracer.flush()
+        try:
+            if hasattr(tracer, "langfuse") and hasattr(tracer.langfuse, "flush"):
+                tracer.langfuse.flush()
+            elif hasattr(tracer, "flush"):
+                tracer.flush()
+        except Exception as tracer_err:
+            logger.info(f"Failed to flush tracer: {tracer_err}")
 
 
 if __name__ == "__main__":
