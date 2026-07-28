@@ -66,6 +66,27 @@ services:
       timeout: 5s
       retries: 3
 
+  codeMentor-minio:
+    image: minio/minio:latest
+    container_name: mentorbot-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin123
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - mentorbot-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
 configs:
   qdrant_config:
     content: |
@@ -73,6 +94,8 @@ configs:
 
 volumes:
   checkpointer-data:
+    driver: local
+  minio-data:
     driver: local
 
 networks:

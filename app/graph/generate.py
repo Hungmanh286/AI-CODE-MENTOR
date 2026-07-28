@@ -23,7 +23,7 @@ try:
     )
 
     # TODO: bind tools if need
-except Exception as e:
+except Exception as e:  # noqa: BLE001
     logger.info(f"Error initializing model: {e}")
     sys.exit(1)
 

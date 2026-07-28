@@ -36,6 +36,18 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def on_startup():
+    """Create all database tables on startup if they don't exist."""
+    from sqlmodel import SQLModel
+
+    # Import all models so they are registered with SQLModel metadata
+    from app.schema.question import Project, Question, QuestionOption, SessionProject  # noqa: F401
+    from app.schema.upload import UploadFileStatus  # noqa: F401
+
+    SQLModel.metadata.create_all(settings._app_db_engine)
+
+
 @app.get("/ping", include_in_schema=False)
 async def health_check():
     return "pong"

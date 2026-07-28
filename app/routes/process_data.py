@@ -93,10 +93,16 @@ async def process_pdf(session_id: str, query: str, document_processing_agent=Non
 @router.post("/create-session")
 def create_session(
     session_id: str = Form(...),
-    user_id: str = Form(...),
+    user_id: str = Form(None),
     project_id: str = Form(None),
-    session_name: str = Form(...),
+    session_name: str = Form(None),
 ):
+    # Set defaults if not provided
+    if not user_id:
+        user_id = "default"
+    if not session_name:
+        session_name = f"Session {session_id[:8]}"
+
     session_project_data = {
         "session_id": session_id,
         "user_id": user_id,
@@ -111,6 +117,20 @@ def create_session(
         "session_name": session_name,
         "project_id": project_id,
     }
+
+
+@router.get("/sessions")
+def get_all_sessions():
+    """
+    Lấy tất cả sessions
+    """
+    from app.services.datasource import settings as ds_settings
+
+    engine = ds_settings._app_db_engine
+    with Session(engine) as session:
+        all_sessions = session.exec(select(SessionProject)).all()
+        result = [sp.session_id for sp in all_sessions]
+        return {"sessions": result}
 
 
 @router.get("/user-sessions/{user_id}")

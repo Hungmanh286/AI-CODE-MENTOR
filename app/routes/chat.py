@@ -192,10 +192,10 @@ async def websocket_endpoint_pedagogical_agent(
 ):
     try:
         user_dict = verify_access_token(token)
+        user_token = UserToken(user_id="000000", username="Tester01", token_limit=1000000)
         user_token = UserToken.model_validate(user_dict)
     except Exception as e:
         logger.info(f"Token is incorrect: {e}")
-        # user_token = UserToken(user_id="000000", username="Tester01", token_limit=1000000)
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
