@@ -1,25 +1,25 @@
 # AI Code Mentor
 
-AI Code Mentor là backend FastAPI cho hệ thống trợ lý học tập và hỏi đáp tài liệu. Dự án kết hợp LangGraph/LangChain, WebSocket chat, xử lý PDF, vector search, sinh mind map, quản lý người dùng và giới hạn token theo người dùng.
+AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant and document question-answering system. The project integrates LangGraph/LangChain, WebSocket-based real-time chat, PDF processing, vector search, mind map generation, user management, and token/rate limiting.
 
-## Tính năng chính
+## Key Features
 
-- Chat realtime qua WebSocket tại `/chat/pedagogical`.
-- Workflow tác tử bằng LangGraph để định tuyến yêu cầu tới các tool xử lý tài liệu, hỏi đáp, tóm tắt, mind map và tạo câu hỏi.
-- Upload PDF, lưu file qua MinIO, parse nội dung PDF bằng Gemini qua OpenRouter.
-- Xử lý PDF song song bằng `RunnableLambda.batch(..., config={"max_concurrency": ...})`.
-- Embedding nội dung tài liệu bằng VoyageAI và lưu vào Qdrant.
-- Checkpoint hội thoại bằng PostgreSQL.
-- Rate limit/token usage bằng Redis.
-- Theo dõi LLM trace qua Langfuse.
-- API docs bằng Scalar tại `/apidocs`.
+- **Real-time Chat**: Interactive real-time chat via WebSocket at `/chat/pedagogical`.
+- **Agentic Workflow**: Powered by LangGraph to dynamically route requests to appropriate tools for document processing, Q&A, summarization, mind map generation, and quiz creation.
+- **PDF Processing**: Upload PDFs, store them securely in MinIO, and parse content using Gemini via OpenRouter.
+- **Parallel PDF Parsing**: Highly concurrent PDF parsing using `RunnableLambda.batch(..., config={"max_concurrency": ...})`.
+- **Vector Search & Retrieval**: Generate document embeddings using VoyageAI and store them in Qdrant.
+- **Session Checkpointing**: Persistent conversation state tracking using PostgreSQL.
+- **Rate Limiting & Token Tracking**: Manage API usage and token limits per user/session with Redis.
+- **Observability**: Integrated LLM tracing and monitoring using Langfuse.
+- **Interactive API Documentation**: Modern API documentation served via Scalar at `/apidocs`.
 
-## Công nghệ
+## Tech Stack
 
 - Python 3.11+
 - FastAPI
 - LangChain, LangGraph
-- OpenRouter/Gemini
+- OpenRouter / Gemini
 - VoyageAI Embeddings
 - Qdrant
 - PostgreSQL
@@ -28,57 +28,57 @@ AI Code Mentor là backend FastAPI cho hệ thống trợ lý học tập và h�
 - SQLModel
 - Langfuse
 
-## Cấu trúc thư mục
+## Project Structure
 
 ```text
 .
 ├── app/
-│   ├── config.py                 # Cấu hình môi trường và kết nối hệ thống
+│   ├── config.py                 # System configuration and connections
 │   ├── routes/                   # FastAPI routers
 │   ├── graph/                    # LangGraph workflow, nodes, prompts, agents
 │   ├── services/                 # MinIO, vector store, auth, rate limit, datasource
 │   ├── schema/                   # SQLModel/Pydantic schemas
-│   └── data/                     # Dữ liệu mẫu và tài liệu thử nghiệm
+│   └── data/                     # Sample data and test documents
 ├── tests/                        # Test scripts
-├── docs/                         # Tài liệu bổ sung
-├── examples/                     # Ví dụ
+├── docs/                         # Additional documentation
+├── examples/                     # Examples
 ├── main.py                       # FastAPI entrypoint
-├── pyproject.toml                # Dependencies cho uv
-├── docker-compose.yml            # Redis và PostgreSQL phụ trợ
+├── pyproject.toml                # Dependency configurations for uv
+├── docker-compose.yml            # Redis, PostgreSQL, and other background services
 └── README.md
 ```
 
-## Yêu cầu hệ thống
+## Prerequisites
 
-- Python 3.11 trở lên.
-- `uv` để cài dependencies.
-- Redis cho rate limiting.
-- PostgreSQL cho app database và LangGraph checkpointer.
-- Qdrant chạy tại `localhost:6333` hoặc URL tương ứng trong code/config.
-- MinIO chạy tại endpoint cấu hình trong `.env`.
-- Poppler để `pdf2image` chuyển PDF sang ảnh.
+- Python 3.11 or higher.
+- `uv` for dependency management.
+- Redis for rate limiting and token tracking.
+- PostgreSQL for application database and LangGraph checkpointer.
+- Qdrant running at `localhost:6333` (or configured URL).
+- MinIO running at the endpoint specified in `.env`.
+- Poppler (`pdf2image` dependency) to convert PDF pages to images.
 
-Trên Ubuntu/Debian, Poppler thường có thể cài bằng:
+On Ubuntu/Debian, install Poppler using:
 
 ```bash
 sudo apt-get install poppler-utils
 ```
 
-## Cài đặt
+## Setup & Installation
 
-1. Cài dependencies:
+1. Install dependencies:
 
 ```bash
 uv sync
 ```
 
-2. Tạo file môi trường:
+2. Create environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Cập nhật các biến quan trọng trong `.env`:
+3. Update key configurations in `.env`:
 
 ```env
 OPENROUTER_API_KEY=...
@@ -93,17 +93,17 @@ MINIO_BUCKET=mybucket
 MIND_MAP_MODEL=gemini-2.5-flash
 ```
 
-Không commit secret thật vào repository.
+Do not commit actual secrets to the repository.
 
-## Chạy dịch vụ phụ trợ
+## Running Auxiliary Services
 
-`docker-compose.yml` hiện khai báo Redis và hai PostgreSQL service:
+`docker-compose.yml` configures Redis and two PostgreSQL services:
 
 ```bash
 docker compose up -d codeMentor-ratelimit codeMentor-checkpointer codeMentor-app
 ```
 
-MinIO và Qdrant cần được chạy riêng nếu môi trường local chưa có sẵn. Ví dụ:
+MinIO and Qdrant should be run separately if not already available locally. For example:
 
 ```bash
 docker run -d --name qdrant -p 6333:6333 qdrant/qdrant
@@ -113,45 +113,45 @@ docker run -d --name minio -p 9000:9000 -p 9001:9001 \
   minio/minio server /data --console-address ":9001"
 ```
 
-## Chạy ứng dụng
+## Running the Application
 
 ```bash
 uv run python main.py
 ```
 
-Hoặc:
+Or:
 
 ```bash
 uv run uvicorn main:app --host 0.0.0.0 --port 8686 --reload
 ```
 
-Kiểm tra health check:
+Verify the health check endpoint:
 
 ```bash
 curl http://localhost:8686/ping
 ```
 
-Mở API docs:
+Open API docs:
 
 ```text
 http://localhost:8686/apidocs
 ```
 
-## Các endpoint chính
+## Primary Endpoints
 
-- `GET /ping`: health check.
+- `GET /ping`: Health check.
 - `GET /apidocs`: Scalar API documentation.
-- `WS /chat/pedagogical`: chat realtime với agent.
-- `POST /upload`: upload PDF lên MinIO và ghi metadata.
-- `PUT /update-file-active`: kích hoạt file, parse PDF, lưu docs và embedding vào Qdrant.
-- `GET /session-files/{session_id}`: lấy danh sách file theo session.
-- `GET /view-file`: xem PDF đã upload dưới dạng ảnh base64.
-- `GET /get-mindmap`: lấy mind map dạng base64.
-- `GET /get-mindmap-url`: lấy presigned URL cho mind map.
+- `WS /chat/pedagogical`: WebSocket real-time agent chat.
+- `POST /upload`: Upload PDFs to MinIO and record metadata.
+- `PUT /update-file-active`: Activate files, parse PDF content, and ingest embeddings into Qdrant.
+- `GET /session-files/{session_id}`: Retrieve uploaded files by session ID.
+- `GET /view-file`: View uploaded PDF pages as base64-encoded images.
+- `GET /get-mindmap`: Retrieve base64-encoded mind map images.
+- `GET /get-mindmap-url`: Generate a presigned URL for the mind map.
 
-## Cấu hình PDF parsing
+## PDF Parsing Configuration
 
-Các cấu hình xử lý PDF nằm trong `app/config.py` và có thể override qua `.env`:
+PDF processing configurations are defined in `app/config.py` and can be overridden via `.env`:
 
 ```env
 PDF_PARSE_MAX_WORKERS=50
@@ -163,7 +163,7 @@ PDF_PARSE_RETRY_ATTEMPTS=3
 PDF_PARSE_RETRY_DELAY=2
 ```
 
-Parser PDF hiện chỉ dùng Gemini qua OpenRouter. Mỗi chunk được xử lý bằng LangChain runnable batch:
+The PDF parser uses Gemini via OpenRouter. Each chunk is processed in parallel using LangChain's runnable batch:
 
 ```python
 chunk_processor.batch(
@@ -172,25 +172,25 @@ chunk_processor.batch(
 )
 ```
 
-## Kiểm tra nhanh
+## Quick Verification
 
-Compile các file Python:
+Compile Python source files to verify syntax:
 
 ```bash
 uv run python -m py_compile main.py app/config.py app/services/vector_store_parallel.py
 ```
 
-Chạy test script xử lý PDF nếu có file mẫu và API key hợp lệ:
+Run the PDF processing test script (requires valid API keys and sample files):
 
 ```bash
 uv run python tests/test_parallel_processing.py
 ```
 
-## Ghi chú vận hành
+## Operation Notes
 
-- WebSocket chat yêu cầu JWT token hợp lệ.
-- Redis được dùng để kiểm soát token usage/rate limit.
-- PostgreSQL checkpointer lưu trạng thái hội thoại theo `thread_id`.
-- Qdrant cần chạy trước khi embedding tài liệu.
-- MinIO cần sẵn sàng trước khi upload/view/delete file.
-- Langfuse keys là tùy chọn theo môi trường tracing, nhưng nếu bật tracing thì cần cấu hình đúng.
+- WebSocket chat requires a valid JWT token.
+- Redis is utilized for token usage and rate limiting.
+- PostgreSQL checkpointer manages and persists conversational states by `thread_id`.
+- Qdrant must be running before generating and storing document embeddings.
+- MinIO must be accessible before uploading, viewing, or deleting files.
+- Langfuse environment variables are optional but required if you want tracing enabled.
