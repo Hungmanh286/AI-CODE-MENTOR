@@ -2,6 +2,8 @@
 
 AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant and document question-answering system. The project integrates LangGraph/LangChain, WebSocket-based real-time chat, PDF processing, vector search, mind map generation, user management, and token/rate limiting.
 
+![Workflow](./workflow.png)
+
 ## Key Features
 
 - **Real-time Chat**: Interactive real-time chat via WebSocket at `/chat/pedagogical`.
