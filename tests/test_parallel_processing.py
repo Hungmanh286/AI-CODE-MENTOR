@@ -30,7 +30,7 @@ def test_chunk_order_preservation():
     from app.services.vector_store_parallel import parse_pdf_parallel
 
     # Test với PDF nhỏ để dễ verify
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -70,7 +70,7 @@ def test_chunk_completeness():
 
     from app.services.vector_store_parallel import parse_pdf_parallel
 
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -122,7 +122,7 @@ def test_sequential_vs_parallel_accuracy():
 
     from app.services.vector_store_parallel import parse_pdf_parallel
 
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -180,7 +180,7 @@ def test_performance_benchmark():
 
     from app.services.vector_store_parallel import parse_pdf_parallel
 
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
