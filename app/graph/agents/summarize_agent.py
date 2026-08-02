@@ -258,7 +258,7 @@ if __name__ == "__main__":
                 except AttributeError:
                     logger.info(message)
 
-    input_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    input_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     inputs = {"file_path": input_path, "chunk_size": 10}
 

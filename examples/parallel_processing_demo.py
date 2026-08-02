@@ -33,7 +33,7 @@ def example_1_basic_usage():
     logger.info("EXAMPLE 1: Basic Parallel Processing")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     result = parse_pdf_parallel(file_path=pdf_path, use_gemini=True, max_workers=50)
 
@@ -66,7 +66,7 @@ def example_3_compare_sequential_vs_parallel():
     logger.info("EXAMPLE 3: Sequential vs Parallel Comparison")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     # Sequential
     logger.info("\n📊 Sequential Processing...")
@@ -93,7 +93,7 @@ def example_4_error_handling():
     logger.info("EXAMPLE 4: Error Handling")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
 
     try:
         result = parse_pdf_parallel(pdf_path)
@@ -116,7 +116,7 @@ def example_5_integration_with_vector_store():
     logger.info("EXAMPLE 5: Integration with Vector Store")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/example.pdf"
+    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
     session_id = f"test_session_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Step 1: Parse PDF (parallel)
@@ -141,7 +141,7 @@ def example_6_batch_processing():
     import glob
 
     # Find all PDFs in data directory
-    pdf_files = glob.glob("/home/hungmanh/Documents/CodeMentor/app/data/*.pdf")
+    pdf_files = glob.glob("/home/hungmanh/Documents/CodeMentor/app/data/pdfs/*.pdf")
 
     if not pdf_files:
         logger.info("⚠️  No PDF files found in data directory")

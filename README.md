@@ -40,7 +40,13 @@ AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant a
 │   ├── graph/                    # LangGraph workflow, nodes, prompts, agents
 │   ├── services/                 # MinIO, vector store, auth, rate limit, datasource
 │   ├── schema/                   # SQLModel/Pydantic schemas
-│   └── data/                     # Sample data and test documents
+│   └── data/                     # Data directory
+│       ├── pdfs/                 # Raw PDF curriculums and test documents
+│       ├── doc/                  # Extracted plain text documents
+│       ├── data_mindmap/         # Generated mind map structure JSONs
+│       ├── images/               # Cropped page images for vision OCR processing
+│       ├── query_logs/           # Query context execution logs
+│       └── result/               # Evaluation and benchmark results
 ├── tests/                        # Test scripts
 ├── docs/                         # Additional documentation
 ├── examples/                     # Examples
