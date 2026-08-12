@@ -1,7 +1,8 @@
-from fastapi import WebSocket
-from starlette.websockets import WebSocketState
-from pydantic import BaseModel
 from typing import Any
+
+from fastapi import WebSocket
+from pydantic import BaseModel
+from starlette.websockets import WebSocketState
 
 
 async def safe_send(websocket: WebSocket, message: Any, send_type: str = "json"):

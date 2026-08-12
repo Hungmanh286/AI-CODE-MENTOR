@@ -1,18 +1,19 @@
 """Schemas for the chat app."""
 
-from pydantic import BaseModel, Field
-from typing import Optional
-from fastapi import status
 from enum import Enum
+from typing import Optional
+
+from fastapi import status
+from pydantic import BaseModel, Field
 
 
 class MessageName:
     agent = "agent"
     generate_agent = "generate_agent"
-    sql_agent = "sql_agent"
-    api_agent = "api_agent"
+    question_agent = "question_agent"
     answer = "answer"
-    next_questions = "next_questions"
+    feedbacks_answer = "feedbacks_answer"
+    feedbacks_question = "feedbacks_question"
 
 
 class Role(str, Enum):
@@ -27,6 +28,7 @@ class ChatType(str, Enum):
     error = "error"
     info = "info"
     suggest = "suggest"
+    interrupt = "interrupt"
 
 
 class ErrorCode(int, Enum):

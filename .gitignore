@@ -9,4 +9,9 @@ wheels/
 # Virtual environments
 .venv
 .env
-.env
+
+# Quality evaluation results
+results/
+*.evaluation.json
+
+.codex
