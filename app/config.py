@@ -1,9 +1,10 @@
 import json
-from typing import Optional, List
-
 from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import List, Optional
+
 from pydantic import Field, PrivateAttr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import Engine, create_engine
 
 ENV_FILE = "./.env"
 
@@ -16,9 +17,19 @@ class GlobalConfig(BaseSettings):
     TRACING_ENV_FILE: Optional[str] = Field(default="app/config/tracing_env.json")
 
     # ChatModel
-    CHAT_MODEL_KEY: Optional[str] = Field(default=None)
     CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
     CHAT_MODEL_TEMPERATURE: Optional[float] = Field(default=0)
+
+    # Chat model vision (Openai)
+    CHAT_MODEL_VISION: Optional[str] = Field(default="gpt-5-nano")
+    CHAT_MODEL_TEMPERATURE_VISION: Optional[float] = Field(default=0)
+
+    # OpenRouter
+    OPENROUTER_API_KEY: Optional[str] = Field(default=None)
+
+    EMBEDDING_KEY: Optional[str] = Field(default=None)
+    EMBEDDING_MODEL: Optional[str] = Field(default="voyage-3-large")
+    EMBEDDING_DIMS: Optional[int] = Field(default=1024)
 
     # Ratelimit
     RATELIMIT_REDIS: Optional[str] = Field(default="redis://localhost:6379/0")
@@ -33,16 +44,49 @@ class GlobalConfig(BaseSettings):
     CHECKPOINT_PASSWORD: Optional[str] = Field()
     HISTORY_CONTEXT_LEN: Optional[int] = Field(default=5)
 
+    # app db
+    APP_DB_HOST: Optional[str] = Field(default="localhost")
+    APP_DB_PORT: Optional[int] = Field(default=5432)
+    APP_DB: Optional[str] = Field(default="mentorbot")
+    APP_USER: Optional[str] = Field()
+    APP_PASSWORD: Optional[str] = Field()
+
+    # Langfuse
+    LANGFUSE_HOST: Optional[str] = Field(default="https://us.cloud.langfuse.com")
+    LANGFUSE_SECRET_KEY: Optional[str] = Field(default=None)
+    LANGFUSE_PUBLIC_KEY: Optional[str] = Field(default=None)
+
     # Authentication
     SECRET_KEY: Optional[str] = Field(default=None)
     TOKEN_EXPIRE_HOURS: Optional[int] = Field(default=87600)
     ALGORITHM: Optional[str] = Field(default="HS256")
     ACCOUNT_FILE: Optional[Path] = Field(default=Path("app/config/user.json"))
 
+    # MinIO Storage
+    MINIO_ENDPOINT: Optional[str] = Field(default="localhost:9000")
+    MINIO_ACCESS_KEY: Optional[str] = Field(default="admin")
+    MINIO_SECRET_KEY: Optional[str] = Field(default="admin123")
+    MINIO_SECURE: Optional[bool] = Field(default=False)
+    MINIO_BUCKET: Optional[str] = Field(default="mybucket")
+
+    # MINDMAP_API
+    MIND_MAP_MODEL: Optional[str] = Field(default="gemini-2.5-flash")
+
+    # PDF parsing
+    PDF_PARSE_MAX_WORKERS: int = Field(default=50)
+    PDF_PARSE_RPM_LIMIT: int = Field(default=500)
+    PDF_PARSE_CHUNK_SIZE_SMALL: int = Field(default=15)
+    PDF_PARSE_CHUNK_SIZE_LARGE: int = Field(default=30)
+    PDF_PARSE_CHUNK_SIZE_THRESHOLD: int = Field(default=50)
+    PDF_PARSE_RETRY_ATTEMPTS: int = Field(default=3)
+    PDF_PARSE_RETRY_DELAY: int = Field(default=2)
+
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()
     _tracing_env: dict = PrivateAttr()
     _tracing_projectid: str = PrivateAttr()
+    _app_db_uri: str = PrivateAttr()
+    _app_db_engine: Engine = PrivateAttr()
 
     model_config = SettingsConfigDict(
         extra="ignore", env_file=ENV_FILE, env_file_encoding="utf-8"
@@ -62,6 +106,12 @@ class GlobalConfig(BaseSettings):
             f"postgresql://{self.CHECKPOINT_USER}:{self.CHECKPOINT_PASSWORD}"
             f"@{self.CHECKPOINT_HOST}:{self.CHECKPOINT_PORT}/{self.CHECKPOINT_DB}"
         )
+
+        self._app_db_uri = (
+            f"postgresql://{self.APP_USER}:{self.APP_PASSWORD}"
+            f"@{self.APP_DB_HOST}:{self.APP_DB_PORT}/{self.APP_DB}"
+        )
+        self._app_db_engine = create_engine(self._app_db_uri)
 
 
 settings = GlobalConfig()

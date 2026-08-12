@@ -1,14 +1,16 @@
 from typing import Any, List, Tuple
 
+import structlog
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import jwt
 
-from app.services.gentoken import verify_password
+from app.config import settings
 from app.error import UnauthorizedException
 from app.schema.authen import UserInDB
-from app.config import settings
+from app.services.gentoken import verify_password
 
+logger = structlog.get_logger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="token",
@@ -45,7 +47,7 @@ def jwt_decode(token_str: str) -> Tuple[UserInDB, List]:
             user_info = get_user(settings._accounts, username=username)
         return user_info, token_scopes
     except Exception as e:
-        print(e)
+        logger.info(e)
         return None, None
 
 

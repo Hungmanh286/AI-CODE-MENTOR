@@ -1,30 +1,32 @@
 import asyncio
 import json
-import uuid
 from contextlib import asynccontextmanager
 
+import structlog
 from dotenv import load_dotenv
 from fastapi import (
-    FastAPI,
     APIRouter,
     Depends,
+    FastAPI,
+    Query,
     WebSocket,
     WebSocketDisconnect,
-    Query,
     status,
 )
 from langchain_community.callbacks import get_openai_callback
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.graph.state import CompiledStateGraph
-from redis.asyncio import Redis as AsyncRedis, ConnectionPool
+from redis.asyncio import ConnectionPool
+from redis.asyncio import Redis as AsyncRedis
 from starlette.websockets import WebSocketState
 
-from app.graph.workflow import build_workflow, invoke_workflow
-from app.schema import ChatResponse, ChatType, Role, ErrorCode, UserToken
-from app.services import UserUsage, verify_access_token, safe_send
 from app.config import settings
+from app.graph.workflow import build_workflow, invoke_workflow  # noqa
+from app.schema import ChatResponse, ChatType, ErrorCode, Role, UserToken
+from app.services import UserUsage, safe_send, verify_access_token
 
+logger = structlog.get_logger(__name__)
 
 load_dotenv()
 
@@ -34,13 +36,10 @@ usage_redis_pool: ConnectionPool = None
 
 async def get_tracer():
     try:
-        tracer = CallbackHandler(
-            tags=["waka"],
-            version=settings.VERSION,
-        )
+        tracer = CallbackHandler()
         yield tracer
     finally:
-        tracer.langfuse.shutdown()
+        pass
 
 
 async def get_user_usage():
@@ -70,7 +69,7 @@ async def get_graph():
             graph = workflow.compile(checkpointer=checkpointer)
             yield graph
     except Exception as e:
-        print(f"Error initializing graph with checkpointer: {e}")
+        logger.info(f"Error initializing graph with checkpointer: {e}")
         raise
 
 
@@ -89,7 +88,7 @@ async def lifespan(_: FastAPI):
     usage_redis_pool = ConnectionPool.from_url(
         url=settings.RATELIMIT_REDIS, **redis_config
     )
-    print("Initialized Redis connection pool")
+    logger.info("Initialized Redis connection pool")
 
     try:
         async with AsyncPostgresSaver.from_conn_string(
@@ -97,16 +96,16 @@ async def lifespan(_: FastAPI):
         ) as checkpointer:
             try:
                 await checkpointer.setup()
-                print("Checkpointer setup completed")
+                logger.info("Checkpointer setup completed")
             except Exception:
-                print("Checkpointer already exists, skipping setup")
+                logger.info("Checkpointer already exists, skipping setup")
         yield
 
     finally:
         await asyncio.gather(
             usage_redis_pool.disconnect(),
         )
-        print("Closed all connections!")
+        logger.info("Closed all connections!")
 
 
 router = APIRouter(lifespan=lifespan)
@@ -120,7 +119,7 @@ async def handle_message(
     question_id: str,
     user_token: UserToken,
     usage_client: UserUsage,
-    # tracer: CallbackHandler,
+    tracer: CallbackHandler,
 ) -> None:
     """Handle message in background task
 
@@ -135,11 +134,15 @@ async def handle_message(
         tracer (CallbackHandler): LLM tracer object
     """
     try:
+        # Example user for testing purposes, replace with actual user token verification in production
+        user_token = UserToken(
+            user_id="000005", username="Tester01", token_limit=1000000
+        )
         is_limited = await usage_client.isratelimit(
             user_id=user_token.user_id, rate_limit=user_token.token_limit
         )
         if is_limited:
-            print(f"User {user_token.user_id} usage limit exceeded.")
+            logger.info(f"User {user_token.user_id} usage limit exceeded.")
             resp = ChatResponse(
                 role=Role.bot,
                 content=f"Usage limit exceeded. Try again after {settings.RATELIMIT_WINDOW_MINUTES} minutes",
@@ -159,14 +162,14 @@ async def handle_message(
                 session_uuid=session_uuid,
                 question_id=question_id,
                 user_token=user_token,
-                # tracer=tracer,
+                tracer=tracer,
             )
 
             tokens_usage = cb.total_tokens
 
         await usage_client.update_usage(user_token.user_id, tokens_usage)
     except Exception as e:
-        print(f"Error processing message: {e}")
+        logger.info(f"Error processing message: {e}")
         resp = ChatResponse(
             role=Role.bot,
             content="Sorry, something went wrong.",
@@ -178,38 +181,39 @@ async def handle_message(
         await safe_send(websocket, resp)
 
 
-@router.websocket("/chat")
-async def websocket_endpoint_chat_agent(
+@router.websocket("/chat/pedagogical")
+async def websocket_endpoint_pedagogical_agent(
     websocket: WebSocket,
     token: str = Query("", title="Token", description="authen token"),
     usage_client: UserUsage = Depends(get_user_usage),
     graph: CompiledStateGraph = Depends(get_graph),
-    # tracer: CallbackHandler = Depends(get_tracer),
+    tracer: CallbackHandler = Depends(get_tracer),
+    session_uuid: str = Query(None, title="Session UUID", description="Session UUID"),
 ):
     try:
         user_dict = verify_access_token(token)
+        user_token = UserToken(user_id="000000", username="Tester01", token_limit=1000000)
         user_token = UserToken.model_validate(user_dict)
     except Exception as e:
-        print(f"Token is incorrect: {e}")
-        # user_token = UserToken(user_id="000000", username="Tester01", token_limit=1000000)
+        logger.info(f"Token is incorrect: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
     await websocket.accept()
-    random_session_uuid = str(uuid.uuid4())
-    session_uuid = None
+    # random_session_uuid = str(uuid.uuid4())
+    # session_uuid = None
     question_id = ""
 
     is_limited = await usage_client.isratelimit(
         user_id=user_token.user_id, rate_limit=user_token.token_limit
     )
     if is_limited:
-        print(f"User {user_token.user_id} usage limit exceeded.")
+        logger.info(f"User {user_token.user_id} usage limit exceeded.")
         resp = ChatResponse(
             role=Role.bot,
             content=f"Usage limit exceeded. Try again after {settings.RATELIMIT_WINDOW_MINUTES} minutes",
             type=ChatType.error,
-            session=random_session_uuid,
+            session=session_uuid,
             question_id=question_id,
             error_code=ErrorCode.ratelimit_error,
         )
@@ -225,7 +229,7 @@ async def websocket_endpoint_chat_agent(
             ensure_ascii=False,
         ),
         type=ChatType.info,
-        session=random_session_uuid,
+        session=session_uuid,
         question_id=question_id,
     )
     await safe_send(websocket, resp)
@@ -241,7 +245,7 @@ async def websocket_endpoint_chat_agent(
                 continue
 
             question_id = payload.get("question_id", "").strip()
-            session_uuid = payload.get("uuid", random_session_uuid)
+            session_uuid = payload.get("uuid", session_uuid)
             asyncio.create_task(
                 handle_message(
                     websocket=websocket,
@@ -251,15 +255,15 @@ async def websocket_endpoint_chat_agent(
                     question_id=question_id,
                     usage_client=usage_client,
                     user_token=user_token,
-                    # tracer=tracer,
+                    tracer=tracer,
                 )
             )
     except WebSocketDisconnect:
-        print(f"Connection disconnected {session_uuid}.")
+        logger.info(f"Connection disconnected {session_uuid}.")
     except RuntimeError as e:
-        print(f"RuntimeError occurred: {e}")
+        logger.info(f"RuntimeError occurred: {e}")
     except Exception as e:
-        print(f"Error in {session_uuid}: {e}")
+        logger.info(f"Error in {session_uuid}: {e}")
         resp = ChatResponse(
             role=Role.bot,
             content="Sorry, something went wrong.",

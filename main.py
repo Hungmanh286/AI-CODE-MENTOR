@@ -4,14 +4,12 @@ import warnings
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
-from app.routes import Routers
 from app.config import settings
-
+from app.routes import Routers
 
 warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -24,9 +22,9 @@ app = FastAPI(
     title="Chatbot service",
     openapi_url="/api/v1/openapi.json",
     description="API service for chatbot.",
-    docs_url="/documentation",
     redoc_url=None,
 )
+
 
 app.add_middleware(GZipMiddleware, minimum_size=10000)
 app.add_middleware(
@@ -38,7 +36,16 @@ app.add_middleware(
 )
 
 
-app.mount("/docs", StaticFiles(directory="site", html=True), name="docs")
+@app.on_event("startup")
+def on_startup():
+    """Create all database tables on startup if they don't exist."""
+    from sqlmodel import SQLModel
+
+    # Import all models so they are registered with SQLModel metadata
+    from app.schema.question import Project, Question, QuestionOption, SessionProject  # noqa: F401
+    from app.schema.upload import UploadFileStatus  # noqa: F401
+
+    SQLModel.metadata.create_all(settings._app_db_engine)
 
 
 @app.get("/ping", include_in_schema=False)
@@ -56,8 +63,15 @@ async def scalar_html():
 
 
 app.include_router(Routers.chat_router, prefix="", tags=["Chatws"])
-
-
+app.include_router(Routers.user_router, prefix="", tags=["User"])
+app.include_router(Routers.progress_user_router, prefix="", tags=["ProgressUser"])
+app.include_router(Routers.lesson_router, prefix="", tags=["Lesson"])
+app.include_router(Routers.upload_pdf_router, prefix="", tags=["UploadPDF"])
+app.include_router(Routers.process_data_router, prefix="", tags=["ProcessData"])
+app.include_router(Routers.history_chat_router, prefix="", tags=["HistoryChat"])
+app.include_router(Routers.notify_router, prefix="", tags=["Notify"])
+app.include_router(Routers.auth_router, prefix="", tags=["Auth"])
+app.include_router(Routers.mindmap_router, prefix="", tags=["MindMap"])
 if __name__ == "__main__":
     import uvicorn
 

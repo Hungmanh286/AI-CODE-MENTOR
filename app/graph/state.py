@@ -1,30 +1,47 @@
-from typing import List
+from typing import TypedDict
 
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
     HumanMessage,
-    ToolMessage,
     SystemMessage,
+    ToolMessage,
     trim_messages,
 )
 from langgraph.graph.message import MessagesState
 
-from app.schema import MessageName
 from app.config import settings
+from app.schema import MessageName
+
+
+class Question(TypedDict):
+    """A multi choice question."""
+
+    question: str
+    choices: list[str]
+    answer: str | None
 
 
 class State(MessagesState):
     user_question: str | None
     ai_answer: str | None
-    ai_next_questions: List[str] | None
-    documents: List | None
+    documents: list | None
     next: str | None
+    file_path: str | None
+    collection_name: str | None
+    docs: list | None
+    summarize_context: str | None
+    evaluation_result: str | None
+    questions: list[Question]
+    selected_answers: list[str]
+    selected_text: str | None
+    quizz: list[str] | None = None
+    query: str | None = None
 
 
 def get_conversation_messages(
-    state: State, aimessage_name: List[str] = None
-) -> List[BaseMessage]:
+    state: State, aimessage_name: list[str] = None
+) -> list[BaseMessage]:
     """Remove tool messages and tool calls messages from state to reduce prompt size
 
     Args:
@@ -46,7 +63,7 @@ def get_conversation_messages(
     return conversation_messages
 
 
-def get_tool_messages(state: State) -> List:
+def get_tool_messages(state: State) -> list:
     """Get ToolMessages from previous node"""
     recent_tool_messages = []
     is_last_tool = isinstance(state["messages"][-1], ToolMessage)
@@ -62,7 +79,7 @@ def get_tool_messages(state: State) -> List:
 
 def filter_message(
     state: State, last_n_message: int = settings.HISTORY_CONTEXT_LEN
-) -> List:
+) -> list:
     """Keep the last <= n_count tokens of the messages.
 
     Args:
