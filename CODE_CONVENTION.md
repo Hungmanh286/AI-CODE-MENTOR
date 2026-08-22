@@ -8,8 +8,8 @@ Dự án tách theo tầng, và mỗi agent là một package tự chứa.
 
 ```
 root/
+├── main.py                 # Entry point FastAPI — chạy bằng `uvicorn main:app`
 ├── app/
-│   ├── main.py             # Entry point FastAPI (app factory + mount router)
 │   ├── api/                # Tầng HTTP/WebSocket — CHỈ routing và validate
 │   │   ├── deps.py         # FastAPI dependencies
 │   │   ├── router.py       # Nơi duy nhất mount mọi router

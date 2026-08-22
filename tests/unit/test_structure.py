@@ -19,6 +19,7 @@ SOURCE_ROOTS = ["app", "tests", "examples", "scripts"]
 
 
 def py_files():
+    yield ROOT / "main.py"
     for root in SOURCE_ROOTS:
         for path in (ROOT / root).rglob("*.py"):
             if "__pycache__" not in path.parts:
@@ -31,6 +32,14 @@ ALL_MODULES = [m.name for m in pkgutil.walk_packages(app.__path__, "app.")]
 @pytest.mark.parametrize("module", ALL_MODULES)
 def test_module_imports(module):
     importlib.import_module(module)
+
+
+def test_root_entrypoint_exposes_the_asgi_app():
+    """`uvicorn main:app` must keep working from the repository root."""
+    main = importlib.import_module("main")
+    assert hasattr(main, "app"), "main.py must expose `app` for uvicorn main:app"
+    assert len(main.app.routes) > 1
+    assert main.app.router.lifespan_context is not None
 
 
 def test_every_prompt_reference_resolves():

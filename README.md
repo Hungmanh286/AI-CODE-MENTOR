@@ -34,8 +34,8 @@ AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant a
 
 ```text
 .
+├── main.py                       # FastAPI entrypoint (uvicorn main:app)
 ├── app/
-│   ├── main.py                   # FastAPI entrypoint (app factory + router mount)
 │   ├── api/                      # HTTP/WebSocket layer — routing only
 │   │   ├── deps.py               # FastAPI dependencies (auth, session)
 │   │   ├── router.py             # every router mounted in one place
@@ -146,13 +146,13 @@ docker run -d --name minio -p 9000:9000 -p 9001:9001 \
 ## Running the Application
 
 ```bash
-uv run python -m app.main
+uv run python main.py
 ```
 
 Or:
 
 ```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8686 --reload
+uv run uvicorn main:app --host 0.0.0.0 --port 8686 --reload
 ```
 
 Verify the health check endpoint:
