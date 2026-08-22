@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class HealthCheck(BaseModel):
-    healthy: bool = Field(..., example=True)
+    healthy: bool = Field(..., json_schema_extra={"example": True})
 
 
 class Token(BaseModel):

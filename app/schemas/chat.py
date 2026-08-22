@@ -45,25 +45,25 @@ class ChatResponse(BaseModel):
     """Chat response schema."""
 
     role: Role = Field(
-        ..., example="user", description="sender type. Must be in [user | bot]"
+        ..., json_schema_extra={"example": "user"}, description="sender type. Must be in [user | bot]"
     )
-    content: Optional[str] = Field("", example="hello", description="content message")
-    type: ChatType = Field(..., example="stream", description="types of communication")
+    content: Optional[str] = Field("", json_schema_extra={"example": "hello"}, description="content message")
+    type: ChatType = Field(..., json_schema_extra={"example": "stream"}, description="types of communication")
     session: Optional[str] = Field(
         None,
-        example="51ad53a2-c365-4160-a669-51f5573b7236",
+        json_schema_extra={"example": "51ad53a2-c365-4160-a669-51f5573b7236"},
         description="chat session uuid",
     )
     trace_id: Optional[str] = Field(
         None,
-        example="0107c2c0-4c8a-487c-ba42-bbc40e9cc654",
+        json_schema_extra={"example": "0107c2c0-4c8a-487c-ba42-bbc40e9cc654"},
         description="question-answer trace id",
     )
     question_id: Optional[str] = Field(
         "",
-        example="0107c2c0-4c8a-487c-ba42-bbc40e9cc654",
+        json_schema_extra={"example": "0107c2c0-4c8a-487c-ba42-bbc40e9cc654"},
         description="received question id",
     )
     error_code: Optional[ErrorCode] = Field(
-        ErrorCode.no_error, example=0, description="Response error code"
+        ErrorCode.no_error, json_schema_extra={"example": 0}, description="Response error code"
     )
