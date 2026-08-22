@@ -662,7 +662,9 @@ def validate(state: QState, config: RunnableConfig):
 def should_continue(state: QState) -> str:
     """Quyết định có tiếp tục loop hay không"""
     retry_count = state.get("retry_count", 0)
-    bad_questions = state.get("bad_questions", None)
+    # judge() luôn set bad_questions (dict chunk_id -> list); mặc định {} để node
+    # không nổ khi graph được resume từ checkpoint hoặc judge lỗi giữa chừng.
+    bad_questions = state.get("bad_questions") or {}
 
     if len(bad_questions) > 20 and retry_count < max_retry:
         for k, v in bad_questions.items():

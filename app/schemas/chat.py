@@ -11,7 +11,9 @@ class MessageName:
     agent = "agent"
     generate_agent = "generate_agent"
     question_agent = "question_agent"
+    student_agent = "student_agent"
     answer = "answer"
+    next_questions = "next_questions"
     feedbacks_answer = "feedbacks_answer"
     feedbacks_question = "feedbacks_question"
 
