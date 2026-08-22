@@ -2,7 +2,7 @@
 
 AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant and document question-answering system. The project integrates LangGraph/LangChain, WebSocket-based real-time chat, PDF processing, vector search, mind map generation, user management, and token/rate limiting.
 
-![Workflow](./workflow.png)
+![Workflow](./docs/assets/workflow.png)
 
 ## Key Features
 
@@ -35,26 +35,48 @@ AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant a
 ```text
 .
 ├── app/
-│   ├── config.py                 # System configuration and connections
-│   ├── routes/                   # FastAPI routers
-│   ├── graph/                    # LangGraph workflow, nodes, prompts, agents
-│   ├── services/                 # MinIO, vector store, auth, rate limit, datasource
-│   ├── schema/                   # SQLModel/Pydantic schemas
-│   └── data/                     # Data directory
-│       ├── pdfs/                 # Raw PDF curriculums and test documents
-│       ├── doc/                  # Extracted plain text documents
-│       ├── data_mindmap/         # Generated mind map structure JSONs
-│       ├── images/               # Cropped page images for vision OCR processing
-│       ├── query_logs/           # Query context execution logs
-│       └── result/               # Evaluation and benchmark results
-├── tests/                        # Test scripts
-├── docs/                         # Additional documentation
-├── examples/                     # Examples
-├── main.py                       # FastAPI entrypoint
-├── pyproject.toml                # Dependency configurations for uv
-├── docker-compose.yml            # Redis, PostgreSQL, and other background services
+│   ├── main.py                   # FastAPI entrypoint (app factory + router mount)
+│   ├── api/                      # HTTP/WebSocket layer — routing only
+│   │   ├── deps.py               # FastAPI dependencies (auth, session)
+│   │   ├── router.py             # every router mounted in one place
+│   │   ├── v1/                   # REST endpoints
+│   │   └── ws/                   # WebSocket endpoints
+│   ├── core/                     # settings, paths, logging, security, errors
+│   │   └── settings/             # auxiliary settings + their JSON data files
+│   ├── db/                       # engine, generic table access
+│   │   ├── base.py               # imports every model for SQLModel.metadata
+│   │   └── models/               # SQLModel tables
+│   ├── schemas/                  # Pydantic request/response DTOs
+│   ├── services/                 # business logic (no agent imports it)
+│   ├── infra/                    # MinIO, Redis, Qdrant vector store
+│   ├── agents/                   # one self-contained package per agent
+│   │   ├── registry.py           # the tools the orchestrator may use
+│   │   ├── base.py               # LLM factory
+│   │   ├── common/               # state + prompts shared by 2+ agents
+│   │   ├── tools/                # tools shared by 2+ agents
+│   │   └── document_processing/  # graph.py · nodes.py · prompts.py · schemas.py · tools.py
+│   └── orchestrator/             # root LangGraph workflow routing across agents
+├── data/                         # input corpus (pdfs/, doc/) — versioned
+├── var/                          # runtime output (mindmaps, logs, results) — gitignored
+├── scripts/                      # operational scripts (token gen, benchmark, MCP server)
+├── tests/                        # unit/ · integration/ · e2e/ · fixtures/
+├── notebooks/                    # exploratory notebooks
+├── examples/                     # runnable demos
+├── docs/                         # diagrams/ and assets/
+├── deploy/                       # deployment assets (Dockerfile, db init)
+├── pyproject.toml                # single source of dependencies + tool config
+├── docker-compose.yml            # Redis, PostgreSQL, MinIO
 └── README.md
 ```
+
+### Dependency rule
+
+```text
+api → services → orchestrator → agents → infra → core → db
+```
+
+Imports only ever point right. In particular `app/agents/**` must never import
+`app.api`; anything an agent needs from the API layer belongs in `app/services/`.
 
 ## Prerequisites
 
@@ -124,13 +146,13 @@ docker run -d --name minio -p 9000:9000 -p 9001:9001 \
 ## Running the Application
 
 ```bash
-uv run python main.py
+uv run python -m app.main
 ```
 
 Or:
 
 ```bash
-uv run uvicorn main:app --host 0.0.0.0 --port 8686 --reload
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8686 --reload
 ```
 
 Verify the health check endpoint:
@@ -159,7 +181,7 @@ http://localhost:8686/apidocs
 
 ## PDF Parsing Configuration
 
-PDF processing configurations are defined in `app/config.py` and can be overridden via `.env`:
+PDF processing configurations are defined in `app/core/config.py` and can be overridden via `.env`:
 
 ```env
 PDF_PARSE_MAX_WORKERS=50
@@ -185,13 +207,13 @@ chunk_processor.batch(
 Compile Python source files to verify syntax:
 
 ```bash
-uv run python -m py_compile main.py app/config.py app/services/vector_store_parallel.py
+uv run ruff check app
 ```
 
 Run the PDF processing test script (requires valid API keys and sample files):
 
 ```bash
-uv run python tests/test_parallel_processing.py
+uv run python tests/integration/test_parallel_processing.py
 ```
 
 ## Operation Notes
