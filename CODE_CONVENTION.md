@@ -4,27 +4,79 @@ Tài liệu này quy định các chuẩn mực lập trình, quy trình làm vi
 
 ## 1. Cấu trúc Dự án (Project Structure)
 
-Dự án tuân theo cấu trúc module hóa, tách biệt rõ ràng giữa các tầng logic.
+Dự án tách theo tầng, và mỗi agent là một package tự chứa.
 
 ```
 root/
-├── app/                    # Source code chính của ứng dụng
-│   ├── config/             # Các file cấu hình (JSON, sample)
-│   ├── db/                 # Database models (SQLModel) và logic liên quan
-│   ├── graph/              # Logic LangGraph (Nodes, Agents, Tools, Workflow)
-│   ├── routes/             # FastAPI Routes (Controllers)
-│   ├── schema/             # Pydantic Models (Request/Response schemas)
-│   ├── services/           # Business Logic Layer (xử lý nghiệp vụ chính)
-│   ├── config.py           # Cấu hình Global (Pydantic Settings)
-│   ├── log.py              # Cấu hình Logging (Structlog)
-│   └── main.py             # Entry point của ứng dụng
-├── data/                   # Dữ liệu tĩnh (CSV, etc.)
-├── db_setup/               # SQL scripts khởi tạo DB
-├── docs/                   # Tài liệu dự án (MkDocs)
-├── scripts/                # Utility scripts (migration, data processing)
-├── tests/                  # Unit tests và Integration tests
-├── pyproject.toml          # Quản lý dependencies và cấu hình tool (Ruff, Pytest)
-└── docker-compose.yml      # Cấu hình Docker
+├── app/
+│   ├── main.py             # Entry point FastAPI (app factory + mount router)
+│   ├── api/                # Tầng HTTP/WebSocket — CHỈ routing và validate
+│   │   ├── deps.py         # FastAPI dependencies
+│   │   ├── router.py       # Nơi duy nhất mount mọi router
+│   │   ├── v1/             # REST endpoints
+│   │   └── ws/             # WebSocket endpoints
+│   ├── core/               # Nền tảng: config, paths, logging, security, errors
+│   │   └── settings/       # Config phụ + file JSON đi kèm
+│   ├── db/                 # Engine, truy cập bảng chung
+│   │   ├── base.py         # Import mọi model cho SQLModel.metadata
+│   │   └── models/         # SQLModel table (CHỈ table)
+│   ├── schemas/            # Pydantic DTO request/response (KHÔNG có table)
+│   ├── services/           # Nghiệp vụ — không import app.api
+│   ├── infra/              # MinIO, Redis, Qdrant vector store
+│   ├── agents/             # Mỗi agent một package tự chứa
+│   │   ├── registry.py     # Ranh giới duy nhất orchestrator nhìn thấy
+│   │   ├── base.py         # Factory khởi tạo LLM
+│   │   ├── common/         # state.py + prompts dùng chung ≥2 agent
+│   │   ├── tools/          # tool dùng chung ≥2 agent
+│   │   └── <agent>/        # graph.py · nodes.py · prompts.py · schemas.py · tools.py
+│   └── orchestrator/       # Graph gốc điều phối các agent
+├── data/                   # Dữ liệu đầu vào (pdfs/, doc/) — có version
+├── var/                    # Output runtime — .gitignore
+├── scripts/                # Script vận hành
+├── tests/                  # unit/ · integration/ · e2e/ · fixtures/
+├── notebooks/              # Notebook thử nghiệm
+├── examples/               # Demo chạy được
+├── docs/                   # diagrams/ và assets/
+├── deploy/                 # Tài nguyên triển khai
+├── pyproject.toml          # Nguồn dependency DUY NHẤT (không dùng requirements.txt)
+└── docker-compose.yml
+```
+
+### 1.1. Luật phụ thuộc (bắt buộc)
+
+```
+api → services → orchestrator → agents → infra → core → db
+```
+
+Import chỉ được đi theo một chiều. Vi phạm luật này là dấu hiệu file đang nằm sai chỗ:
+
+* `app/agents/**` **KHÔNG** được import `app.api`. Thứ agent cần từ tầng API phải
+  được kéo xuống `app/services/` trước (ví dụ `services/events.py`,
+  `services/quiz_service.py`, `services/mindmap_service.py`).
+* `app/services/**` không import router.
+* `app/core/**` không biết gì về domain.
+
+### 1.2. Thêm một agent mới
+
+1. Tạo `app/agents/<ten_agent>/` với `graph.py` (+ `prompts.py`, `schemas.py` nếu agent
+   sở hữu riêng). Prompt dùng chung từ 2 agent trở lên mới đặt ở `agents/common/prompts.py`.
+2. Export điểm vào công khai trong `__init__.py` của package.
+3. Khai báo tool của agent trong `app/agents/registry.py`.
+4. Không sửa gì trong `app/orchestrator/` — nó chỉ đọc `registry.AGENT_TOOLS`.
+
+Khi một file trong package agent vượt ~300 dòng, tách tiếp theo đúng khuôn
+`graph.py / nodes.py / prompts.py / schemas.py / tools.py` (xem
+`app/agents/document_processing/` làm mẫu).
+
+### 1.3. Đường dẫn file
+
+Không hardcode đường dẫn tuyệt đối. Dùng `app/core/paths.py`:
+
+```python
+from app.core.paths import DATA_DIR, VAR_DIR
+
+pdf = DATA_DIR / "pdfs" / "example.pdf"   # đầu vào, có version
+log = VAR_DIR / "query_logs"              # output runtime, gitignored
 ```
 
 ## 2. Môi trường Phát triển (Development Environment)
@@ -33,7 +85,7 @@ Khuyến khích sử dụng **uv** để quản lý môi trường và dependenc
 
 ### 2.1. Cài đặt & Quản lý Dependencies
 
-* **Python Version**: `>=3.12`
+* **Python Version**: `>=3.11` (xem `.python-version`)
 * **Tool**: `uv` (thay thế cho pip/poetry).
 
 **Khởi tạo môi trường:**
@@ -152,7 +204,7 @@ async def get_data():
 ### 6.1. Logging
 
 * **KHÔNG** sử dụng `print()`.
-* Sử dụng `app.log.logger` (structlog) cho mọi hoạt động ghi log.
+* Sử dụng `app.core.logging.get_logger(__name__)` (structlog) cho mọi hoạt động ghi log.
 * * Kèm theo context (ví dụ: `trace_id`, `user_id`) để dễ trace lỗi (có thể inject từ middleware).
 * Log level phù hợp:
   * `DEBUG`: Thông tin chi tiết để debug.
@@ -179,13 +231,13 @@ except Exception as e:
 
 ## 7. Configuration & Secrets
 
-* Tất cả cấu hình phải được định nghĩa trong `app/config.py` sử dụng `pydantic-settings`.
+* Tất cả cấu hình phải được định nghĩa trong `app/core/config.py` sử dụng `pydantic-settings`.
 * **TUYỆT ĐỐI KHÔNG** hardcode mật khẩu, API key, token trong code.
 * Sử dụng file `.env` để lưu biến môi trường local. File `.env` phải được thêm vào `.gitignore`.
 * Truy cập cấu hình thông qua object `settings`:
 
 ```python
-from app.config import settings
+from app.core.config import settings
 
 api_key = settings.CHAT_MODEL_KEY
 ```
@@ -270,14 +322,21 @@ async def add_process_time_header(request: Request, call_next):
 
 ## 11. LangGraph & AI Components
 
-* **Prompts**: Không hardcode prompt dài trong code logic. Lưu trong `app/graph/prompts.py` hoặc file text riêng biệt.
-* **State**: State của graph phải được định nghĩa rõ ràng trong `app/graph/state.py`. Tránh lưu trữ dữ liệu dư thừa trong state.
-* **Nodes**: Mỗi node nên thực hiện một nhiệm vụ cụ thể (Single Responsibility).
+* **Prompts**: Không hardcode prompt dài trong code logic. Prompt riêng của agent nằm ở
+  `app/agents/<agent>/prompts.py`; chỉ khi từ 2 agent trở lên dùng chung mới đưa lên
+  `app/agents/common/prompts.py`.
+* **State**: State của graph gốc định nghĩa ở `app/agents/common/state.py` (agent import được,
+  nên không đặt trong `orchestrator/`). State riêng của một agent nằm trong package của nó.
+* **Nodes**: Mỗi node thực hiện một nhiệm vụ cụ thể (Single Responsibility).
+* **Composition**: Orchestrator chỉ biết `app/agents/registry.py`, không import trực tiếp
+  module con của agent — tránh import vòng và cho phép bật/tắt agent theo config.
 
 ## 12. Testing
 
 * **Framework**: `pytest`.
-* **Vị trí**: Thư mục `tests/`.
+* **Vị trí**: `tests/unit/` (thuần logic, chạy được trong CI) · `tests/integration/`
+  (cần LLM/MinIO/Postgres thật) · `tests/e2e/` (cần service đang chạy) ·
+  `tests/fixtures/` (prompt, payload mẫu). Chi tiết trong `tests/README.md`.
 * **Naming**: File test bắt đầu bằng `test_`. Function test bắt đầu bằng `test_`.
 * **Scope**:
   * Unit Test: Test logic nhỏ, mock các dependencies (DB, API).
