@@ -1,7 +1,8 @@
-import sys
 import argparse
-from app.schema.authen import UserToken
-from app.services.gentoken import create_access_token
+
+from app.core.security import create_access_token
+from app.schemas.auth import UserToken
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate a JWT access token for AI-CODE-MENTOR")

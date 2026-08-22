@@ -9,8 +9,8 @@ from typing import Literal, Optional
 from fastmcp import FastMCP
 from langchain_core.messages import HumanMessage
 
-from app.chatmodel import init_llm
-from app.config import settings
+from app.agents.base import init_llm
+from app.core.config import settings
 
 # Initialize MCP server
 mcp = FastMCP("MCQGenerationServer")

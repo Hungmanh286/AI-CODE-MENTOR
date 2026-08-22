@@ -10,8 +10,8 @@ import datetime
 import json
 
 import structlog
-from vector_store import parse_pdf_text2 as parse_sequential
-from vector_store_parallel import parse_pdf_parallel
+from app.infra.vector_store import parse_pdf_parallel
+from app.infra.vector_store import parse_pdf_text as parse_sequential
 
 logger = structlog.get_logger(__name__)
 

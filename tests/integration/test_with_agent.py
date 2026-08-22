@@ -8,9 +8,11 @@ from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langfuse.langchain import CallbackHandler
 
-from app.graph.agents.document_processing import document_processing_agent
-from app.graph.generate import generate_agent
-from app.graph.test_prompt import (
+from app.agents.document_processing import document_processing_agent
+from app.agents.generator.graph import generate_agent
+from app.core.paths import VAR_DIR
+from app.infra.minio_client import minio_client
+from tests.fixtures.eval_prompts import (
     Clarity_Evaluation_Prompt,
     Cognitive_Level_Evaluation_Prompt,
     Difficulty_Evaluation_Prompt,
@@ -18,7 +20,6 @@ from app.graph.test_prompt import (
     Quality_of_Choices_Evaluation_Prompt,
     Understanding_Evaluation_Prompt,
 )
-from app.services.minio_client import minio_client
 
 logger = structlog.get_logger(__name__)
 
@@ -269,7 +270,7 @@ class QualityTester:
     def save_results(self):
         """Lưu kết quả vào JSON file"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"/home/hungmanh/Documents/CodeMentor/app/data/quality_test_results_{timestamp}.json"
+        filename = str(VAR_DIR / f"quality_test_results_{timestamp}.json")
 
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(self.results, f, ensure_ascii=False, indent=2)

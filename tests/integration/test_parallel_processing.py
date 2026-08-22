@@ -15,6 +15,8 @@ import time
 
 import structlog
 
+from app.core.paths import DATA_DIR
+
 logger = structlog.get_logger(__name__)
 
 # Add parent directory to path
@@ -27,10 +29,10 @@ def test_chunk_order_preservation():
     logger.info("TEST 1: Chunk Order Preservation")
     logger.info("=" * 80)
 
-    from app.services.vector_store_parallel import parse_pdf_parallel
+    from app.infra.vector_store import parse_pdf_parallel
 
     # Test với PDF nhỏ để dễ verify
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    test_pdf = str(DATA_DIR / "pdfs" / "example.pdf")
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -68,9 +70,9 @@ def test_chunk_completeness():
 
     from pdf2image import convert_from_path
 
-    from app.services.vector_store_parallel import parse_pdf_parallel
+    from app.infra.vector_store import parse_pdf_parallel
 
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    test_pdf = str(DATA_DIR / "pdfs" / "example.pdf")
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -118,11 +120,9 @@ def test_sequential_vs_parallel_accuracy():
     logger.info("TEST 3: Sequential vs Parallel Accuracy")
     logger.info("=" * 80)
 
-    from app.services.vector_store import parse_pdf_text2
+    from app.infra.vector_store import parse_pdf_parallel, parse_pdf_text
 
-    from app.services.vector_store_parallel import parse_pdf_parallel
-
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    test_pdf = str(DATA_DIR / "pdfs" / "example.pdf")
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -130,7 +130,7 @@ def test_sequential_vs_parallel_accuracy():
 
     logger.info("📊 Processing with SEQUENTIAL method...")
     start = time.time()
-    seq_result = parse_pdf_text2(test_pdf)
+    seq_result = parse_pdf_text(test_pdf)
     seq_time = time.time() - start
     seq_len = len(seq_result) if seq_result else 0
 
@@ -178,9 +178,9 @@ def test_performance_benchmark():
     logger.info("TEST 4: Performance Benchmark")
     logger.info("=" * 80)
 
-    from app.services.vector_store_parallel import parse_pdf_parallel
+    from app.infra.vector_store import parse_pdf_parallel
 
-    test_pdf = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    test_pdf = str(DATA_DIR / "pdfs" / "example.pdf")
 
     if not os.path.exists(test_pdf):
         logger.info(f"⚠️  Test PDF not found: {test_pdf}")
@@ -236,7 +236,7 @@ def test_error_handling():
     logger.info("TEST 5: Error Handling")
     logger.info("=" * 80)
 
-    from app.services.vector_store_parallel import parse_pdf_parallel
+    from app.infra.vector_store import parse_pdf_parallel
 
     # Test với file không tồn tại
     fake_pdf = "/tmp/nonexistent_file.pdf"

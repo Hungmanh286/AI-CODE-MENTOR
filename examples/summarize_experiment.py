@@ -12,9 +12,10 @@ from langgraph.graph.message import MessagesState
 from openai import OpenAI
 from pdf2image import convert_from_path
 
-from app.config import settings
-from app.graph.generate import generate_agent
-from app.graph.prompts import Prompts
+from app.agents.common.prompts import Prompts
+from app.agents.generator.graph import generate_agent
+from app.core.config import settings
+from app.core.paths import DATA_DIR
 
 logger = structlog.get_logger(__name__)
 
@@ -288,7 +289,7 @@ if __name__ == "__main__":
                 except AttributeError:
                     logger.info(message)
 
-    input_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    input_path = str(DATA_DIR / "pdfs" / "example.pdf")
 
     inputs = {"file_path": input_path, "chunk_size": 10}
 
