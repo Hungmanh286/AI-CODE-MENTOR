@@ -6,7 +6,10 @@ from pydantic import Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import Engine, create_engine
 
-ENV_FILE = "./.env"
+from app.core.paths import ENV_FILE as _ENV_FILE
+from app.core.paths import SETTINGS_DIR
+
+ENV_FILE = str(_ENV_FILE)
 
 
 class GlobalConfig(BaseSettings):
@@ -14,7 +17,9 @@ class GlobalConfig(BaseSettings):
     CORS: Optional[List[str]] = Field(default=["*"])
     VERSION: Optional[str] = Field(default=None)
     APP_ENV: Optional[str] = Field(default="dev")
-    TRACING_ENV_FILE: Optional[str] = Field(default="app/config/tracing_env.json")
+    TRACING_ENV_FILE: Optional[str] = Field(
+        default=str(SETTINGS_DIR / "tracing_env.json")
+    )
 
     # ChatModel
     CHAT_MODEL: Optional[str] = Field(default="gpt-4o-mini")
@@ -60,7 +65,7 @@ class GlobalConfig(BaseSettings):
     SECRET_KEY: Optional[str] = Field(default=None)
     TOKEN_EXPIRE_HOURS: Optional[int] = Field(default=87600)
     ALGORITHM: Optional[str] = Field(default="HS256")
-    ACCOUNT_FILE: Optional[Path] = Field(default=Path("app/config/user.json"))
+    ACCOUNT_FILE: Optional[Path] = Field(default=SETTINGS_DIR / "user.json")
 
     # MinIO Storage
     MINIO_ENDPOINT: Optional[str] = Field(default="localhost:9000")
