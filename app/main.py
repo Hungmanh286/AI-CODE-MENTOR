@@ -1,6 +1,7 @@
 """Main entrypoint for the app."""
 
 import warnings
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -18,8 +19,19 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 load_dotenv()
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Create all database tables on startup if they don't exist."""
+    # Importing app.db.base registers every model with SQLModel metadata.
+    from app.db.base import SQLModel
+
+    SQLModel.metadata.create_all(settings._app_db_engine)
+    yield
+
+
 app = FastAPI(
     title="Chatbot service",
+    lifespan=lifespan,
     openapi_url="/api/v1/openapi.json",
     description="API service for chatbot.",
     redoc_url=None,
@@ -34,15 +46,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-def on_startup():
-    """Create all database tables on startup if they don't exist."""
-    # Importing app.db.base registers every model with SQLModel metadata.
-    from app.db.base import SQLModel
-
-    SQLModel.metadata.create_all(settings._app_db_engine)
 
 
 @app.get("/ping", include_in_schema=False)

@@ -318,4 +318,4 @@ def get_projects_by_session(session_id: str):
         projects = session.exec(
             select(Project).where(Project.session_id == session_id)
         ).all()
-        return {"projects": [p.dict() for p in projects]}
+        return {"projects": [p.model_dump() for p in projects]}

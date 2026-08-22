@@ -642,7 +642,7 @@ def validate(state: QState, config: RunnableConfig):
         if isinstance(response_obj, QuestionList):
             for question in response_obj.selected_questions:
                 # Convert Pydantic Question object to dict
-                all_questions.append(question.dict())
+                all_questions.append(question.model_dump())
         else:
             logger.info(
                 f"Unexpected response type for batch {batch_id}: {type(response_obj)}"
