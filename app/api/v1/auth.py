@@ -1,15 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, Form
-from passlib.context import CryptContext
 from sqlmodel import Session, select
 
 from app.core.config import settings
+from app.core.security import get_password_hash, verify_password
 from app.db.datasource import insert_database
 from app.db.models.user import User
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @router.post("/register")
@@ -21,7 +20,7 @@ async def register(
 ):
     try:
         # Hash password and create user
-        hashed_password = pwd_context.hash(password)
+        hashed_password = get_password_hash(password)
         new_user = User(
             user_id=str(uuid.uuid4()),
             user_name=user_name,
@@ -52,7 +51,7 @@ async def login(
             user = session.exec(select(User).where(User.user_name == user_name)).first()
 
             # Verify user exists and password is correct
-            if not user or not pwd_context.verify(password, user.hashed_password):
+            if not user or not verify_password(password, user.hashed_password):
                 return {"error": "Invalid username or password"}
 
             return {
