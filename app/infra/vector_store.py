@@ -58,7 +58,7 @@ openrouter_client = OpenAI(
     api_key=settings.OPENROUTER_API_KEY,
 )
 
-url = "http://localhost:6333"
+url = settings._qdrant_url
 prompt = Prompts.MARK_DOWN_PROMPT
 
 
@@ -196,7 +196,7 @@ def embedding_document(docs, session_id: str):
     """Embedding documents vào Qdrant vector store"""
     collection_name = session_id
 
-    client = QdrantClient(url="http://localhost:6333")
+    client = QdrantClient(url=settings._qdrant_url)
     existing_collections = [c.name for c in client.get_collections().collections]
 
     splitter = MarkdownHeaderTextSplitter(
