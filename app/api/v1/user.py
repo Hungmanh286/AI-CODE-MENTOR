@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, select
 
-from app.config import settings
-from app.schema.user import User
-from app.services.datasource import insert_database, update_database
+from app.core.config import settings
+from app.db.datasource import insert_database, update_database
+from app.db.models.user import User
 
 router = APIRouter()
 

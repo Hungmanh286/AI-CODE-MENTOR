@@ -5,19 +5,17 @@ import structlog
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
+from app.services.events import get_queue, sse_event_queues
+
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
-
-sse_event_queues = {}
 
 
 @router.get("/sse/notify")
 async def sse_notify(request: Request, session_id: str):
     logger.info(f"[SSE] Client connected: session_id={session_id}")
-    if session_id not in sse_event_queues:
-        sse_event_queues[session_id] = asyncio.Queue()
-    queue = sse_event_queues[session_id]
+    queue = get_queue(session_id)
 
     async def event_generator():
         try:

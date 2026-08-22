@@ -1,16 +1,12 @@
-import json
-import uuid
 
 import structlog
 from fastapi import APIRouter, Form, HTTPException, Query
-from langchain_core.runnables.config import RunnableConfig
 from langfuse.langchain import CallbackHandler
 from sqlmodel import Session, SQLModel, delete, select
 
-from app.config import settings
-from app.schema.question import Project, Question, QuestionOption, SessionProject
-from app.services.datasource import get_active_file_id, insert_database
-from app.services.minio_client import minio_client
+from app.db.datasource import insert_database
+from app.db.models.question import Project, Question, QuestionOption, SessionProject
+from app.infra.minio_client import minio_client
 
 logger = structlog.get_logger(__name__)
 
@@ -18,76 +14,6 @@ router = APIRouter()
 
 tracer = CallbackHandler()
 
-
-async def process_pdf(session_id: str, query: str, document_processing_agent=None):
-    # Gọi question_expert để xử lý PDF và sinh câu hỏi
-    config = RunnableConfig(
-        configurable={"thread_id": session_id, "query": query}, callbacks=[tracer]
-    )
-    result = await document_processing_agent.ainvoke({"query": query}, config)
-    evaluated_result = result["quizz"]
-    questions_data = json.loads(evaluated_result)
-
-    file_ids = get_active_file_id(session_id)
-    file_id = file_ids[0] if file_ids else None
-
-    from app.schema.upload import UploadFileStatus
-
-    engine = settings._app_db_engine
-    with Session(engine) as session:
-        file_record = session.exec(
-            select(UploadFileStatus).where(UploadFileStatus.file_id == file_id)
-        ).first()
-        file_name = file_record.file_name if file_record else "unknown.pdf"
-
-    project_id = str(uuid.uuid4())
-
-    project_data = {
-        "id": project_id,
-        "session_id": session_id,
-        "name": file_name,
-        "source_path": f"{session_id}/{file_name}",
-    }
-
-    insert_database(project_data, Project)
-
-    from app.schema.question import SessionProject
-
-    session_project_data = {"session_id": session_id, "project_id": project_id}
-    try:
-        insert_database(session_project_data, SessionProject)
-    except Exception as e:
-        pass
-        logger.info(f"Error inserting session project: {e}")
-
-    for q in questions_data:
-        question_id = str(uuid.uuid4())
-        question_data = {
-            "id": question_id,
-            "project_id": project_id,
-            "question_id": q["id"],
-            "question": q["question"],
-            "type": q["type"],
-            "difficulty": q.get("difficulty"),
-            "correct_answer": q.get("correct_answer"),
-            "explanation": q.get("explanation"),
-        }
-
-        insert_database(question_data, Question)
-
-        for idx, option_text in enumerate(q.get("options", [])):
-            option_data = {
-                "question_id": question_id,
-                "option_index": idx,
-                "option_text": option_text,
-            }
-            insert_database(option_data, QuestionOption)
-
-    return {
-        "project_id": project_id,
-        "questions": questions_data,
-        "message": f"Đã lưu {len(questions_data)} câu hỏi vào database",
-    }
 
 
 @router.post("/create-session")
@@ -124,7 +50,7 @@ def get_all_sessions():
     """
     Lấy tất cả sessions
     """
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:
@@ -138,7 +64,7 @@ def get_sessions_by_user(user_id: str):
     """
     Lấy tất cả sessions của một user cụ thể
     """
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:
@@ -158,7 +84,7 @@ def get_sessions_by_user(user_id: str):
 
 @router.get("/project-questions/{project_id}")
 def get_questions_by_project(project_id: str):
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:
@@ -186,7 +112,7 @@ def get_questions_by_project(project_id: str):
 
 @router.post("/add_answer/{question_id}")
 def add_answer_to_question(question_id: str, answer: int = Form(...)):
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:
@@ -219,8 +145,8 @@ def delete_session_data(session_id: str, user_id: str = Query(None)):
     """
     Xóa một session cụ thể. Nếu có user_id, sẽ kiểm tra quyền sở hữu.
     """
-    from app.schema.upload import UploadFileStatus
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
+    from app.db.models.upload import UploadFileStatus
 
     engine = ds_settings._app_db_engine
     SQLModel.metadata.create_all(engine)
@@ -294,8 +220,8 @@ def delete_all_user_sessions(user_id: str):
     """
     Xóa tất cả sessions của một user cụ thể
     """
-    from app.schema.upload import UploadFileStatus
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
+    from app.db.models.upload import UploadFileStatus
 
     engine = ds_settings._app_db_engine
     SQLModel.metadata.create_all(engine)
@@ -384,7 +310,7 @@ def delete_all_user_sessions(user_id: str):
 
 @router.get("/session-projects/{session_id}")
 def get_projects_by_session(session_id: str):
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:

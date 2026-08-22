@@ -1,14 +1,14 @@
 from fastapi import APIRouter
 from sqlmodel import Session, select
 
-from app.schema.question import Project, Question
+from app.db.models.question import Project, Question
 
 router = APIRouter()
 
 
 @router.get("/project-scores")
 def get_project_scores():
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:
@@ -40,7 +40,7 @@ def get_project_scores():
 
 @router.get("/project-questions-detail/{project_id}")
 def get_questions_detail_by_project(project_id: str):
-    from app.services.datasource import settings as ds_settings
+    from app.db.datasource import settings as ds_settings
 
     engine = ds_settings._app_db_engine
     with Session(engine) as session:

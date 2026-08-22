@@ -4,9 +4,9 @@ from fastapi import APIRouter, Form
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 
-from app.config import settings
-from app.schema.user import User
-from app.services.datasource import insert_database
+from app.core.config import settings
+from app.db.datasource import insert_database
+from app.db.models.user import User
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
