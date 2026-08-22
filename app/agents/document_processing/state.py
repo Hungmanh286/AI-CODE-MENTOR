@@ -11,7 +11,7 @@ class QState(MessagesState):
     retry_count: int | None = None
     good_questions: list[str] | None = None
     check_questions: str | None = None
-    bad_questions: str | None = None
+    bad_questions: dict[str, list] | None = None
     good_question_answers: list[str] | None = None
     quizz: list[str] | None = None
     query: str | None = None
