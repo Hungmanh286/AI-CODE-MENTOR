@@ -3,10 +3,10 @@ import re
 
 import structlog
 from docling.document_converter import DocumentConverter
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.documents import Document
 from langchain_core.runnables.config import RunnableConfig
 from langchain_qdrant import QdrantVectorStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langgraph.graph import END, START
 from langgraph.graph.state import StateGraph
