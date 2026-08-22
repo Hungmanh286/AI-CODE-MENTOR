@@ -7,8 +7,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.automap import automap_base
 from sqlmodel import Session, SQLModel, Table, inspect, select
 
-from app.config import settings
-from app.schema.upload import UploadFileStatus
+from app.core.config import settings
+from app.db.models.upload import UploadFileStatus
 
 logger = structlog.get_logger(__name__)
 
