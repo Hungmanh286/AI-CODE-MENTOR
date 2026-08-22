@@ -11,14 +11,14 @@ from langchain_qdrant import QdrantVectorStore
 from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langgraph.graph import END, START, StateGraph
 
-from app.chatmodel import init_llm
-from app.config import settings
-from app.graph.prompts import Prompts
-from app.graph.state import (
+from app.agents.base import init_llm
+from app.agents.common.state import (
     State,
     get_conversation_messages,
 )
-from app.schema import MessageName
+from app.agents.question_expert.prompts import Prompts
+from app.core.config import settings
+from app.schemas import MessageName
 
 TOOLS = []
 

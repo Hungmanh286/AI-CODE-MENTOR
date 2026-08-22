@@ -1,7 +1,7 @@
 from langchain.chat_models.base import BaseChatModel
 from langchain_openrouter import ChatOpenRouter
 
-from app.config import settings
+from app.core.config import settings
 
 
 def init_llm(model: str, **kwargs) -> BaseChatModel:

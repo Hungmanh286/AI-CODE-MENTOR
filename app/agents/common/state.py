@@ -10,8 +10,8 @@ from langchain_core.messages import (
 )
 from langgraph.graph.message import MessagesState
 
-from app.config import settings
-from app.schema import MessageName
+from app.core.config import settings
+from app.schemas import MessageName
 
 
 class Question(TypedDict):

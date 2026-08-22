@@ -7,11 +7,11 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import MessagesState
 from tqdm import tqdm
 
-from app.chatmodel import init_llm
-from app.config import settings
-from app.graph.prompts import Prompts
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
+from app.agents.base import init_llm
+from app.agents.common.prompts import Prompts
+from app.core.config import settings
+from app.db.datasource import get_active_file_id
+from app.infra.minio_client import minio_client
 
 logger = structlog.get_logger(__name__)
 
