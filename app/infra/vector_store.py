@@ -17,8 +17,8 @@ from pdf2image import convert_from_path
 from qdrant_client import QdrantClient
 from tqdm import tqdm
 
-from app.config import settings
-from app.graph.prompts import Prompts
+from app.core.config import settings
+from app.infra.prompts import Prompts
 
 logger = structlog.get_logger(__name__)
 
