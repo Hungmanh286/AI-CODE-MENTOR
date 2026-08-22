@@ -1,7 +1,7 @@
 from fastapi import Header, HTTPException, status
 
-from app.schema import UserToken
-from app.services import verify_access_token
+from app.core.security import verify_access_token
+from app.schemas import UserToken
 
 
 def validate_token_http(authorization: str = Header(...)):

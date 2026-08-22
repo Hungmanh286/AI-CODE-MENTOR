@@ -21,10 +21,12 @@ from redis.asyncio import ConnectionPool
 from redis.asyncio import Redis as AsyncRedis
 from starlette.websockets import WebSocketState
 
-from app.config import settings
-from app.graph.workflow import build_workflow, invoke_workflow  # noqa
-from app.schema import ChatResponse, ChatType, ErrorCode, Role, UserToken
-from app.services import UserUsage, safe_send, verify_access_token
+from app.core.config import settings
+from app.core.security import verify_access_token
+from app.core.websocket import safe_send
+from app.infra.ratelimit import UserUsage
+from app.orchestrator import build_workflow, invoke_workflow  # noqa
+from app.schemas import ChatResponse, ChatType, ErrorCode, Role, UserToken
 
 logger = structlog.get_logger(__name__)
 

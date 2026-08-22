@@ -5,10 +5,10 @@ from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from jose import jwt
 
-from app.config import settings
-from app.error import UnauthorizedException
-from app.schema.authen import UserInDB
-from app.services.gentoken import verify_password
+from app.core.config import settings
+from app.core.errors import UnauthorizedException
+from app.core.security import verify_password
+from app.schemas.auth import UserInDB
 
 logger = structlog.get_logger(__name__)
 

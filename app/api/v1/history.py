@@ -1,7 +1,7 @@
 import requests
 from fastapi import APIRouter
 
-from app.config import settings
+from app.core.config import settings
 
 LANGFUSE_HOST = settings.LANGFUSE_HOST
 LANGFUSE_PUBLIC_KEY = settings.LANGFUSE_PUBLIC_KEY

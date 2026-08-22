@@ -1,8 +1,8 @@
 import structlog
 from fastapi import APIRouter, Form, status
 
-from app.schema.lesson import Lesson
-from app.services.datasource import insert_database
+from app.db.datasource import insert_database
+from app.db.models.lesson import Lesson
 
 logger = structlog.get_logger(__name__)
 
