@@ -32,6 +32,11 @@ class GlobalConfig(BaseSettings):
     # OpenRouter
     OPENROUTER_API_KEY: Optional[str] = Field(default=None)
 
+    # Vector store
+    QDRANT_HOST: Optional[str] = Field(default="localhost")
+    QDRANT_PORT: Optional[int] = Field(default=6333)
+    QDRANT_GRPC_PORT: Optional[int] = Field(default=6334)
+
     EMBEDDING_KEY: Optional[str] = Field(default=None)
     EMBEDDING_MODEL: Optional[str] = Field(default="voyage-3-large")
     EMBEDDING_DIMS: Optional[int] = Field(default=1024)
@@ -91,6 +96,7 @@ class GlobalConfig(BaseSettings):
     _tracing_env: dict = PrivateAttr()
     _tracing_projectid: str = PrivateAttr()
     _app_db_uri: str = PrivateAttr()
+    _qdrant_url: str = PrivateAttr()
     _app_db_engine: Engine = PrivateAttr()
 
     model_config = SettingsConfigDict(
@@ -117,6 +123,8 @@ class GlobalConfig(BaseSettings):
             f"@{self.APP_DB_HOST}:{self.APP_DB_PORT}/{self.APP_DB}"
         )
         self._app_db_engine = create_engine(self._app_db_uri)
+
+        self._qdrant_url = f"http://{self.QDRANT_HOST}:{self.QDRANT_PORT}"
 
 
 settings = GlobalConfig()

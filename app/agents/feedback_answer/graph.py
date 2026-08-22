@@ -38,7 +38,7 @@ embeddings = VoyageAIEmbeddings(
     output_dimension=settings.EMBEDDING_DIMS,
 )
 
-url = "http://localhost:6333"
+url = settings._qdrant_url
 
 
 def encode_image(image_path):

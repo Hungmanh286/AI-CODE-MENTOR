@@ -41,7 +41,7 @@ embeddings = VoyageAIEmbeddings(
     model=settings.EMBEDDING_MODEL,
     output_dimension=settings.EMBEDDING_DIMS,
 )
-url = "http://localhost:6333"
+url = settings._qdrant_url
 
 
 # step 1 : node chunk pdf
@@ -165,7 +165,7 @@ def information_retriever(state: State, config: RunnableConfig) -> str:
     vector_store = QdrantVectorStore.from_existing_collection(
         embedding=embeddings,
         collection_name=collection_name,
-        url="http://localhost:6333",
+        url=settings._qdrant_url,
     )
     doc_retriever = vector_store.as_retriever(
         search_kwargs={"k": 10},
