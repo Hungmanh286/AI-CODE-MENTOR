@@ -3,7 +3,7 @@ from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-from app.agents.question_expert import question_expert
+from app.agents.question_expert import question_agent
 
 load_dotenv()
 
@@ -14,7 +14,7 @@ sdk = CopilotKitRemoteEndpoint(
         LangGraphAGUIAgent(
             name="generate_question",
             description="Manages question",
-            graph=question_expert,
+            graph=question_agent,
         )
     ],
 )
