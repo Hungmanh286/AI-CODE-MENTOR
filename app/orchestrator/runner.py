@@ -1,53 +1,18 @@
+"""Drive the root workflow for one websocket turn and stream the answer back."""
+
 import uuid
 
 import structlog
-from dotenv import load_dotenv
 from fastapi import WebSocket
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 from langfuse.langchain import CallbackHandler
-from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from app.graph.node import (
-    answer_node,
-    documents_node,
-    tool_calls_node,
-    tools_node,
-)
-from app.graph.state import State
-from app.schema import ChatResponse, ChatType, ErrorCode, MessageName, Role, UserToken
-from app.services import safe_send
+from app.core.websocket import safe_send
+from app.schemas import ChatResponse, ChatType, ErrorCode, MessageName, Role, UserToken
 
 logger = structlog.get_logger(__name__)
-
-load_dotenv()
-
-
-def build_workflow():
-    """Build langgraph workflow with structured routing and separate answer nodes."""
-    workflow = StateGraph(State)
-
-    nodes = {
-        MessageName.agent: tool_calls_node,
-        "tools": tools_node,
-        "documents_node": documents_node,
-        MessageName.answer: answer_node,
-    }
-
-    for node_name, action in nodes.items():
-        workflow.add_node(node_name, action)
-
-    workflow.add_edge(START, MessageName.agent)
-    workflow.add_edge(MessageName.agent, "tools")
-    workflow.add_edge("tools", END)
-    # workflow.add_edge("documents_node", MessageName.answer)
-    # workflow.add_edge(MessageName.answer, END)
-
-    return workflow
-
-
-# Function suggest2str removed - no longer using suggest questions feature
 
 
 async def invoke_workflow(
@@ -135,10 +100,3 @@ async def invoke_workflow(
                 tracer.flush()
         except Exception as tracer_err:
             logger.info(f"Failed to flush tracer: {tracer_err}")
-
-
-if __name__ == "__main__":
-    workflow = build_workflow()
-    graph = workflow.compile()
-    # display(Image(graph.get_graph(xray=True).draw_mermaid_png()))
-    graph.get_graph().draw_mermaid_png(output_file_path="graph.png")

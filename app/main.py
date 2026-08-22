@@ -8,8 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
-from app.config import settings
-from app.routes import Routers
+from app.api.router import api_router
+from app.core.config import settings
 
 warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -39,11 +39,8 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     """Create all database tables on startup if they don't exist."""
-    from sqlmodel import SQLModel
-
-    # Import all models so they are registered with SQLModel metadata
-    from app.schema.question import Project, Question, QuestionOption, SessionProject  # noqa: F401
-    from app.schema.upload import UploadFileStatus  # noqa: F401
+    # Importing app.db.base registers every model with SQLModel metadata.
+    from app.db.base import SQLModel
 
     SQLModel.metadata.create_all(settings._app_db_engine)
 
@@ -62,16 +59,9 @@ async def scalar_html():
     )
 
 
-app.include_router(Routers.chat_router, prefix="", tags=["Chatws"])
-app.include_router(Routers.user_router, prefix="", tags=["User"])
-app.include_router(Routers.progress_user_router, prefix="", tags=["ProgressUser"])
-app.include_router(Routers.lesson_router, prefix="", tags=["Lesson"])
-app.include_router(Routers.upload_pdf_router, prefix="", tags=["UploadPDF"])
-app.include_router(Routers.process_data_router, prefix="", tags=["ProcessData"])
-app.include_router(Routers.history_chat_router, prefix="", tags=["HistoryChat"])
-app.include_router(Routers.notify_router, prefix="", tags=["Notify"])
-app.include_router(Routers.auth_router, prefix="", tags=["Auth"])
-app.include_router(Routers.mindmap_router, prefix="", tags=["MindMap"])
+app.include_router(api_router)
+
+
 if __name__ == "__main__":
     import uvicorn
 

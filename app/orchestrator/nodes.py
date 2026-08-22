@@ -13,36 +13,24 @@ from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.prebuilt import ToolNode
 
-from app.chatmodel import init_llm
-from app.config import settings
-from app.graph.agents.document_processing import (
-    answer_tool,
-    document_processing_tool,
-    mindmap_tool,
-    question_generation_tool,
-    summary_tool,
-)
-from app.graph.generate import generate_agent
-from app.graph.prompts import Prompts
-from app.graph.state import (
+from app.agents.base import init_llm
+from app.agents.common.prompts import Prompts
+from app.agents.common.state import (
     State,
     filter_message,
     get_conversation_messages,
     get_tool_messages,
 )
-from app.schema import MessageName
+from app.agents.generator.graph import generate_agent
+from app.agents.registry import AGENT_TOOLS
+from app.core.config import settings
+from app.schemas import MessageName
 
 logger = structlog.get_logger(__name__)
 
-# from app.graph.tools import retriever_tool
+# from app.agents.tools import retriever_tool
 
-TOOLS = [
-    document_processing_tool,
-    mindmap_tool,
-    answer_tool,
-    question_generation_tool,
-    summary_tool,
-]
+TOOLS = AGENT_TOOLS
 
 try:
     # LLM: Generate answer
