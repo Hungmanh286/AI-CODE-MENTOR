@@ -1,11 +1,11 @@
 import json
-from pathlib import Path
 
 import structlog
 from langfuse.langchain import CallbackHandler
 
-from app.chatmodel import init_llm
-from app.config import settings
+from app.agents.base import init_llm
+from app.core.config import settings
+from app.core.paths import VAR_DIR
 
 logger = structlog.get_logger(__name__)
 
@@ -75,8 +75,8 @@ def test_summarize_agent():
     )
 
     # Đường dẫn thư mục
-    mindmap_dir = Path("/home/hungmanh/Documents/CodeMentor/app/data/data_mindmap")
-    results_dir = Path("/home/hungmanh/Documents/CodeMentor/app/tests/results")
+    mindmap_dir = VAR_DIR / "mindmaps"
+    results_dir = VAR_DIR / "eval_results"
     results_dir.mkdir(exist_ok=True)
 
     # Lấy danh sách file results đã có

@@ -6,6 +6,8 @@ import typing_extensions as typing
 from docling.document_converter import DocumentConverter
 from google import genai
 
+from app.core.paths import DATA_DIR
+
 logger = structlog.get_logger(__name__)
 
 client = genai.Client(api_key="AIzaSyCNaj6br2Z27r68fQ_SpHzN_1wBxs4KalE")
@@ -96,7 +98,7 @@ if __name__ == "__main__":
     related_passage = "Java là ngôn ngữ lập trình hướng đối tượng (tựa C++) do Sun Microsystem đưa ra vào giữa thập niên 90. Chương trình viết bằng ngôn ngữ lập trình java có thể chạy trên bất kỳ hệ thống nào có cài máy ảo java Năm 1990: James Gosling và các cộng sự của Công ty Sun Microsystems tham gia dự án Green Team - xây dựng công nghệ mới cho ngành điện tử tiêu dùng (cho các thiết bị điện dân dụng). Để giải quyết vấn đề này nhóm nghiên cứu phát triển đã xây dựng một ngôn ngữ lập trình rất đơn giản cho các hệ máy có thể chạy trên nhiều nền phần cứng khác nhau. Năm 1993 world wide web bắt đầu phát triển. Năm 1994, Sun đưa ra trình duyệt web viết bằng ngôn ngữ oak là webrunner, sau đổi tên thành hostJava. Sau đó, Sun đổi tên oak thành Java và được giới thiệu năm 1995 tại Sunworld 1995."
 
     passages = extract_passages(
-        pdf_or_txt_path="/home/hungmanh/Documents/CodeMentor/app/data/xg8btwgv034yvs1zasbnx_docs.txt"
+        pdf_or_txt_path=str(DATA_DIR / "xg8btwgv034yvs1zasbnx_docs.txt")
     )
 
     # Test với các insert_indices khác nhau: 1, 5, 10, 15, 20

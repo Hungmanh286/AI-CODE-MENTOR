@@ -3,7 +3,7 @@ import asyncio
 import structlog
 from langchain_core.messages import HumanMessage
 
-from app.graph.agents.feedbacks_answer import feedbacks_answer
+from app.agents.feedback_answer import feedbacks_answer
 
 logger = structlog.get_logger(__name__)
 

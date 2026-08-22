@@ -21,10 +21,13 @@ logger = structlog.get_logger(__name__)
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from app.services.vector_store import embedding_document, parse_pdf_text2  # noqa: E402
-
-from app.config.parallel_config import ParallelProcessingConfig, Presets  # noqa: E402
-from app.services.vector_store_parallel import parse_pdf_parallel  # noqa: E402
+from app.core.paths import DATA_DIR
+from app.core.settings.parallel import ParallelProcessingConfig, Presets  # noqa: E402
+from app.infra.vector_store import (  # noqa: E402
+    embedding_document,
+    parse_pdf_parallel,  # noqa: E402
+    parse_pdf_text,
+)
 
 
 def example_1_basic_usage():
@@ -33,7 +36,7 @@ def example_1_basic_usage():
     logger.info("EXAMPLE 1: Basic Parallel Processing")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    pdf_path = str(DATA_DIR / "pdfs" / "example.pdf")
 
     result = parse_pdf_parallel(file_path=pdf_path, use_gemini=True, max_workers=50)
 
@@ -66,12 +69,12 @@ def example_3_compare_sequential_vs_parallel():
     logger.info("EXAMPLE 3: Sequential vs Parallel Comparison")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    pdf_path = str(DATA_DIR / "pdfs" / "example.pdf")
 
     # Sequential
     logger.info("\n📊 Sequential Processing...")
     start = datetime.datetime.now()
-    parse_pdf_text2(pdf_path)
+    parse_pdf_text(pdf_path)
     seq_duration = (datetime.datetime.now() - start).total_seconds()
     logger.info(f"✅ Sequential: {seq_duration:.2f}s")
 
@@ -93,7 +96,7 @@ def example_4_error_handling():
     logger.info("EXAMPLE 4: Error Handling")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    pdf_path = str(DATA_DIR / "pdfs" / "example.pdf")
 
     try:
         result = parse_pdf_parallel(pdf_path)
@@ -103,7 +106,7 @@ def example_4_error_handling():
         logger.info("🔄 Falling back to sequential processing...")
 
         try:
-            result = parse_pdf_text2(pdf_path)
+            result = parse_pdf_text(pdf_path)
             logger.info(f"✅ Fallback success: {len(result):,} characters")
         except Exception as e2:
             logger.info(f"❌ Both methods failed: {e2}")
@@ -116,7 +119,7 @@ def example_5_integration_with_vector_store():
     logger.info("EXAMPLE 5: Integration with Vector Store")
     logger.info("=" * 80)
 
-    pdf_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    pdf_path = str(DATA_DIR / "pdfs" / "example.pdf")
     session_id = f"test_session_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
     # Step 1: Parse PDF (parallel)
@@ -141,7 +144,7 @@ def example_6_batch_processing():
     import glob
 
     # Find all PDFs in data directory
-    pdf_files = glob.glob("/home/hungmanh/Documents/CodeMentor/app/data/pdfs/*.pdf")
+    pdf_files = glob.glob(str(DATA_DIR / "pdfs" / "*.pdf"))
 
     if not pdf_files:
         logger.info("⚠️  No PDF files found in data directory")
