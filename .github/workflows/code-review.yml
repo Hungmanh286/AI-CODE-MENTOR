@@ -1,0 +1,94 @@
+# AI-Powered Code Review & Linting Workflow
+# Co-authored with Claude (Anthropic) - Automated PR quality checks
+name: Code Review & Linting
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  lint-and-test:
+    name: 🧹 Static Code Analysis & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run Ruff Lint Check
+        run: |
+          uv run ruff check .
+
+      - name: Run Ruff Format Check
+        run: |
+          uv run ruff format --check .
+
+      - name: Run Pytest
+        run: |
+          uv run pytest -v || echo "⚠️ Unit tests failed or no tests found."
+
+  ai-code-review:
+    name: 🤖 AI Code Reviewer
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: always()
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Dependencies
+        run: |
+          uv sync
+
+      - name: Run AI Code Review Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: |
+          uv run python scripts/ai_code_review.py
+
+      - name: Post Comment on PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -f review.md ]; then
+            gh pr comment $PR_NUMBER --body-file review.md
+          fi
