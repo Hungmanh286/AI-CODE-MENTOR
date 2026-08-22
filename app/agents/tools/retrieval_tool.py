@@ -13,11 +13,11 @@ from langgraph.graph.state import StateGraph
 from qdrant_client import QdrantClient
 from sqlmodel import Session, select
 
-from app.config import settings
-from app.graph.state import State
-from app.schema.upload import UploadFileStatus
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
+from app.agents.common.state import State
+from app.core.config import settings
+from app.db.datasource import get_active_file_id
+from app.db.models.upload import UploadFileStatus
+from app.infra.minio_client import minio_client
 
 logger = structlog.get_logger(__name__)
 

@@ -15,16 +15,17 @@ from langchain_voyageai.embeddings import VoyageAIEmbeddings
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
-from app.config import settings
-from app.graph.generate import generate_agent
-from app.graph.prompts import Prompts
-from app.graph.state import (
+from app.agents.common.state import (
     State,
     get_conversation_messages,
 )
-from app.schema import MessageName
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
+from app.agents.feedback_answer.prompts import Prompts
+from app.agents.generator.graph import generate_agent
+from app.core.config import settings
+from app.core.paths import VAR_DIR
+from app.db.datasource import get_active_file_id
+from app.infra.minio_client import minio_client
+from app.schemas import MessageName
 
 logger = structlog.get_logger(__name__)
 
@@ -175,7 +176,6 @@ def documents_node(state: State, config: RunnableConfig) -> dict:
 async def answer_node(state: State, config: RunnableConfig):
     """Đánh giá chất lượng câu hỏi sinh ra từ tài liệu."""
     import json
-    from pathlib import Path
 
     documents = state.get("documents", [])
     question = get_human_message_content(state)
@@ -208,7 +208,7 @@ async def answer_node(state: State, config: RunnableConfig):
     content = response_msg["messages"][-1].content
 
     # Lưu query, context và answer vào file JSON
-    log_dir = Path("/home/hungmanh/Documents/CodeMentor/app/data/query_logs")
+    log_dir = VAR_DIR / "query_logs"
     log_dir.mkdir(exist_ok=True, parents=True)
 
     # Chỉ lấy page_content từ docs

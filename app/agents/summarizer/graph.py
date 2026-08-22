@@ -8,14 +8,15 @@ from langfuse.langchain import CallbackHandler
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import MessagesState
 
-from app.chatmodel import init_llm
-from app.config import settings
-from app.graph.generate import generate_agent
-from app.graph.prompts import Prompts
-from app.routes.mindmap import create_mindmap
-from app.schema.mindmap import MindMap
-from app.services.datasource import get_active_file_id
-from app.services.minio_client import minio_client
+from app.agents.base import init_llm
+from app.agents.common.prompts import Prompts
+from app.agents.generator.graph import generate_agent
+from app.core.config import settings
+from app.core.paths import DATA_DIR
+from app.db.datasource import get_active_file_id
+from app.db.models.mindmap import MindMap
+from app.infra.minio_client import minio_client
+from app.services.mindmap_service import create_mindmap
 
 logger = structlog.get_logger(__name__)
 
@@ -258,7 +259,7 @@ if __name__ == "__main__":
                 except AttributeError:
                     logger.info(message)
 
-    input_path = "/home/hungmanh/Documents/CodeMentor/app/data/pdfs/example.pdf"
+    input_path = str(DATA_DIR / "pdfs" / "example.pdf")
 
     inputs = {"file_path": input_path, "chunk_size": 10}
 
