@@ -16,6 +16,21 @@ AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant a
 - **Observability**: Integrated LLM tracing and monitoring using Langfuse.
 - **Interactive API Documentation**: Modern API documentation served via Scalar at `/apidocs`.
 
+## Multi-Agent Architecture
+
+AI Code Mentor employs a **Multi-Agent** architecture orchestrated by LangGraph to handle complex pedagogical tasks. 
+
+1. **WebSocket Entry Point**: All interactions flow through the real-time WebSocket API (`/chat/pedagogical`).
+2. **The Orchestrator (Supervisor)**: Incoming messages are processed by a central `tool_calls_node` (`app/orchestrator/nodes.py`). Using LLM tool-calling capabilities, the orchestrator analyzes the user's intent and routes the request to the appropriate specialized sub-agent.
+3. **Specialized Sub-Agents**:
+   - **Mind Map Agent (`mindmap_tool`)**: Triggered by keywords like "tạo mind map" hoặc "bản đồ tư duy". It delegates to `pdf_summarize_agent` to generate a visual mind map, saves the output to MinIO, and streams status updates back to the client via Server-Sent Events (SSE) over the WebSocket.
+   - **Quiz Generation Agents**: 
+     - `using_to_create_questions_for_document`: A heavy-duty agent that evaluates the entire document to generate a comprehensive set of quizzes.
+     - `question_generation_tool`: A lightweight agent focused on fast, targeted question generation for specific chapters or sections.
+   - **Summarization & Q&A Agents**: (`summary_tool`, `answer_tool`) Specialized agents for summarizing text and answering specific document-related questions.
+
+This modular architecture allows each agent to use its own optimized prompts, LLMs, and workflows while presenting a unified, intelligent chat interface to the user.
+
 ## Tech Stack
 
 - Python 3.11+
