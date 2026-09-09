@@ -14,7 +14,6 @@ from langchain_core.runnables.config import RunnableConfig
 from langgraph.prebuilt import ToolNode
 
 from app.agents.base import init_llm
-from app.agents.common.prompts import Prompts
 from app.agents.common.state import (
     State,
     filter_message,
@@ -24,6 +23,7 @@ from app.agents.common.state import (
 from app.agents.generator.graph import generate_agent
 from app.agents.registry import AGENT_TOOLS
 from app.core.config import settings
+from app.orchestrator.prompts import Prompts
 from app.schemas import MessageName
 
 logger = structlog.get_logger(__name__)
@@ -57,33 +57,8 @@ async def tool_calls_node(state: State, config: RunnableConfig):
     """Generate tool call and determine routing."""
     conversation_messages = filter_message(state)
     user_query = conversation_messages[-1].content if conversation_messages else ""
-    prompt_tool_choice = f"""Bạn là một trợ lý AI thông minh. Nhiệm vụ của bạn là chọn đúng công cụ để xử lý yêu cầu của người dùng.
-
-DANH SÁCH CÔNG CỤ:
-1. `using_to_create_questions_for_document`: Tạo câu hỏi trắc nghiệm TOÀN DIỆN từ toàn bộ tài liệu (xử lý chậm, đầy đủ, có đánh giá chất lượng).
-2. `question_generation_tool`: Tạo câu hỏi trắc nghiệm NHANH từ chương/phần cụ thể trong tài liệu (xử lý nhanh, tập trung vào một phần).
-3. `mindmap_tool`:  Tạo mind map.
-4. `answer_tool`: Trả lời câu hỏi, giải thích, hỏi đáp thông thường từ tài liệu.
-5. "summary_tool": Tóm tắt nội dung tài liệu.
-
-Yêu cầu của người dùng: "{user_query}"
-
-QUY TẮC LỰA CHỌN:
-- Nếu yêu cầu "mind map", "bản đồ tư duy" → Chọn `mindmap_tool`
-- Nếu yêu cầu "tạo câu hỏi từ TOÀN BỘ tài liệu", "quiz toàn diện", "bài kiểm tra đầy đủ", "tạo câu hỏi", nếu bạn khó xác định mặc định dùng tool này → Chọn `using_to_create_questions_for_document`
-- Nếu yêu cầu "tạo câu hỏi về CHƯƠNG X", "quiz về PHẦN Y", "câu hỏi nhanh từ đoạn Z" → Chọn `question_generation_tool`
-- Nếu yêu cầu "tóm tắt tài liệu", "tóm tắt nội dung", "tổng hợp" → Chọn `summary_tool`
-- Nếu là câu hỏi thông thường, giải thích, hỏi đáp, hoặc không rõ ràng → Chọn `answer_tool`
-
-PHÂ
-N BIỆT QUAN TRỌNG:
-- `using_to_create_questions_for_document`: Xử lý TOÀN BỘ tài liệu, có quy trình đánh giá chất lượng, tốn thời gian.
-- `question_generation_tool`: Xử lý NHANH từ một PHẦN cụ thể, phù hợp khi người dùng chỉ định chương/phần.
-
-Nếu không chắc chắn, mặc định sử dụng `answer_tool`."""
-    response = await llm_with_tools.ainvoke(
-        [HumanMessage(content=prompt_tool_choice)], config
-    )
+    prompt_tool_choice = Prompts.TOOL_CHOICE_PROMPT.format(user_query=user_query)
+    response = await llm_with_tools.ainvoke([HumanMessage(content=prompt_tool_choice)], config)
     response.name = MessageName.agent
     query = user_query
     try:
@@ -150,7 +125,7 @@ def documents_node(state: State) -> dict:
 
 # Step 4: Generate a response using the retrieved content.
 async def answer_node(
-    state: State, config: RunnableConfig, system_prompt_content: Prompts = None
+    state: State, config: RunnableConfig, system_prompt_content: str | None = None
 ):
     """Generate answer for questions."""
 
@@ -176,7 +151,7 @@ async def answer_node(
     else:
         docs_content = "No relevant documents found."
 
-    system_message = SystemMessage(content=system_prompt_content)
+    system_message = SystemMessage(content=system_prompt_content or "")
 
     # Create system context with document content
     context_prefix = "Use the following documents as context for your response:"
@@ -213,8 +188,7 @@ async def next_questions_node(state: State, config: RunnableConfig):
     related_questions = "abc"
 
     candidate_questions = (
-        "\n".join([f"- {q.strip()}" for q in set(related_questions) if q.strip()])
-        or "[]"
+        "\n".join([f"- {q.strip()}" for q in set(related_questions) if q.strip()]) or "[]"
     )
 
     full_conversation_messages = get_conversation_messages(state, aimessage_name=[])
@@ -229,12 +203,10 @@ async def next_questions_node(state: State, config: RunnableConfig):
     )
     conversation_questions = [msg.content for msg in conversation_messages]
     last_questions = (
-        "\n".join([f"- {q.strip()}" for q in set(conversation_questions) if q.strip()])
-        or "[]"
+        "\n".join([f"- {q.strip()}" for q in set(conversation_questions) if q.strip()]) or "[]"
     )
 
-    nextquestion_system_prompt = "Hãy gợi ý các câu hỏi tiếp theo"
-    system_message_content = nextquestion_system_prompt.format(
+    system_message_content = Prompts.NEXT_QUESTIONS_PROMPT.format(
         candidate_questions=candidate_questions, last_questions=last_questions
     )
     llm_questions = llm.model_copy(update={"tags": ["questions"]})

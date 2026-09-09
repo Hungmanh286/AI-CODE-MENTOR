@@ -3,49 +3,60 @@
 
 class Prompts:
     QUESTIONS_GEN_PROMPT = """
-Bạn là chuyên gia tạo câu hỏi trắc nghiệm cho môn lập trình hướng đối tượng bằng Java.
-Hãy tạo câu hỏi trắc nghiệm đòi hỏi hiểu sâu, tư duy phản biện, và phân tích chi tiết dựa vào tài liệu nguồn bên dưới.
-Các câu hỏi không chỉ ghi nhớ thông tin đơn thuần, mà còn hướng đến các mức tư duy cao hơn như phân tích, tổng hợp, và đánh giá.
+Bạn là chuyên gia biên soạn đề thi trắc nghiệm chuyên ngành công nghệ thông tin và khoa học máy tính.
+Nhiệm vụ: Phân tích kỹ tài liệu nguồn dưới đây và biên soạn 10 câu hỏi trắc nghiệm chất lượng cao, đánh giá chính xác năng lực tư duy, hiểu bản chất và kỹ năng phân tích kỹ thuật.
 
-CÁC BƯỚC THỰC HIỆN:
-1. Xác định các khái niệm hoặc thuật ngữ quan trọng trong tài liệu và hiểu rõ định nghĩa hoặc vai trò của chúng.
-2. Xác định mối quan hệ giữa các khái niệm (so sánh, đối lập, liên kết, phụ thuộc) trong tài liệu nguồn.
-3. Xác định các ví dụ hoặc ứng dụng được nhắc đến, đặc biệt là các ví dụ code.
-4. Mỗi câu hỏi phải tập trung vào MỘT khái niệm duy nhất trong tài liệu nguồn bên dưới.
-5. Tạo 4 lựa chọn (options) trong đó phải có ít nhất 2 lựa chọn nhiễu (distractors) hợp lý, liên quan đến chủ đề để gây khó khăn cho người học.
-6. Viết lời giải thích (explanation) chi tiết cho đáp án đúng.
+QUY TRÌNH THỰC HIỆN:
+1. Xác định các khái niệm, định nghĩa, cơ chế và ứng dụng thực tiễn trong tài liệu nguồn.
+2. Thiết kế câu hỏi độc lập, rõ ràng, tập trung vào trọng tâm kiến thức, không gây hiểu lầm.
+3. Tạo 4 phương án lựa chọn (bắt đầu bằng "A. ", "B. ", "C. ", "D. ") với 1 đáp án chính xác và 3 phương án nhiễu có tính thuyết phục cao.
+4. Cung cấp lời giải thích (explanation) rõ ràng vì sao đáp án đó đúng và nguyên nhân các phương án khác chưa chính xác.
 
-YÊU CẦU SỐ LƯỢNG CÂU HỎI & MỨC ĐỘ KHÓ (difficulty): 
-- 4 câu easy
-- 3 câu medium
-- 3 câu hard
-(Tổng cộng 10 câu hỏi)
+YÊU CẦU SỐ LƯỢNG VÀ MỨC ĐỘ KHÓ (TỔNG 10 CÂU):
+- 4 câu easy (nhận biết, định nghĩa cơ bản)
+- 3 câu medium (vận dụng quy tắc, truy vết logic, đọc hiểu mã nguồn ngắn)
+- 3 câu hard (vận dụng cao, phân tích tình huống phức tạp, tối ưu hoặc khắc phục lỗi)
 
-YÊU CẦU ĐẦU RA:
-- Trả về **danh sách JSON** duy nhất theo đúng cấu trúc bên dưới.
-- **Không giải thích gì thêm ngoài JSON.**
-- Mỗi câu hỏi phải độc lập, không trùng ý, không lặp ý.
+QUY TẮC CỐT LÕI - CHỐNG THIÊN VỊ VỊ TRÍ ĐÁP ÁN (ANTI-BIAS):
+- Vị trí đáp án đúng ("correct_answer") PHẢI ĐƯỢC PHÂN BỔ CÂN BẰNG VÀ NGẪU NHIÊN giữa các chỉ số 0 (A), 1 (B), 2 (C), 3 (D) trên toàn bộ 10 câu hỏi.
+- TUYỆT ĐỐI KHÔNG để tất cả hoặc phần lớn đáp án đúng rơi vào cùng một vị trí (đặc biệt là không được để toàn bộ vị trí 0).
 
-CẤU TRÚC JSON (BẮT BUỘC):
+ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
+- Trả về DUY NHẤT một mảng JSON (Raw JSON) theo cấu trúc mẫu bên dưới.
+- Không bọc trong backticks markdown (```json), không thêm ghi chú hay lời dẫn ngoài JSON.
+- Không sử dụng dấu comment (//) trong chuỗi JSON.
+
+CẤU TRÚC JSON MẪU:
 [
-  {{"id":"q1",
-    "type":"multiple_choice",
-    "difficulty":"easy", 
-    "question":"Câu hỏi được tạo ra từ tài liệu nguồn, phải ngắn gọn và rõ ràng.",
-    "options":["A. Lựa chọn đúng","B. Lựa chọn nhiễu 1 (phải hợp lý)","C. Lựa chọn nhiễu 2 (phải hợp lý)","D. Lựa chọn nhiễu 3 (phải hợp lý)"],
-    "correct_answer":0, 
-    "explanation":"Giải thích chi tiết tại sao đáp án này là đúng và giải thích ngắn gọn tại sao các nhiễu là sai."
+  {{
+    "id": "q1",
+    "type": "multiple_choice",
+    "difficulty": "easy",
+    "question": "Nội dung câu hỏi thứ nhất?",
+    "options": [
+      "A. Lựa chọn nhiễu 1",
+      "B. Lựa chọn đúng",
+      "C. Lựa chọn nhiễu 2",
+      "D. Lựa chọn nhiễu 3"
+    ],
+    "correct_answer": 1,
+    "explanation": "Giải thích chi tiết vì sao phương án B là chính xác..."
   }},
-  // Thêm các câu hỏi khác ở các mức độ medium và hard tương ứng
+  {{
+    "id": "q2",
+    "type": "multiple_choice",
+    "difficulty": "medium",
+    "question": "Nội dung câu hỏi thứ hai?",
+    "options": [
+      "A. Lựa chọn nhiễu 1",
+      "B. Lựa chọn nhiễu 2",
+      "C. Lựa chọn đúng",
+      "D. Lựa chọn nhiễu 3"
+    ],
+    "correct_answer": 2,
+    "explanation": "Giải thích chi tiết vì sao phương án C là chính xác..."
+  }}
 ]
-
-LƯU Ý QUAN TRỌNG:
-- Trường "id" phải là duy nhất (ví dụ: q1, q2, q3...).
-- Trường "type" luôn là "multiple_choice".
-- Trường "difficulty" phải là "easy", "medium" hoặc "hard" theo đúng yêu cầu số lượng.
-- Trường "correct_answer" phải là chỉ số số nguyên từ 0 đến 3 (tương ứng với A, B, C, D).
-- Có 1–2 câu hỏi nên yêu cầu đọc hiểu hoặc phân tích code.
-- Tất cả câu hỏi phải khác nhau và không bị trùng ý.
 
 TÀI LIỆU NGUỒN:
 {document}
