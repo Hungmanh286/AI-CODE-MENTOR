@@ -59,7 +59,7 @@ def image_to_text(image_path):
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "chuyển ảnh sang text"},
+                    {"type": "text", "text": Prompts.IMAGE_TO_TEXT_PROMPT.strip()},
                     {
                         "type": "image_url",
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
@@ -221,7 +221,7 @@ async def answer_node(state: State, config: RunnableConfig):
 
     # Append vào file nếu đã tồn tại, hoặc tạo mới
     if log_file.exists():
-        with open(log_file, "r", encoding="utf-8") as f:
+        with open(log_file, encoding="utf-8") as f:
             existing_data = json.load(f)
         if not isinstance(existing_data, list):
             existing_data = [existing_data]

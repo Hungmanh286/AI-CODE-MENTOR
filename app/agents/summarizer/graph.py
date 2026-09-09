@@ -97,12 +97,8 @@ def extractive_node(state: QState, config: RunnableConfig):
             total_splits = len(splits)
 
         for i in range(0, total_splits, chunk_size):
-            chunk_text = "\n".join(
-                [split.page_content for split in splits[i : i + chunk_size]]
-            )
-            extractive_chunk = Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(
-                chunk_text=chunk_text
-            )
+            chunk_text = "\n".join([split.page_content for split in splits[i : i + chunk_size]])
+            extractive_chunk = Prompts.EXTRACTIVE_SUMMARIZE_PROMPT.format(chunk_text=chunk_text)
 
             extractive_summaries.append(extractive_chunk)
 
@@ -121,12 +117,8 @@ def merge_node(state: QState, config: RunnableConfig):
     summaries = state["summaries"]
     extractive_summaries = state["extractive_summaries"]
     document = "\n".join([f"Chunk {i}:\n" + s for i, s in enumerate(summaries)])
-    context = "\n".join(
-        [f"Chunk {i}:\n" + e for i, e in enumerate(extractive_summaries)]
-    )
-    prompt = Prompts.Extract_Retrieve_Support_PROMPT.format(
-        document=document, context=context
-    )
+    context = "\n".join([f"Chunk {i}:\n" + e for i, e in enumerate(extractive_summaries)])
+    prompt = Prompts.Extract_Retrieve_Support_PROMPT.format(document=document, context=context)
 
     response_msg = llm.invoke(input=prompt, config=config)
 
@@ -191,12 +183,9 @@ def mind_map(state: QState, config: RunnableConfig):
                 logger.info(e)
             os.remove(temp_image_path)
 
-    prompt2 = """
-    Chỉ cần trả lời là tôi đã tạo xong mind map
-    """
-
     response_msg = generate_agent.invoke(
-        {"messages": [HumanMessage(content=prompt2)]}, config=config
+        {"messages": [HumanMessage(content=Prompts.MIND_MAP_COMPLETION_PROMPT)]},
+        config=config,
     )
     content = response_msg["messages"][-1].content
 
@@ -242,11 +231,7 @@ if __name__ == "__main__":
                 continue
 
             if isinstance(message, tuple):
-                logger.info(
-                    " ".join(
-                        str(_log_value) for _log_value in ("Tuple message:", message)
-                    )
-                )
+                logger.info(" ".join(str(_log_value) for _log_value in ("Tuple message:", message)))
             elif isinstance(message, list):
                 for m in message:
                     try:
@@ -264,7 +249,5 @@ if __name__ == "__main__":
     inputs = {"file_path": input_path, "chunk_size": 10}
 
     print_stream(
-        pdf_summarize_agent.stream(
-            inputs, stream_mode="values", config={"callbacks": [tracer]}
-        )
+        pdf_summarize_agent.stream(inputs, stream_mode="values", config={"callbacks": [tracer]})
     )
