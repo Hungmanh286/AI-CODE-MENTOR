@@ -1,5 +1,16 @@
 # AI Code Mentor
 
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-DC244C)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
+> Frontend: [code-mentor-ui](https://github.com/Hungmanh286/code-mentor-ui)
+
 AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant and document question-answering system. The project integrates LangGraph/LangChain, WebSocket-based real-time chat, PDF processing, vector search, mind map generation, user management, and token/rate limiting.
 
 ![Workflow](./docs/assets/workflow.png)
@@ -239,3 +250,7 @@ uv run python tests/integration/test_parallel_processing.py
 - Qdrant must be running before generating and storing document embeddings.
 - MinIO must be accessible before uploading, viewing, or deleting files.
 - Langfuse environment variables are optional but required if you want tracing enabled.
+
+## License
+
+Released under the [MIT License](LICENSE).

@@ -10,7 +10,7 @@ from app.core.paths import DATA_DIR
 
 logger = structlog.get_logger(__name__)
 
-client = genai.Client(api_key="REDACTED_SECRET")
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
 def extract_passages(pdf_or_txt_path, chunk_size=500):
