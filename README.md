@@ -1,5 +1,17 @@
 # AI Code Mentor
 
+
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-DC244C)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+
+> Frontend: [code-mentor-ui](https://github.com/Hungmanh286/code-mentor-ui)
+
 AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant and document question-answering system. The project integrates LangGraph/LangChain, WebSocket-based real-time chat, PDF processing, vector search, mind map generation, user management, and token/rate limiting.
 
 ![Workflow](./docs/assets/workflow.png)
@@ -18,6 +30,7 @@ AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant a
 
 ## Multi-Agent Architecture
 
+
 AI Code Mentor employs a **Multi-Agent** architecture orchestrated by LangGraph to handle complex pedagogical tasks.
 
 1. **WebSocket Entry Point**: All interactions flow through the real-time WebSocket API (`/chat/pedagogical`).
@@ -25,9 +38,11 @@ AI Code Mentor employs a **Multi-Agent** architecture orchestrated by LangGraph 
 3. **Specialized Sub-Agents**:
    - **Mind Map Agent (`mindmap_tool`)**: Triggered by keywords like "tạo mind map" hoặc "bản đồ tư duy". It delegates to `pdf_summarize_agent` to generate a visual mind map, saves the output to MinIO, and streams status updates back to the client via Server-Sent Events (SSE) over the WebSocket.
    - **Quiz Generation Agents**:
+
      - `using_to_create_questions_for_document`: A heavy-duty agent that evaluates the entire document to generate a comprehensive set of quizzes.
      - `question_generation_tool`: A lightweight agent focused on fast, targeted question generation for specific chapters or sections.
-   - **Summarization & Q&A Agents**: (`summary_tool`, `answer_tool`) Specialized agents for summarizing text and answering specific document-related questions.
+
+- **Summarization & Q&A Agents**: (`summary_tool`, `answer_tool`) Specialized agents for summarizing text and answering specific document-related questions.
 
 This modular architecture allows each agent to use its own optimized prompts, LLMs, and workflows while presenting a unified, intelligent chat interface to the user.
 
@@ -138,6 +153,10 @@ MINIO_BUCKET=mybucket
 MIND_MAP_MODEL=gemini-2.5-flash
 ```
 
+
+Do not commit actual secrets to the repository.
+
+>>>>>>>
 ## Running Auxiliary Services
 
 `docker-compose.yml` configures Redis and two PostgreSQL services:
@@ -237,3 +256,10 @@ uv run python tests/integration/test_parallel_processing.py
 - Qdrant must be running before generating and storing document embeddings.
 - MinIO must be accessible before uploading, viewing, or deleting files.
 - Langfuse environment variables are optional but required if you want tracing enabled.
+<<<<<<< HEAD
+=======
+
+## License
+
+Released under the [MIT License](LICENSE).
+>>>>>>> f0dcdf6932886d96834eddb8e231dda386e47fd1

@@ -10,7 +10,7 @@ from app.core.paths import DATA_DIR
 
 logger = structlog.get_logger(__name__)
 
-client = genai.Client(api_key="AIzaSyCNaj6br2Z27r68fQ_SpHzN_1wBxs4KalE")
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
 def extract_passages(pdf_or_txt_path, chunk_size=500):
@@ -18,20 +18,14 @@ def extract_passages(pdf_or_txt_path, chunk_size=500):
 
     if ext == ".txt":
         logger.info(
-            " ".join(
-                str(_log_value)
-                for _log_value in ("Reading from TXT file:", pdf_or_txt_path)
-            )
+            " ".join(str(_log_value) for _log_value in ("Reading from TXT file:", pdf_or_txt_path))
         )
-        with open(pdf_or_txt_path, "r", encoding="utf-8") as f:
+        with open(pdf_or_txt_path, encoding="utf-8") as f:
             text = f.read()
 
     else:
         logger.info(
-            " ".join(
-                str(_log_value)
-                for _log_value in ("Processing via Docling:", pdf_or_txt_path)
-            )
+            " ".join(str(_log_value) for _log_value in ("Processing via Docling:", pdf_or_txt_path))
         )
         converter = DocumentConverter()
         doc = converter.convert(pdf_or_txt_path)
@@ -77,9 +71,7 @@ def gold_passage(
     return temp_list
 
 
-def search_related_passage_with_gemini(
-    question: str, passages: typing.List[str]
-) -> str:
+def search_related_passage_with_gemini(question: str, passages: typing.List[str]) -> str:
     """
     Sử dụng Gemini để tìm đoạn văn liên quan nhất cho câu hỏi.
     """
@@ -97,9 +89,7 @@ if __name__ == "__main__":
     question = "Java là ngôn ngữ lập trình gì và nó được giới thiệu lần đầu khi nào?"
     related_passage = "Java là ngôn ngữ lập trình hướng đối tượng (tựa C++) do Sun Microsystem đưa ra vào giữa thập niên 90. Chương trình viết bằng ngôn ngữ lập trình java có thể chạy trên bất kỳ hệ thống nào có cài máy ảo java Năm 1990: James Gosling và các cộng sự của Công ty Sun Microsystems tham gia dự án Green Team - xây dựng công nghệ mới cho ngành điện tử tiêu dùng (cho các thiết bị điện dân dụng). Để giải quyết vấn đề này nhóm nghiên cứu phát triển đã xây dựng một ngôn ngữ lập trình rất đơn giản cho các hệ máy có thể chạy trên nhiều nền phần cứng khác nhau. Năm 1993 world wide web bắt đầu phát triển. Năm 1994, Sun đưa ra trình duyệt web viết bằng ngôn ngữ oak là webrunner, sau đổi tên thành hostJava. Sau đó, Sun đổi tên oak thành Java và được giới thiệu năm 1995 tại Sunworld 1995."
 
-    passages = extract_passages(
-        pdf_or_txt_path=str(DATA_DIR / "xg8btwgv034yvs1zasbnx_docs.txt")
-    )
+    passages = extract_passages(pdf_or_txt_path=str(DATA_DIR / "xg8btwgv034yvs1zasbnx_docs.txt"))
 
     # Test với các insert_indices khác nhau: 1, 5, 10, 15, 20
     test_indices = [1, 5, 10, 15, 20]
@@ -123,9 +113,7 @@ if __name__ == "__main__":
         logger.info(found_passage)
 
         # Kiểm tra xem Gemini có tìm đúng gold passage không
-        is_correct = (
-            related_passage in found_passage or found_passage in related_passage
-        )
+        is_correct = related_passage in found_passage or found_passage in related_passage
         logger.info(f"\nKết quả: {'✓ ĐÚNG' if is_correct else '✗ SAI'}")
 
         if is_correct:
