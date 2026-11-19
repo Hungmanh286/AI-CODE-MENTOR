@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.agents.mentor_agui import build_graph, get_thread_messages, make_agent
+from app.agents.mentor_agui import graph as graph_hooks
 from app.api.cors import install_cors
 from app.core.config import settings
 from app.core.security import verify_access_token
@@ -119,10 +120,17 @@ CheckpointerFactory = Callable[[], AbstractAsyncContextManager[Any]]
 
 
 @asynccontextmanager
-async def agui_lifespan(app: FastAPI, checkpointer: CheckpointerFactory) -> AsyncIterator[None]:
-    async with checkpointer() as saver:
-        install_agent(app, build_graph(checkpointer=saver))
-        yield
+async def agui_lifespan(
+    app: FastAPI, checkpointer: CheckpointerFactory, backend: Any = None
+) -> AsyncIterator[None]:
+    """Checkpointer + graph + POST /agent; ``backend`` = real LLM/RAG (None: placeholders)."""
+    graph_hooks.configure(backend)
+    try:
+        async with checkpointer() as saver:
+            install_agent(app, build_graph(checkpointer=saver))
+            yield
+    finally:
+        graph_hooks.configure(None)
 
 
 @asynccontextmanager

@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
+from app.agents.mentor_agui.backends import default_backend
 from app.api.agui import agui_lifespan, register_agui_error_handler
 from app.api.cors import install_cors
 from app.api.router import api_router
@@ -28,7 +29,7 @@ async def lifespan(app: FastAPI):
     from app.db.base import SQLModel
 
     SQLModel.metadata.create_all(settings._app_db_engine)
-    async with agui_lifespan(app, agui_checkpointer):
+    async with agui_lifespan(app, agui_checkpointer, backend=default_backend()):
         yield
 
 

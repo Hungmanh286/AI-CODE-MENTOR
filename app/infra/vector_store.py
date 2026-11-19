@@ -192,13 +192,12 @@ def parse_pdf_text(file_path: str):
         return None
 
 
-def embedding_document(docs, session_id: str):
-    """Embedding documents vào Qdrant vector store"""
-    collection_name = session_id
+def split_markdown(docs, file_id: str | None = None, file_name: str | None = None):
+    """Split parsed markdown by headers; stamp ``file_id``/``file_name`` when given.
 
-    client = QdrantClient(url=settings._qdrant_url)
-    existing_collections = [c.name for c in client.get_collections().collections]
-
+    The file metadata lets the AG-UI agent filter passages by document and cite
+    them (app/services/agui_documents.py).
+    """
     splitter = MarkdownHeaderTextSplitter(
         headers_to_split_on=[
             ("#", "Header_1"),
@@ -208,6 +207,21 @@ def embedding_document(docs, session_id: str):
         ],
     )
     splits = [split for doc in docs for split in splitter.split_text(doc)]
+    if file_id:
+        for split in splits:
+            split.metadata["file_id"] = file_id
+            split.metadata["file_name"] = file_name or ""
+    return splits
+
+
+def embedding_document(docs, session_id: str, file_id: str | None = None, file_name: str | None = None):
+    """Embedding documents vào Qdrant vector store"""
+    collection_name = session_id
+
+    client = QdrantClient(url=settings._qdrant_url)
+    existing_collections = [c.name for c in client.get_collections().collections]
+
+    splits = split_markdown(docs, file_id=file_id, file_name=file_name)
 
     try:
         if collection_name not in existing_collections:

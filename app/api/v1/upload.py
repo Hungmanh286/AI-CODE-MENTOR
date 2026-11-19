@@ -105,7 +105,9 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
 
             logger.info("🔍 Starting embedding to vector store...")
             embedding_start = time.time()
-            embedding_document([docs], file_record.session_id)
+            embedding_document(
+                [docs], file_record.session_id, file_id=file_id, file_name=file_name
+            )
             embedding_time = time.time() - embedding_start
             logger.info(f"✅ Embedding completed in {embedding_time:.2f}s")
 
