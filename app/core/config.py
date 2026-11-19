@@ -91,6 +91,17 @@ class GlobalConfig(BaseSettings):
     PDF_PARSE_RETRY_ATTEMPTS: int = Field(default=3)
     PDF_PARSE_RETRY_DELAY: int = Field(default=2)
 
+    # AG-UI agent (POST /agent, GET /threads/{id}/messages)
+    # Checkpoints live in their own schema of the CHECKPOINT_* database unless a
+    # full URL is given; never share tables with the legacy WebSocket graph.
+    MENTOR_CHECKPOINT_DB_URL: str | None = Field(default=None)
+    MENTOR_CHECKPOINT_SCHEMA: str = Field(default="mentor_agui")
+    MENTOR_CHECKPOINT_POOL_SIZE: int = Field(default=10)
+    # When true, /agent and /threads/* require "Authorization: Bearer <jwt>" and
+    # the session must belong to the token's user. Off until the frontend sends
+    # the header (BACKEND-PLAN GĐ4.2).
+    AGENT_AUTH_REQUIRED: bool = Field(default=False)
+
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()
     _tracing_env: dict = PrivateAttr()
