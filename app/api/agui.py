@@ -88,7 +88,11 @@ def _graph(request: Request) -> Any:
 
 @router.get("/threads/{thread_id}/messages", dependencies=[Depends(require_agent_access)])
 async def thread_messages(thread_id: str, request: Request):
-    return await get_thread_messages(_graph(request), thread_id)
+    history = await get_thread_messages(_graph(request), thread_id)
+    if "state" in history:  # stored artifacts are the source of truth (GĐ3.3)
+        config = {"configurable": {"thread_id": thread_id}}
+        history["state"]["artifacts"] = await graph_hooks.load_artifacts(history["state"], config)
+    return history
 
 
 async def _agent_body_400(request: Request, exc: RequestValidationError):
@@ -138,16 +142,16 @@ async def _in_memory() -> AsyncIterator[InMemorySaver]:
     yield InMemorySaver()
 
 
-def create_standalone_app() -> FastAPI:
-    """AG-UI routes only, in-memory checkpointer: for scripts/agui_selfcheck.py.
+def create_standalone_app(backend: Any = None) -> FastAPI:
+    """AG-UI routes only, in-memory checkpointer: for scripts/agui_selfcheck.py and tests.
 
-    Same CORS and error handling as ``main.app``; the LLM hooks stay unset, so
+    Same CORS and error handling as ``main.app``. Without ``backend`` the
     graph nodes use their deterministic placeholders.
     """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        async with agui_lifespan(app, _in_memory):
+        async with agui_lifespan(app, _in_memory, backend=backend):
             yield
 
     app = FastAPI(title="Mentor AG-UI agent (standalone)", lifespan=lifespan)

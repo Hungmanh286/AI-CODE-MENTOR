@@ -76,6 +76,10 @@ REQUESTED_TOOL_ROUTES: dict[str, RouteNode] = {
     "generate-questions": "quiz_intro",
     "mindmap": "mindmap",
 }
+# Several chips in one message run one after the other in this order: the
+# quiz pauses for its config form (interrupt), so it goes last and nothing
+# else waits on the form.
+CHIP_ORDER: list[RouteNode] = ["mindmap", "quiz_intro"]
 
 # Resume sentinels produced by ag-ui-langgraph when RunAgentInput.resume is
 # used (ag_ui_langgraph/interrupts.py, verified on 0.0.47).
@@ -200,6 +204,26 @@ async def llm_generate_mindmap(topic: str, chunks: Sequence[dict], config: Runna
     return placeholders.mindmap()
 
 
+async def store_quiz(quiz: ShowQuiz, chunks: Sequence[dict], config: RunnableConfig) -> tuple[str, ShowQuiz]:
+    """Persist the quiz; returns (artifact id, quiz carrying the stored question ids)."""
+    if _backend is not None:
+        return await _backend.save_quiz(_thread_id(config), quiz, chunks)
+    return new_id("quiz"), quiz
+
+
+async def store_mindmap(result: ShowMindmap, config: RunnableConfig) -> str:
+    if _backend is not None:
+        return await _backend.save_mindmap(_thread_id(config), result)
+    return new_id("mindmap")
+
+
+async def load_artifacts(state: Mapping[str, Any], config: RunnableConfig) -> dict[str, Any]:
+    """Artifacts of the session: stored ones (source of truth) or, offline, the state's."""
+    if _backend is not None:
+        return await _backend.session_artifacts(_thread_id(config))
+    return dict(read_artifacts(state))
+
+
 # ---------------------------------------------------------------------------
 # Shared-state helper
 # ---------------------------------------------------------------------------
@@ -238,15 +262,32 @@ def _context(chunks: Sequence[dict]) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _next_route(state: Mapping[str, Any]) -> tuple[str, list[str]]:
+    """Next chip node of this run (or END) and the ones left after it."""
+    pending = list(state.get("pending_routes") or [])
+    return (pending[0], pending[1:]) if pending else (END, [])
+
+
 async def router(state: MentorState, config: RunnableConfig) -> Command[RouteNode]:
-    # A resume never reaches the router (LangGraph resumes the interrupted
-    # node), so the composer chips come first and beat intent classification.
+    """Start of every new user turn (a resume never reaches it: LangGraph
+    resumes the interrupted node).
+
+    * Shared state: artifacts are re-read from storage (source of truth) and
+      jobs of earlier runs are dropped, so finished jobs never pile up.
+    * Composer chips come first and beat intent classification; several chips
+      run one after the other (``CHIP_ORDER``).
+    """
     doc_ids = await resolve_document_ids(state.get("active_document_ids") or [], config)
-    update: dict[str, Any] = {"active_document_ids": doc_ids}
-    for tool_id in state.get("requested_tools") or []:
-        if tool_id in REQUESTED_TOOL_ROUTES:
-            target = REQUESTED_TOOL_ROUTES[tool_id]
-            return Command(goto=target, update={**update, "route": target})
+    update: dict[str, Any] = {
+        "active_document_ids": doc_ids,
+        "artifacts": await load_artifacts(state, config),
+        "jobs": {},
+        "pending_routes": [],
+    }
+    chips = {REQUESTED_TOOL_ROUTES[t] for t in state.get("requested_tools") or [] if t in REQUESTED_TOOL_ROUTES}
+    routes = [r for r in CHIP_ORDER if r in chips]
+    if routes:
+        return Command(goto=routes[0], update={**update, "route": routes[0], "pending_routes": routes[1:]})
 
     question = latest_user_text(state) or ""
     intent = await llm_classify_intent(question, state.get("messages") or [], config)
@@ -289,12 +330,13 @@ async def summarize(state: MentorState, config: RunnableConfig) -> dict[str, Any
     return {"messages": await stream_ui_tool_calls(calls, config, attach_to=answer)}
 
 
-async def mindmap(state: MentorState, config: RunnableConfig) -> dict[str, Any]:
+async def mindmap(state: MentorState, config: RunnableConfig) -> Command[Literal["quiz_intro", "__end__"]]:
     artifacts = read_artifacts(state)
     jobs = read_jobs(state)
     job_id = new_id("job")
     jobs[job_id] = make_job("mindmap", "Đang vẽ sơ đồ tư duy", 0, "running")
     await publish_shared_state(artifacts, jobs, config)
+    goto, rest = _next_route(state)
 
     question = latest_user_text(state) or ""
     try:
@@ -302,22 +344,28 @@ async def mindmap(state: MentorState, config: RunnableConfig) -> dict[str, Any]:
             question, state.get("active_document_ids") or [], config, whole_documents=True
         )
         result = await llm_generate_mindmap(question, chunks, config)
-    except (ValidationError, ValueError) as exc:
-        logger.warning(f"mindmap generation failed: {exc}")
+    except Exception as exc:  # any failure must end the job, never leave it "running"
+        logger.warning(f"mindmap generation failed: {exc!r}")
         jobs[job_id] = make_job("mindmap", "Vẽ sơ đồ tư duy thất bại", 100, "error")
         await publish_shared_state(artifacts, jobs, config)
         failed = await stream_text("Xin lỗi, mình chưa vẽ được sơ đồ tư duy. Bạn thử lại nhé.", config)
-        return {"messages": [failed], "artifacts": artifacts, "jobs": jobs}
+        return Command(goto=goto, update={
+            "messages": [failed], "artifacts": artifacts, "jobs": jobs, "pending_routes": rest})
 
     intro = await llm_stream_answer(
         Prompts.MINDMAP_INTRO.format(title=result.title), state["messages"], config,
         placeholder=placeholders.MINDMAP_INTRO,
     )
     messages = await stream_ui_tool_calls([("show_mindmap", result)], config, attach_to=intro)
-    artifacts["mindmaps"].append({"id": new_id("mindmap"), "title": result.title})
-    jobs[job_id] = make_job("mindmap", "Đã vẽ sơ đồ tư duy", 100, "done")
+    try:
+        artifacts["mindmaps"].append({"id": await store_mindmap(result, config), "title": result.title})
+        jobs[job_id] = make_job("mindmap", "Đã vẽ sơ đồ tư duy", 100, "done")
+    except Exception as exc:
+        logger.warning(f"mindmap not stored: {exc!r}")
+        jobs[job_id] = make_job("mindmap", "Không lưu được sơ đồ tư duy", 100, "error")
     await publish_shared_state(artifacts, jobs, config)
-    return {"messages": messages, "artifacts": artifacts, "jobs": jobs}
+    return Command(goto=goto, update={
+        "messages": messages, "artifacts": artifacts, "jobs": jobs, "pending_routes": rest})
 
 
 class QuizConfigPayload(BaseModel):
@@ -359,7 +407,9 @@ def _parse_quiz_resume(answer: Any) -> QuizConfigPayload | None:
         return QuizConfigPayload()
 
 
-async def quiz(state: MentorState, config: RunnableConfig) -> Command[Literal["router", "__end__"]]:
+async def quiz(
+    state: MentorState, config: RunnableConfig
+) -> Command[Literal["router", "mindmap", "__end__"]]:
     """Ask for quiz_config, then generate. Resume outcomes (contract 4.6):
 
     * resolved                     -> generate (even if a new user message came too)
@@ -396,6 +446,7 @@ async def quiz(state: MentorState, config: RunnableConfig) -> Command[Literal["r
     jobs[job_id] = make_job("quiz", "Đang sinh câu hỏi", 0, "running")
     await publish_shared_state(artifacts, jobs, config)
 
+    goto, rest = _next_route(state)
     question = latest_user_text(state) or ""
     try:
         chunks = await retrieve_chunks(
@@ -406,12 +457,21 @@ async def quiz(state: MentorState, config: RunnableConfig) -> Command[Literal["r
         result = await llm_generate_quiz(question, chunks, cfg.count, cfg.difficulty, config)
         jobs[job_id] = make_job("quiz", "Đang sinh câu hỏi", 80, "running")
         await publish_shared_state(artifacts, jobs, config)
-    except (ValidationError, ValueError) as exc:
-        logger.warning(f"quiz generation failed: {exc}")
+    except Exception as exc:  # any failure must end the job, never leave it "running"
+        logger.warning(f"quiz generation failed: {exc!r}")
         jobs[job_id] = make_job("quiz", "Sinh câu hỏi thất bại", 100, "error")
         await publish_shared_state(artifacts, jobs, config)
         failed = await stream_text("Xin lỗi, mình chưa sinh được câu hỏi. Bạn thử lại nhé.", config)
-        return Command(goto=END, update={"messages": [failed], "artifacts": artifacts, "jobs": jobs})
+        return Command(goto=goto, update={
+            "messages": [failed], "artifacts": artifacts, "jobs": jobs, "pending_routes": rest})
+
+    try:
+        quiz_id, result = await store_quiz(result, chunks, config)
+        artifacts["quizzes"].append({"id": quiz_id, "title": result.title, "count": len(result.questions)})
+        jobs[job_id] = make_job("quiz", "Đã sinh câu hỏi", 100, "done")
+    except Exception as exc:  # still show the quiz; it just is not saved
+        logger.warning(f"quiz not stored: {exc!r}")
+        jobs[job_id] = make_job("quiz", "Không lưu được bộ câu hỏi", 100, "error")
 
     # Attach to the quiz_intro message: the client resumes that interrupted
     # message, and live/snapshot/history then agree on one assistant message.
@@ -420,10 +480,9 @@ async def quiz(state: MentorState, config: RunnableConfig) -> Command[Literal["r
         None,
     )
     messages = await stream_ui_tool_calls([("show_quiz", result)], config, attach_to=intro)
-    artifacts["quizzes"].append({"id": new_id("quiz"), "title": result.title, "count": len(result.questions)})
-    jobs[job_id] = make_job("quiz", "Đã sinh câu hỏi", 100, "done")
     await publish_shared_state(artifacts, jobs, config)
-    return Command(goto=END, update={"messages": messages, "artifacts": artifacts, "jobs": jobs})
+    return Command(goto=goto, update={
+        "messages": messages, "artifacts": artifacts, "jobs": jobs, "pending_routes": rest})
 
 
 async def code_mentor(state: MentorState, config: RunnableConfig) -> Command[Literal["ui_tools", "__end__"]]:
@@ -483,7 +542,6 @@ def build_graph(checkpointer: Checkpointer = None):
     builder.add_edge(START, "router")
     builder.add_edge("qa_rag", END)
     builder.add_edge("summarize", END)
-    builder.add_edge("mindmap", END)
     builder.add_edge("quiz_intro", "quiz")
     builder.add_edge("ui_tools", END)
     return builder.compile(checkpointer=checkpointer)

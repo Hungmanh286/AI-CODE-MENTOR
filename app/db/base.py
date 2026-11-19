@@ -6,6 +6,7 @@ Import this module (never the individual models) before calling
 
 from sqlmodel import SQLModel
 
+from app.db.models.agent_mindmap import AgentMindMap  # noqa: F401
 from app.db.models.lesson import Lesson  # noqa: F401
 from app.db.models.mindmap import MindMap  # noqa: F401
 from app.db.models.question import (  # noqa: F401

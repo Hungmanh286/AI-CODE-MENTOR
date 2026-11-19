@@ -69,6 +69,8 @@ class MentorState(MessagesState):
 
     # Internal routing result written by the router node.
     route: NotRequired[str]
+    # Remaining composer-chip nodes of this run (several chips, see graph.router).
+    pending_routes: NotRequired[list[str]]
 
 
 class MentorInput(TypedDict):

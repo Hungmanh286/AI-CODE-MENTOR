@@ -181,6 +181,28 @@ class MentorBackend:
         return await self._draft(MindmapDraft, [HumanMessage(content=prompt)], config, mindmap_from_draft)
 
 
+    # --- storage (BACKEND-PLAN GĐ3) ---------------------------------------
+
+    async def save_quiz(self, session_id: str, quiz: ShowQuiz, chunks) -> tuple[str, ShowQuiz]:
+        from app.services import agui_artifacts
+
+        names = {c["file_name"] for c in chunks}
+        source_path = f"{session_id}/{next(iter(names))}" if len(names) == 1 else None
+        return await asyncio.to_thread(
+            agui_artifacts.save_quiz, session_id, quiz, source_path=source_path
+        )
+
+    async def save_mindmap(self, session_id: str, mindmap: ShowMindmap) -> str:
+        from app.services import agui_artifacts
+
+        return await asyncio.to_thread(agui_artifacts.save_mindmap, session_id, mindmap)
+
+    async def session_artifacts(self, session_id: str) -> dict:
+        from app.services import agui_artifacts
+
+        return await asyncio.to_thread(agui_artifacts.session_artifacts, session_id)
+
+
 def default_backend() -> MentorBackend:
     """Backend with the app's chat model (settings.CHAT_MODEL via OpenRouter)."""
     from app.agents.base import init_llm
