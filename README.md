@@ -204,6 +204,7 @@ http://localhost:8686/apidocs
 - `GET /ping`: Health check.
 - `GET /apidocs`: Scalar API documentation.
 - `WS /chat/pedagogical`: WebSocket real-time agent chat.
+- `POST /agent`: AG-UI agent (Server-Sent Events) for the assistant-ui frontend, with `GET /threads/{id}/messages` and `GET /health`. See [docs/AG-UI.md](docs/AG-UI.md).
 - `POST /upload`: Upload PDFs to MinIO and record metadata.
 - `PUT /update-file-active`: Activate files, parse PDF content, and ingest embeddings into Qdrant.
 - `GET /session-files/{session_id}`: Retrieve uploaded files by session ID.

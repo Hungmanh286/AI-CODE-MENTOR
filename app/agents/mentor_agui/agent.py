@@ -11,6 +11,7 @@ exactly in pyproject.toml: re-run the self-check after any upgrade.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -196,19 +197,46 @@ class MentorLangGraphAgent(LangGraphAgent):
         return command
 
     # (5) RUN_ERROR {message, code}: never leak exception text to the browser.
+    # Also one summary log record per run (BACKEND-PLAN GĐ4.4), written even
+    # when the client disconnects (Stop button, closed tab).
     async def run(self, input: RunAgentInput):
-        async for event in super().run(input):
-            if getattr(event, "type", None) == EventType.RUN_ERROR:
-                logger.error(
-                    f"agent run failed thread={input.thread_id} run={input.run_id}: "
-                    f"{getattr(event, 'message', '')}"
-                )
-                event = RunErrorEvent(
-                    type=EventType.RUN_ERROR,
-                    message=PUBLIC_ERROR_MESSAGE,
-                    code=getattr(event, "code", None) or DEFAULT_ERROR_CODE,
-                )
-            yield event
+        started = time.monotonic()
+        nodes: list[str] = []
+        end, error_code, interrupted = "CANCELLED", None, False
+        try:
+            async for event in super().run(input):
+                kind = getattr(event, "type", None)
+                if kind == EventType.STEP_STARTED:
+                    name = getattr(event, "step_name", None)
+                    if name and (not nodes or nodes[-1] != name):
+                        nodes.append(name)
+                elif kind == EventType.RUN_FINISHED:
+                    end = "RUN_FINISHED"
+                    interrupted = getattr(event, "outcome", None) is not None
+                elif kind == EventType.RUN_ERROR:
+                    logger.error(
+                        f"agent run failed thread={input.thread_id} run={input.run_id}: "
+                        f"{getattr(event, 'message', '')}"
+                    )
+                    event = RunErrorEvent(
+                        type=EventType.RUN_ERROR,
+                        message=PUBLIC_ERROR_MESSAGE,
+                        code=getattr(event, "code", None) or DEFAULT_ERROR_CODE,
+                    )
+                    end, error_code = "RUN_ERROR", event.code
+                yield event
+        finally:
+            logger.info(
+                "agui run",
+                thread_id=input.thread_id,
+                run_id=input.run_id,
+                resume=bool(input.resume),
+                nodes=nodes,
+                duration_ms=int((time.monotonic() - started) * 1000),
+                end=end,
+                error_code=error_code,
+                interrupted=interrupted,
+            )
 
 
 def make_agent(graph) -> MentorLangGraphAgent:

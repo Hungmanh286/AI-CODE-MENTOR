@@ -9,11 +9,12 @@ from fastapi.middleware.gzip import GZipMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
 from app.agents.mentor_agui.backends import default_backend
-from app.api.agui import agui_lifespan, register_agui_error_handler
+from app.api.agui import NoBufferingForAgentStream, agui_lifespan, register_agui_error_handler
 from app.api.cors import install_cors
 from app.api.router import api_router
 from app.core.config import settings
 from app.infra.agui_checkpointer import agui_checkpointer
+from app.services.agui_legacy_history import legacy_history
 
 warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -29,7 +30,9 @@ async def lifespan(app: FastAPI):
     from app.db.base import SQLModel
 
     SQLModel.metadata.create_all(settings._app_db_engine)
-    async with agui_lifespan(app, agui_checkpointer, backend=default_backend()):
+    async with agui_lifespan(
+        app, agui_checkpointer, backend=default_backend(), legacy_history=legacy_history
+    ):
         yield
 
 
@@ -43,6 +46,7 @@ app = FastAPI(
 
 
 app.add_middleware(GZipMiddleware, minimum_size=10000)
+app.add_middleware(NoBufferingForAgentStream)
 install_cors(app)
 register_agui_error_handler(app)
 
