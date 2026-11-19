@@ -11,6 +11,7 @@ Storage written by the existing upload flow (``/upload``, ``/update-file-active`
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, TypedDict
@@ -26,6 +27,14 @@ logger = structlog.get_logger(__name__)
 # Upper bound of one document's text handed to the LLM for whole-document tasks
 # (summary, quiz, mind map); gpt-4.1-mini's window is far larger, cost is not.
 MAX_DOCUMENT_CHARS = 60_000
+
+# What app/infra/vector_store.py stores in place of a chunk it failed to parse
+# (e.g. OpenRouter 402). It is not document content: never quote or use it.
+_PARSE_ERROR_RE = re.compile(r"\[ERROR: Failed to parse chunk \d+\]")
+
+
+def clean_document_text(text: str) -> str:
+    return _PARSE_ERROR_RE.sub("", text).strip()
 
 
 class RetrievedChunk(TypedDict):
@@ -82,14 +91,13 @@ def attribute_hits(
     processed = [f for f in session_files if f.has_processed]
     legacy_owner = by_id.get(processed[0].file_id) if len(processed) == 1 else None
     chunks: list[RetrievedChunk] = []
-    for text, metadata in hits:
+    for raw, metadata in hits:
         file_id = metadata.get("file_id")
         doc = by_id.get(str(file_id)) if file_id else legacy_owner
-        if doc is None or not text.strip():
+        text = clean_document_text(raw)
+        if doc is None or not text:
             continue
-        chunks.append(
-            {"file_id": doc.file_id, "file_name": doc.file_name, "page": None, "text": text.strip()}
-        )
+        chunks.append({"file_id": doc.file_id, "file_name": doc.file_name, "page": None, "text": text})
     return chunks
 
 
@@ -126,7 +134,7 @@ def document_text(session_id: str, file_id: str) -> str:
     if not minio_client.file_exists(path):
         return ""
     data = minio_client.download_data(path) or b""
-    return data.decode("utf-8", errors="replace")[:MAX_DOCUMENT_CHARS]
+    return clean_document_text(data.decode("utf-8", errors="replace"))[:MAX_DOCUMENT_CHARS]
 
 
 def whole_documents(session_id: str, client_ids: Sequence[str]) -> list[RetrievedChunk]:

@@ -180,3 +180,17 @@ def test_classify_and_followups_use_structured_drafts():
     backend = _backend(structured)
     assert asyncio.run(backend.classify_intent("vẽ sơ đồ", [], {})) == "mindmap"
     assert asyncio.run(backend.suggest_followups("q", "a", {})) == ["a?", "b?"]
+
+
+def test_parse_error_markers_are_never_used_as_document_text():
+    # the upload pipeline stores "[ERROR: Failed to parse chunk N]" when parsing fails
+    hits = [("[ERROR: Failed to parse chunk 0]", {"file_id": "f1"}), ("Đa hình là ...", {"file_id": "f1"})]
+    chunks = attribute_hits(hits, select_documents(FILES, ["f1"]), FILES)
+    assert [c["text"] for c in chunks] == ["Đa hình là ..."]
+
+
+def test_clean_document_text_drops_markers_and_keeps_real_text():
+    from app.services.agui_documents import clean_document_text
+
+    assert clean_document_text("[ERROR: Failed to parse chunk 0]") == ""
+    assert clean_document_text("# Bài 1\nOOP\n[ERROR: Failed to parse chunk 3]\nKế thừa") == "# Bài 1\nOOP\n\nKế thừa"
