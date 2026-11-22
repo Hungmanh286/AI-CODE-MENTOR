@@ -19,7 +19,7 @@
 ## Vấn đề còn mở
 - Tài khoản `mentor` + mật khẩu plaintext đã gỡ khỏi `tests/README.md`, nhưng vẫn nằm trong
   commit `168c28e` đã push lên `origin/ag-ui`: cần đổi mật khẩu; xoá khỏi history thì phải force-push.
-- `app/core/settings/user.json` (chứa tài khoản) đang được git track.
+- `app/core/settings/user.json` đã untrack + gitignore, nhưng vẫn còn trong history cũ.
 - `README.md` còn marker merge conflict (`<<<<<<<`, `>>>>>>>`) ở cuối file.
 - `docker-compose.yml` trỏ tới `Dockerfile` ở gốc nhưng file không tồn tại (cả trong `deploy/`).
 - `.env.example`/config mặc định Redis `localhost:6379`, compose map ra cổng `6380`.

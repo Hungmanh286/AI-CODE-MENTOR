@@ -24,3 +24,6 @@ results/
 
 # Claude Code local notes
 CLAUDE.local.md
+
+# Local account file (ACCOUNT_FILE), never commit
+app/core/settings/user.json
