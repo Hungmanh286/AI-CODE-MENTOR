@@ -224,7 +224,11 @@ PDF_PARSE_CHUNK_SIZE_LARGE=30
 PDF_PARSE_CHUNK_SIZE_THRESHOLD=50
 PDF_PARSE_RETRY_ATTEMPTS=3
 PDF_PARSE_RETRY_DELAY=2
+PDF_PARSE_MAX_TOKENS=32768
 ```
+
+If any chunk cannot be parsed (e.g. OpenRouter 402 when credits run out), activating the
+file returns an `error` and the file stays unprocessed: switching it on again retries.
 
 The PDF parser uses Gemini via OpenRouter. Each chunk is processed in parallel using LangChain's runnable batch:
 

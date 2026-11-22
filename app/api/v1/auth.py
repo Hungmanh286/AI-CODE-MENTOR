@@ -4,7 +4,7 @@ from fastapi import APIRouter, Form
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.core.security import get_password_hash, verify_password
+from app.core.security import create_access_token, get_password_hash, verify_password
 from app.db.datasource import insert_database
 from app.db.models.user import User
 
@@ -54,10 +54,16 @@ async def login(
             if not user or not verify_password(password, user.hashed_password):
                 return {"error": "Invalid username or password"}
 
+            # Bearer token for /agent and /threads/* (AGENT_AUTH_REQUIRED).
+            access_token = create_access_token(
+                {"user_id": user.user_id, "user_name": user.user_name}
+            )
             return {
                 "message": "Login successful",
                 "user_id": user.user_id,
                 "user_name": user.user_name,
+                "access_token": access_token,
+                "token_type": "bearer",
             }
     except Exception as e:
         return {"error": str(e)}

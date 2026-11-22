@@ -28,9 +28,11 @@ from .schemas import (
     IntentDraft,
     MindmapDraft,
     QuizDraft,
+    QuizRequestDraft,
     clean_followups,
     mindmap_from_draft,
     quiz_from_draft,
+    quiz_request_from_draft,
 )
 from .state import message_text
 from .ui_catalog import ShowMindmap, ShowQuiz
@@ -83,6 +85,8 @@ class MentorBackend:
         documents: Any = None,
     ) -> None:
         self.chat_model_factory = chat_model_factory
+        # Streams the answers (may reason, see reasoning.py); None = chat_model_factory.
+        self.answer_model_factory: Callable[[], BaseChatModel] | None = None
         self._structured = structured_call or self._llm_structured
         self.documents = documents or ServiceDocuments()
 
@@ -136,6 +140,12 @@ class MentorBackend:
             HumanMessage(content=f"LỊCH SỬ:\n{transcript or '(trống)'}\n\nYÊU CẦU MỚI NHẤT: {question}"),
         ]
         return await self._draft(IntentDraft, messages, config, lambda d: d.intent)
+
+    async def extract_quiz_request(self, question: str, config: RunnableConfig) -> dict:
+        prompt = Prompts.QUIZ_REQUEST.format(question=question[:1000])
+        return await self._draft(
+            QuizRequestDraft, [HumanMessage(content=prompt)], config, quiz_request_from_draft
+        )
 
     async def resolve_document_ids(self, session_id: str, client_ids: Sequence[str]) -> list[str]:
         return await self.documents.resolve(session_id, client_ids)
@@ -204,9 +214,17 @@ class MentorBackend:
 
 
 def default_backend() -> MentorBackend:
-    """Backend with the app's chat model (settings.CHAT_MODEL via OpenRouter)."""
+    """Backend with the app's models via OpenRouter: settings.CHAT_MODEL for
+    drafts and intros, settings.CHAT_ANSWER_MODEL (reasoning) for answers."""
+    from langchain_openrouter import ChatOpenRouter
+
     from app.agents.base import init_llm
     from app.core.config import settings
+
+    from .reasoning import StableReasoningIds
+
+    class ReasoningChatOpenRouter(StableReasoningIds, ChatOpenRouter):
+        pass
 
     def factory() -> BaseChatModel:
         return init_llm(
@@ -215,4 +233,15 @@ def default_backend() -> MentorBackend:
             streaming=True,
         )
 
-    return MentorBackend(chat_model_factory=factory)
+    def answer_factory() -> BaseChatModel:
+        return init_llm(
+            model=settings.CHAT_ANSWER_MODEL,
+            model_class=ReasoningChatOpenRouter,
+            temperature=None,  # reasoning models reject a temperature
+            reasoning={"effort": settings.CHAT_REASONING_EFFORT, "summary": "auto"},
+            streaming=True,
+        )
+
+    backend = MentorBackend(chat_model_factory=factory)
+    backend.answer_model_factory = answer_factory if settings.CHAT_ANSWER_MODEL else None
+    return backend

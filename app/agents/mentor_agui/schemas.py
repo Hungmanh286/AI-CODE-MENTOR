@@ -33,6 +33,36 @@ class IntentDraft(BaseModel):
     )
 
 
+MAX_QUIZ_COUNT = 30  # QuizConfigPayload.count upper bound (graph.py)
+
+
+class QuizRequestDraft(BaseModel):
+    """Quiz parameters the learner stated in the message (null when not stated)."""
+
+    topic: str | None = Field(
+        default=None,
+        description=(
+            "Chủ đề cần hỏi, không kèm số câu/độ khó/từ 'tạo câu hỏi' (vd: 'toán lớp 1'). "
+            "null nếu không nêu chủ đề (vd: 'tạo quiz', 'tạo câu hỏi từ tài liệu')."
+        ),
+    )
+    count: int | None = Field(default=None, description="Số câu hỏi người học nêu; null nếu không nêu.")
+    difficulty: Difficulty | None = Field(
+        default=None, description="easy=dễ, medium=vừa, hard=khó; null nếu không nêu."
+    )
+
+
+def quiz_request_from_draft(draft: QuizRequestDraft) -> dict:
+    """``{topic, count, difficulty}`` with an empty topic as None and count in 1..30."""
+    topic = (draft.topic or "").strip() or None
+    count = draft.count if draft.count and draft.count > 0 else None
+    return {
+        "topic": topic,
+        "count": min(count, MAX_QUIZ_COUNT) if count else None,
+        "difficulty": draft.difficulty,
+    }
+
+
 class FollowupsDraft(BaseModel):
     """Short follow-up questions the learner could ask next."""
 

@@ -40,6 +40,9 @@ embeddings = VoyageAIEmbeddings(
 
 url = settings._qdrant_url
 
+# Output cap of the image -> text call (code read from a cropped screenshot).
+IMAGE_TO_TEXT_MAX_TOKENS = 4096
+
 
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
@@ -55,6 +58,7 @@ def image_to_text(image_path):
 
     response = client.chat.completions.create(
         model=settings.CHAT_MODEL_VISION,
+        max_tokens=IMAGE_TO_TEXT_MAX_TOKENS,
         messages=[
             {
                 "role": "user",

@@ -15,6 +15,8 @@ cancels it when the next user message arrives).
                toolCalls?: [{ id, type: "function",
                               function: { name, arguments: <JSON string> } }] }
 * tool:      { id, role: "tool", toolCallId, content: str }
+* reasoning: { id, role: "reasoning", content: str }, right before the
+             assistant message that reasoned (see reasoning.py for the id)
 
 Ids are the checkpoint message ids unchanged. That matters: the frontend sends
 these messages back on the next run and ag-ui-langgraph merges by id, so a
@@ -34,6 +36,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
+from .reasoning import reasoning_text
 from .state import shared_state
 
 # Placeholder text LangGraph/ag-ui-langgraph put in ToolMessages of tool calls
@@ -73,6 +76,16 @@ def to_agui_messages(messages: Sequence[BaseMessage]) -> list[dict[str, Any]]:
         if isinstance(message, HumanMessage):
             out.append({"id": message_id, "role": "user", "content": _text(message.content)})
         elif isinstance(message, AIMessage):
+            if isinstance(message.content, list):  # same order and ids as ag-ui-langgraph
+                for index, block in enumerate(message.content):
+                    if isinstance(block, Mapping) and block.get("type") == "reasoning":
+                        thought = reasoning_text(block)
+                        if thought:
+                            out.append({
+                                "id": str(block.get("id") or f"{message_id}-reasoning-{index}"),
+                                "role": "reasoning",
+                                "content": thought,
+                            })
             text = _text(message.content)
             tool_calls = [c for c in (message.tool_calls or []) if c.get("id")]
             if not text and not tool_calls:

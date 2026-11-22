@@ -1,3 +1,4 @@
+import base64
 import uuid
 
 import structlog
@@ -129,59 +130,50 @@ def merge_node(state: QState, config: RunnableConfig):
     }
 
 
+def _openrouter_client():
+    from openai import OpenAI
+
+    return OpenAI(base_url="https://openrouter.ai/api/v1", api_key=settings.OPENROUTER_API_KEY)
+
+
+# Object read by the ``mindmap_done`` SSE event and GET /get-mindmap(-url): the latest one.
+LATEST_MINDMAP = "{session_id}/mindmap.png"
+
+
+def _first_image(message) -> bytes | None:
+    """PNG bytes of the first image of an OpenRouter answer (``message.images``)."""
+    for image in getattr(message, "images", None) or []:
+        url = image.get("image_url", {}).get("url", "") if isinstance(image, dict) else image.image_url.url
+        if url.startswith("data:") and "," in url:
+            return base64.b64decode(url.split(",", 1)[1])
+    return None
+
+
 def mind_map(state: QState, config: RunnableConfig):
+    """Draw the mind map as an image with an image model through OpenRouter."""
     merge = state.get("merge", "")
     session_id = config["configurable"].get("thread_id")
 
-    from openai import OpenAI
-
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=settings.OPENROUTER_API_KEY,
+    response = _openrouter_client().chat.completions.create(
+        model=settings.MIND_MAP_IMAGE_MODEL,
+        messages=[{"role": "user", "content": Prompts.MIND_MAP_PROMPT.format(merge=merge)}],
+        max_tokens=settings.MIND_MAP_MAX_TOKENS,
+        extra_body={"modalities": ["image", "text"]},
     )
+    image_bytes = _first_image(response.choices[0].message)
+    if not image_bytes:
+        raise RuntimeError(f"{settings.MIND_MAP_IMAGE_MODEL} returned no mind map image")
 
-    prompt = Prompts.MIND_MAP_PROMPT.format(merge=merge)
-
-    response = client.chat.completions.create(
-        model=settings.MIND_MAP_MODEL, messages=[{"role": "user", "content": prompt}]
-    )
-
-    content = response.choices[0].message.content
-    logger.info(f"[MindMap] Generated content: {content[:100]}...")
-
-    # Image generation is not directly supported via OpenRouter's standard chat API
-    # for models like gemini-2.5-flash-image-preview in the same way as native SDK.
-    # We return the text content which can be used to render a mindmap.
-
-    for part in response.parts:
-        if part.text is not None:
-            content = part.text
-        if part.inline_data is not None:
-            image = part.as_image()
-
-            temp_image_path = f"temp_mindmap_{session_id}.png"
-            image.save(temp_image_path)
-
-            mindmap_id = str(uuid.uuid4())
-            minio_path = f"{session_id}/{mindmap_id}_mindmap.png"
-
-            with open(temp_image_path, "rb") as f:
-                image_bytes = f.read()
-                minio_client.upload_data(minio_path, image_bytes)
-
-            import os
-
-            try:
-                mindmap_data = MindMap(
-                    id=mindmap_id,
-                    session_id=session_id,
-                    name=f"mindmap_{session_id}",
-                    source_path=minio_path,
-                )
-                create_mindmap(mindmap=mindmap_data)
-            except Exception as e:
-                logger.info(e)
-            os.remove(temp_image_path)
+    mindmap_id = str(uuid.uuid4())
+    minio_path = f"{session_id}/{mindmap_id}_mindmap.png"
+    minio_client.upload_data(minio_path, image_bytes)
+    minio_client.upload_data(LATEST_MINDMAP.format(session_id=session_id), image_bytes)
+    try:
+        create_mindmap(
+            MindMap(id=mindmap_id, session_id=session_id, name=f"mindmap_{session_id}", source_path=minio_path)
+        )
+    except Exception as e:  # the image is still served through /get-mindmap
+        logger.warning(f"[MindMap] row not saved for {session_id}: {e!r}")
 
     response_msg = generate_agent.invoke(
         {"messages": [HumanMessage(content=Prompts.MIND_MAP_COMPLETION_PROMPT)]},

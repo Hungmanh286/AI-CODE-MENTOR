@@ -5,7 +5,8 @@ class Prompts:
     MENTOR = (
         "Bạn là Mentor Code, trợ lý học lập trình cho sinh viên Việt Nam. "
         "Trả lời bằng tiếng Việt, rõ ràng, ngắn gọn, có ví dụ code khi cần. "
-        "Dùng Markdown; công thức toán đặt trong $...$; khối code ghi rõ ngôn ngữ."
+        "Dùng Markdown; công thức toán đặt trong $...$; khối code ghi rõ ngôn ngữ. "
+        "Nếu bạn suy nghĩ trước khi trả lời, hãy suy nghĩ bằng tiếng Việt."
     )
 
     # code_mentor (pattern A): the model may call present_ui / suggest_followups.
@@ -54,6 +55,19 @@ class Prompts:
 
     QUIZ_CANCELLED = "Đã hủy sinh câu hỏi."
 
+    # Documents are switched on but none has text (e.g. the PDF could not be
+    # parsed). Said instead of summarising / drawing / quizzing from nothing.
+    DOCUMENTS_UNREADABLE = (
+        "Mình chưa đọc được nội dung tài liệu đang bật (có thể tài liệu chưa xử lý xong hoặc "
+        "xử lý bị lỗi). Bạn hãy tắt rồi bật lại tài liệu ở khung **Nguồn** để xử lý lại, "
+        "hoặc tải tài liệu lên lần nữa nhé."
+    )
+
+    # User turn of the one-sentence intros (QUIZ_INTRO / MINDMAP_INTRO). The chat
+    # history is NOT sent with them: given the history, the model answered the
+    # conversation instead of writing the sentence.
+    INTRO_REQUEST = "Viết câu đó."
+
     MINDMAP_INTRO = (
         MENTOR + "\n\nBạn vừa vẽ xong sơ đồ tư duy tên \"{title}\". Viết đúng MỘT câu ngắn giới "
         "thiệu sơ đồ bên dưới."
@@ -73,6 +87,11 @@ class Prompts:
         "- other: chào hỏi, viết/sửa/so sánh code, yêu cầu khác"
     )
 
+    QUIZ_REQUEST = (
+        "Người học muốn tạo câu hỏi trắc nghiệm. Tách từ yêu cầu của họ: chủ đề, số câu và "
+        "độ khó (chỉ những gì họ nói rõ; không nêu thì để null).\n\nYÊU CẦU: {question}"
+    )
+
     FOLLOWUPS = (
         "Dựa trên câu hỏi và câu trả lời dưới đây, gợi ý tối đa 3 câu hỏi tiếp theo ngắn gọn "
         "(mỗi câu dưới 15 từ, tiếng Việt) giúp người học đào sâu kiến thức. Không lặp lại câu "
@@ -81,16 +100,17 @@ class Prompts:
 
     QUIZ = (
         "Tạo đúng {count} câu hỏi trắc nghiệm độ khó {difficulty} (easy=dễ, medium=vừa, hard=khó) "
-        "bằng tiếng Việt về: {topic}.\n"
+        "bằng tiếng Việt theo yêu cầu của người học: {topic}\n"
         "Mỗi câu có 4 lựa chọn khác nhau (không ghi tiền tố A./B.), đúng một đáp án đúng "
         "(answer_index tính từ 0) và lời giải thích ngắn. Phân bố vị trí đáp án đúng đều nhau. "
-        "Đặt tiêu đề ngắn cho bộ câu hỏi.\n{context}"
+        "Đặt tiêu đề ngắn nêu chủ đề nội dung (không chép lại câu yêu cầu).\n{context}"
     )
 
     MINDMAP = (
-        "Lập sơ đồ tư duy bằng tiếng Việt về: {topic}.\n"
+        "Lập sơ đồ tư duy bằng tiếng Việt theo yêu cầu của người học: {topic}\n"
         "Gốc là chủ đề chính; 3-6 nhánh chính; mỗi nhánh 2-4 ý con; tối đa 4 cấp. "
-        "Mỗi nhãn ngắn (dưới 8 từ). Đặt tiêu đề cho sơ đồ.\n{context}"
+        "Mỗi nhãn ngắn (dưới 8 từ). Tiêu đề nêu chủ đề nội dung (không chép lại câu yêu cầu).\n"
+        "{context}"
     )
 
     CONTEXT_BLOCK = "Chỉ dựa trên tài liệu sau:\n{context}"

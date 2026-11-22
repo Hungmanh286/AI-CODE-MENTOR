@@ -1,62 +1,31 @@
-import requests
+"""Chat history of the legacy WebSocket chat (``/chat/pedagogical``).
+
+Read from the legacy graph's checkpoint (``CHECKPOINT_*`` database), the same
+source as ``GET /threads/{id}/messages`` for legacy sessions. It used to be read
+from Langfuse ``/api/public/sessions/{id}``, which Langfuse removed on 2026-11-16.
+"""
+
+import structlog
 from fastapi import APIRouter
 
-from app.core.config import settings
+from app.services import agui_legacy_history
 
-LANGFUSE_HOST = settings.LANGFUSE_HOST
-LANGFUSE_PUBLIC_KEY = settings.LANGFUSE_PUBLIC_KEY
-LANGFUSE_SECRET_KEY = settings.LANGFUSE_SECRET_KEY
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
 
 @router.get("/history-chat/{session_id}")
-def get_history_chat(session_id: str):
+async def get_history_chat(session_id: str):
     try:
-        trace_url = f"{LANGFUSE_HOST}/api/public/sessions/{session_id}"
-        session_res = requests.get(
-            trace_url, auth=(LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY)
-        )
-        session_res.raise_for_status()
-        session = session_res.json()
-        traces = session.get("traces", [])
-        history = []
-        for i, trace_example in enumerate(traces):
-            input_data = trace_example.get("input", {})
-            input_messages = input_data.get("messages", [])
-
-            question = None
-            if input_messages and len(input_messages) > 0:
-                first_message = input_messages[0]
-                if isinstance(first_message, dict):
-                    question = first_message.get("content")
-                elif isinstance(first_message, str):
-                    question = first_message
-
-            output_data = trace_example.get("output", {})
-            messages = output_data.get("messages", [])
-
-            answer = None
-            if messages and len(messages) > 0:
-                last_message = messages[-1]
-                if isinstance(last_message, dict):
-                    answer = last_message.get("content")
-                elif isinstance(last_message, str):
-                    answer = last_message
-
-            if answer:
-                try:
-                    import json
-
-                    answer_json = json.loads(answer)
-                    if isinstance(answer_json, dict) and "message" in answer_json:
-                        answer = answer_json["message"]
-                except (json.JSONDecodeError, ValueError):
-                    pass
-
-            history.append({"index": i + 1, "question": question, "answer": answer})
-        return {"history": history}
-    except requests.HTTPError as e:
-        return {"error": str(e), "url": e.response.url, "response": e.response.text}
-    except Exception as e:
-        return {"error": str(e)}
+        messages = await agui_legacy_history.read_legacy_messages(session_id)
+    except Exception as exc:
+        logger.warning(f"history of {session_id} unavailable: {exc!r}")
+        return {"error": "Không đọc được lịch sử trò chuyện."}
+    turns = agui_legacy_history.legacy_turns(messages)
+    return {
+        "history": [
+            {"index": index + 1, "question": question, "answer": answer or None}
+            for index, (question, answer) in enumerate(turns)
+        ]
+    }

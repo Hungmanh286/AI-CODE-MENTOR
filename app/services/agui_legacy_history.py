@@ -52,8 +52,8 @@ def _tool_answer(message: ToolMessage) -> str:
     return text
 
 
-def legacy_to_agui(session_id: str, messages: Sequence[BaseMessage]) -> list[dict[str, str]]:
-    """Legacy checkpoint messages -> AG-UI text messages (one pair per question)."""
+def legacy_turns(messages: Sequence[BaseMessage]) -> list[tuple[str, str]]:
+    """Legacy checkpoint messages -> ``(question, answer)`` per question ("" = no answer)."""
     turns: list[tuple[str, str]] = []
     for message in messages:
         if isinstance(message, HumanMessage):
@@ -69,8 +69,13 @@ def legacy_to_agui(session_id: str, messages: Sequence[BaseMessage]) -> list[dic
                 answer = ""
             if answer:
                 turns[-1] = (turns[-1][0], answer)
+    return turns
+
+
+def legacy_to_agui(session_id: str, messages: Sequence[BaseMessage]) -> list[dict[str, str]]:
+    """Legacy checkpoint messages -> AG-UI text messages (one pair per question)."""
     out: list[dict[str, str]] = []
-    for index, (question, answer) in enumerate(turns):
+    for index, (question, answer) in enumerate(legacy_turns(messages)):
         out.append({"id": f"legacy-{session_id}-{index}-u", "role": "user", "content": question})
         if answer:
             out.append({"id": f"legacy-{session_id}-{index}-a", "role": "assistant", "content": answer})
