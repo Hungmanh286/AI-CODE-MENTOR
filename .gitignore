@@ -21,3 +21,6 @@ results/
 
 # Editor settings
 .vscode/
+
+# Claude Code local notes
+CLAUDE.local.md
