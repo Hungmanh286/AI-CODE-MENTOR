@@ -5,7 +5,7 @@
 - Nhánh `ag-ui`: tích hợp agent AG-UI (`POST /agent`) chạy song song luồng WebSocket.
 
 ## Đã xong gần đây
-- `168c28e` sửa lỗi parse PDF, mind map, tham số quiz; stream reasoning của câu trả lời.
+- `afb2a22` sửa lỗi parse PDF, mind map, tham số quiz; stream reasoning của câu trả lời.
 - `d0949f8` không trích dẫn marker lỗi parse PDF như nội dung tài liệu.
 - `a7f8b12` đọc lịch sử phiên cũ, log mỗi run, stream không buffer, tài liệu AG-UI.
 - `c818573` lưu quiz và mind map vào DB, giới hạn job, nối chip.
@@ -17,16 +17,17 @@
 - 003: giữ luồng WS `/chat/pedagogical` ít nhất một chu kỳ phát hành để rollback.
 
 ## Vấn đề còn mở
-- Tài khoản `mentor` + mật khẩu plaintext đã gỡ khỏi `tests/README.md`, nhưng vẫn nằm trong
-  commit `168c28e` đã push lên `origin/ag-ui`: cần đổi mật khẩu; xoá khỏi history thì phải force-push.
+- Mật khẩu tài khoản `mentor` từng bị push (commit cũ `168c28e`, PR #5). History `main`/`ag-ui`
+  đã viết lại (force-push 2026-11-22) nhưng GitHub vẫn giữ ref PR #5: cần đổi mật khẩu và nhờ
+  GitHub Support xoá ref/cache của PR #5.
 - `app/core/settings/user.json` đã untrack + gitignore, nhưng vẫn còn trong history cũ.
 - `README.md` còn marker merge conflict (`<<<<<<<`, `>>>>>>>`) ở cuối file.
 - `docker-compose.yml` trỏ tới `Dockerfile` ở gốc nhưng file không tồn tại (cả trong `deploy/`).
 - `.env.example`/config mặc định Redis `localhost:6379`, compose map ra cổng `6380`.
 - `docs/AG-UI.md` ghi `AGENT_AUTH_REQUIRED` mặc định `false`, code (`app/core/config.py`) là `True`.
-- `ag-ui` hơn `main` 179 commit; chưa rõ nhánh tích hợp là `main` hay `dev`.
 
 ## Đã xử lý
+- Nhánh tích hợp là `main`: `ag-ui` vào `main` qua PR (PR #5, PR #6).
 - CI chỉ chạy `pytest tests/unit` và fail thật khi test đỏ (trước đây `pytest -v || echo`).
 
 ## Bước tiếp theo
