@@ -21,6 +21,8 @@
   đã viết lại (force-push 2026-11-22) nhưng GitHub vẫn giữ ref PR #5: cần đổi mật khẩu và nhờ
   GitHub Support xoá ref/cache của PR #5.
 - `app/core/settings/user.json` đã untrack + gitignore, nhưng vẫn còn trong history cũ.
+- CI đỏ vì nợ lint cũ: `ruff check` 138 lỗi (111 tự sửa được), `ruff format` 70 file;
+  job dừng ở lint nên unit test chưa chạy trên CI. Cần PR dọn riêng (có kế hoạch).
 - `README.md` còn marker merge conflict (`<<<<<<<`, `>>>>>>>`) ở cuối file.
 - `docker-compose.yml` trỏ tới `Dockerfile` ở gốc nhưng file không tồn tại (cả trong `deploy/`).
 - `.env.example`/config mặc định Redis `localhost:6379`, compose map ra cổng `6380`.
