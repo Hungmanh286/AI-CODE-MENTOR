@@ -71,6 +71,9 @@ class MentorState(MessagesState):
     route: NotRequired[str]
     # Remaining composer-chip nodes of this run (several chips, see graph.router).
     pending_routes: NotRequired[list[str]]
+    # Quiz parameters stated in the message, set by quiz_intro:
+    # {"topic": str | None, "count": int | None, "difficulty": str | None}.
+    quiz_request: NotRequired[dict[str, Any]]
 
 
 class MentorInput(TypedDict):

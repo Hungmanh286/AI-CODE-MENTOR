@@ -16,6 +16,12 @@ from app.services.quiz_service import process_pdf
 
 logger = structlog.get_logger(__name__)
 
+# Generic texts of the SSE "error" events: provider errors carry account details
+# (e.g. the OpenRouter user id), so they stay in the log.
+DOCUMENT_FAILED_MESSAGE = "Không xử lý được tài liệu. Bạn thử lại sau ít phút nhé."
+QUESTIONS_FAILED_MESSAGE = "Không tạo được câu hỏi. Bạn thử lại sau ít phút nhé."
+MINDMAP_FAILED_MESSAGE = "Không tạo được sơ đồ tư duy. Bạn thử lại sau ít phút nhé."
+
 
 
 @tool("using_to_create_questions_for_document")
@@ -90,7 +96,7 @@ async def document_processing_tool(query: str, config: RunnableConfig):
         traceback.print_exc()
         if queue:
             try:
-                await queue.put({"type": "error", "message": str(e)})
+                await queue.put({"type": "error", "message": DOCUMENT_FAILED_MESSAGE})
             except Exception:
                 pass
         raise
@@ -164,7 +170,7 @@ async def question_generation_tool(query: str, config: RunnableConfig):
         traceback.print_exc()
         if queue:
             try:
-                await queue.put({"type": "error", "message": str(e)})
+                await queue.put({"type": "error", "message": QUESTIONS_FAILED_MESSAGE})
             except Exception:
                 pass
         raise
@@ -249,7 +255,7 @@ async def mindmap_tool(query: str, config: RunnableConfig):
         traceback.print_exc()
         if queue:
             try:
-                await queue.put({"type": "error", "message": str(e)})
+                await queue.put({"type": "error", "message": MINDMAP_FAILED_MESSAGE})
             except Exception:
                 pass
         raise

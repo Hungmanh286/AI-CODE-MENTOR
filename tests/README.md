@@ -20,3 +20,6 @@ uv run pytest tests/unit -q
 stops importing, a `Prompts.X` / `settings.X` reference breaks, a package `__all__`
 lists something missing, an agent starts importing `app.api`, or an absolute path
 gets hardcoded. Run it after every move or rename.
+
+Tên đăng nhập: mentor
+Mật khẩu: vh08Oorm3am7

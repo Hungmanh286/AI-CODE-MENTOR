@@ -1,5 +1,8 @@
 import base64
 import os
+import tempfile
+import time
+import uuid
 from io import BytesIO
 
 import structlog
@@ -12,11 +15,14 @@ from app.core.config import settings as ds_settings
 from app.db.datasource import insert_database
 from app.db.models.upload import UploadFileStatus
 from app.infra.minio_client import minio_client
-from app.infra.vector_store import embedding_document, parse_pdf_parallel
+from app.infra.vector_store import PdfParseError, embedding_document, parse_pdf_parallel
+from app.services.agui_documents import clean_document_text
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter()
+
+TMP_DIR = tempfile.gettempdir()
 
 
 # TODO : lưu đọc vào file
@@ -52,11 +58,16 @@ async def upload_pdf(
 
 
 @router.put("/update-file-active")
-async def update_file_active(file_id: str = Form(...), active: bool = Form(...)):
+def update_file_active(file_id: str = Form(...), active: bool = Form(...)):
     """
-    Cập nhật trạng thái active của file theo file_id. Chỉ thực hiện lưu docs và update vector store khi active chuyển từ False sang True lần đầu tiên (has_processed=False).
+    Cập nhật trạng thái active của file theo file_id. Khi file được bật mà chưa có nội dung
+    (chưa xử lý, hoặc lần xử lý trước lỗi) thì parse PDF, lưu docs và cập nhật vector store.
+
+    Hàm đồng bộ (``def``) có chủ ý: FastAPI chạy nó trong threadpool, nên việc parse
+    (hàng chục giây) không chặn event loop và các request khác.
     """
     engine = ds_settings._app_db_engine
+    error = None
     with Session(engine) as session:
         file_record = session.exec(
             select(UploadFileStatus).where(UploadFileStatus.file_id == file_id)
@@ -68,70 +79,75 @@ async def update_file_active(file_id: str = Form(...), active: bool = Form(...))
         session.add(file_record)
         session.commit()
 
-        file_name = file_record.file_name
-        minio_path = f"{file_record.session_id}/{file_name}"
-
-        # Download file từ MinIO về tạm để xử lý
-        temp_local_path = f"/tmp/{file_name}"
-        minio_client.download_file(minio_path, temp_local_path)
-
-        if file_record.active and not file_record.has_processed:
-            import time
-
-            logger.info(f"🚀 Starting parallel PDF processing for file_id: {file_id}")
-            logger.info(
-                f"⚙️  Config: {ds_settings.PDF_PARSE_MAX_WORKERS} workers, {ds_settings.PDF_PARSE_RPM_LIMIT} RPM limit"
-            )
-
-            start_time = time.time()
-            file_record.has_processed = True
-
-            docs = parse_pdf_parallel(
-                file_path=temp_local_path,
-                max_workers=ds_settings.PDF_PARSE_MAX_WORKERS,
-            )
-
-            processing_time = time.time() - start_time
-            logger.info(f"✅ Parallel processing completed in {processing_time:.2f}s")
-            logger.info(f"📄 Processed {len(docs):,} characters")
-
-            # Upload docs lên MinIO trong folder session
-            docs_minio_path = f"{file_record.session_id}/{file_id}_docs.txt"
-            temp_docs_path = f"/tmp/{file_id}_docs.txt"
-            with open(temp_docs_path, "w", encoding="utf-8") as doc_file:
-                doc_file.write(str(docs))
-
-            minio_client.upload_file(temp_docs_path, docs_minio_path)
-
-            logger.info("🔍 Starting embedding to vector store...")
-            embedding_start = time.time()
-            embedding_document(
-                [docs], file_record.session_id, file_id=file_id, file_name=file_name
-            )
-            embedding_time = time.time() - embedding_start
-            logger.info(f"✅ Embedding completed in {embedding_time:.2f}s")
-
-            os.remove(temp_docs_path)
+        if active and (not file_record.has_processed or not _has_document_text(file_record)):
+            error = _process_file(file_record)
+            file_record.has_processed = error is None
             session.add(file_record)
             session.commit()
 
-            total_time = time.time() - start_time
-            logger.info(
-                f"🎉 Total processing time: {total_time:.2f}s (parsing: {processing_time:.2f}s, embedding: {embedding_time:.2f}s)"
-            )
-
-        os.remove(temp_local_path)
-
-        # Lấy giá trị has_processed TRONG session trước khi session đóng
+        file_name = file_record.file_name
         has_processed = file_record.has_processed
 
-    return {
+    response = {
         "file_id": file_id,
         "active": active,
         "file_name": file_name,
         "has_processed": has_processed,
         "message": "File status updated successfully.",
     }
+    if error:
+        response["error"] = error
+    return response
+
+
+PARSE_FAILED_MESSAGE = (
+    "Không xử lý được tài liệu (lỗi khi đọc PDF). Bạn hãy tắt rồi bật lại tài liệu để thử lại."
+)
+
+
+def _docs_path(file_record: UploadFileStatus) -> str:
+    return f"{file_record.session_id}/{file_record.file_id}_docs.txt"
+
+
+def _has_document_text(file_record: UploadFileStatus) -> bool:
+    """False when the stored text is missing or only parse-error markers (files
+    marked processed before a failed parse was reported as a failure)."""
+    path = _docs_path(file_record)
+    data = minio_client.download_data(path) if minio_client.file_exists(path) else None
+    return bool(data) and bool(clean_document_text(data.decode("utf-8", errors="replace")))
+
+
+def _process_file(file_record: UploadFileStatus) -> str | None:
+    """Parse the PDF, store its text and embed it. Returns an error message or None."""
+    file_id = file_record.file_id
+    stem = os.path.join(TMP_DIR, f"{file_id}-{uuid.uuid4().hex}")
+    pdf_path, docs_path = f"{stem}.pdf", f"{stem}_docs.txt"
+    try:
+        minio_client.download_file(f"{file_record.session_id}/{file_record.file_name}", pdf_path)
+        logger.info(f"🚀 Starting parallel PDF processing for file_id: {file_id}")
+        start_time = time.time()
+        docs = parse_pdf_parallel(file_path=pdf_path, max_workers=ds_settings.PDF_PARSE_MAX_WORKERS)
+        if not docs.strip():
+            raise PdfParseError("the PDF produced no text")
+        parsing_time = time.time() - start_time
+        logger.info(f"✅ Parsed {len(docs):,} characters in {parsing_time:.2f}s")
+
+        with open(docs_path, "w", encoding="utf-8") as doc_file:
+            doc_file.write(docs)
+        minio_client.upload_file(docs_path, _docs_path(file_record))
+
+        embedding_document(
+            [docs], file_record.session_id, file_id=file_id, file_name=file_record.file_name
+        )
+        logger.info(f"🎉 File {file_id} processed in {time.time() - start_time:.2f}s")
+        return None
+    except Exception as exc:  # the client gets a generic message; details stay in the log
+        logger.warning(f"processing file {file_id} failed: {exc!r}")
+        return PARSE_FAILED_MESSAGE
+    finally:
+        for path in (pdf_path, docs_path):
+            if os.path.exists(path):
+                os.remove(path)
 
 
 @router.get("/session-files/{session_id}")
@@ -257,7 +273,7 @@ async def get_mindmap_url(session_id: str, expiry: int = 3600):
         URL tạm thời để download/view mind map
     """
     try:
-        mindmap_path = f"{session_id}/mind_map.png"
+        mindmap_path = f"{session_id}/mindmap.png"
 
         # Check if file exists
         if not minio_client.file_exists(mindmap_path):

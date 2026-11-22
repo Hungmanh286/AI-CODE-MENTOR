@@ -62,6 +62,10 @@ url = settings._qdrant_url
 prompt = Prompts.MARK_DOWN_PROMPT
 
 
+class PdfParseError(RuntimeError):
+    """At least one chunk of the PDF could not be parsed: the text is incomplete."""
+
+
 @rate_limit(rpm=settings.PDF_PARSE_RPM_LIMIT)
 def parse_chunk_gemini(chunk_images: List[str]) -> str:
     """Parse one image chunk with Gemini through OpenRouter."""
@@ -78,24 +82,27 @@ def parse_chunk_gemini(chunk_images: List[str]) -> str:
     response = openrouter_client.chat.completions.create(
         model=settings.MIND_MAP_MODEL,
         messages=[{"role": "user", "content": content}],
+        max_tokens=settings.PDF_PARSE_MAX_TOKENS,
     )
-
-    return response.choices[0].message.content or ""
+    choice = response.choices[0]
+    if getattr(choice, "finish_reason", None) == "length":
+        logger.warning(f"PDF chunk hit PDF_PARSE_MAX_TOKENS={settings.PDF_PARSE_MAX_TOKENS}: text truncated")
+    return choice.message.content or ""
 
 
 def process_single_chunk(chunk_data: Tuple[int, List[str]]) -> Tuple[int, str]:
-    """Parse one chunk with retry logic."""
+    """Parse one chunk with retry logic; raises PdfParseError after the last attempt."""
     chunk_index, chunk_images = chunk_data
 
     for attempt in range(settings.PDF_PARSE_RETRY_ATTEMPTS):
         try:
             return (chunk_index, parse_chunk_gemini(chunk_images))
         except Exception as e:
-            is_last_attempt = attempt == settings.PDF_PARSE_RETRY_ATTEMPTS - 1
-            if is_last_attempt:
-                logger.info(f"Chunk {chunk_index} failed: {e}")
-                return (chunk_index, f"[ERROR: Failed to parse chunk {chunk_index}]")
+            if attempt == settings.PDF_PARSE_RETRY_ATTEMPTS - 1:
+                logger.warning(f"Chunk {chunk_index} failed: {e}")
+                raise PdfParseError(f"chunk {chunk_index} could not be parsed: {e}") from e
             time.sleep(settings.PDF_PARSE_RETRY_DELAY)
+    raise PdfParseError(f"chunk {chunk_index}: PDF_PARSE_RETRY_ATTEMPTS must be >= 1")
 
 
 def create_chunk_processor(pbar: tqdm) -> RunnableLambda:

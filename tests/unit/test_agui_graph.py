@@ -21,6 +21,7 @@ from app.agents.mentor_agui.ui_catalog import (
 
 class FakeModel(BaseChatModel):
     bound: list = []
+    seen: list = []  # messages of every call, newest last
 
     @property
     def _llm_type(self) -> str:
@@ -31,6 +32,7 @@ class FakeModel(BaseChatModel):
         return self
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        FakeModel.seen.append(list(messages))
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content="Trả lời.", id=f"m_{uuid.uuid4().hex}"))])
 
 
@@ -46,6 +48,8 @@ class FakeBackend:
         self.stored = {"quizzes": [], "mindmaps": []}
         self.fail_save = False
         self.mindmap_error = None
+        self.unreadable = False  # documents selected but no text (e.g. PDF parse failed)
+        self.quiz_request = {"topic": None, "count": None, "difficulty": None}
 
     async def classify_intent(self, question, history, config):
         return self.intent
@@ -56,12 +60,19 @@ class FakeBackend:
 
     async def retrieve(self, question, document_ids, session_id, whole_documents):
         self.calls.append(("retrieve", list(document_ids), session_id, whole_documents))
-        return [CHUNK] if document_ids else []
+        return [CHUNK] if document_ids and not self.unreadable else []
 
     async def suggest_followups(self, question, answer, config):
         return ["Câu tiếp?"]
 
+    async def extract_quiz_request(self, question, config):
+        self.calls.append(("extract_quiz_request", question))
+        if isinstance(self.quiz_request, Exception):
+            raise self.quiz_request
+        return dict(self.quiz_request)
+
     async def generate_quiz(self, topic, chunks, count, difficulty, config):
+        self.calls.append(("generate_quiz", topic, count, difficulty))
         return ShowQuiz(title="Quiz", questions=[
             QuizQuestion(id=f"q{i + 1}", question=f"C{i}?", options=["a", "b"], answer_index=0,
                          explanation="e", difficulty=difficulty)
@@ -92,6 +103,7 @@ class FakeBackend:
 @pytest.fixture
 def backend():
     fake = FakeBackend()
+    FakeModel.seen = []
     graph_module.configure(fake)
     yield fake
     graph_module.configure(None)
@@ -205,3 +217,104 @@ def test_two_chips_draw_the_mindmap_then_ask_for_the_quiz_config(backend):
     assert "__interrupt__" in out
     out = _resume(graph, thread, {"count": 1, "difficulty": "medium"})
     assert len(_tool_calls(out, "show_quiz")[0]["args"]["questions"]) == 1
+
+
+# --- documents switched on but unreadable (PDF parse failed) ---------------
+
+
+def _texts(out):
+    return [m.content for m in out["messages"] if isinstance(m, AIMessage) and m.content]
+
+
+@pytest.mark.parametrize("intent", ["mindmap", "summarize"])
+def test_unreadable_documents_are_reported_not_replaced_by_general_knowledge(backend, intent):
+    from app.agents.mentor_agui.prompts import Prompts
+
+    backend.intent = intent
+    backend.unreadable = True
+    _, out = _run("tạo cho mình")
+    assert _texts(out)[-1] == Prompts.DOCUMENTS_UNREADABLE
+    assert not _tool_calls(out, "show_mindmap")
+    assert out["jobs"] == {}
+
+
+def test_quiz_on_unreadable_documents_does_not_ask_for_the_config(backend):
+    from app.agents.mentor_agui.prompts import Prompts
+
+    backend.intent = "mcq"
+    backend.unreadable = True
+    _, out = _run("tạo quiz")
+    assert "__interrupt__" not in out
+    assert _texts(out)[-1] == Prompts.DOCUMENTS_UNREADABLE
+
+
+def test_two_chips_on_unreadable_documents_report_it_once(backend):
+    from app.agents.mentor_agui.prompts import Prompts
+
+    backend.unreadable = True
+    _, out = _run("ôn tập", {"requested_tools": ["generate-questions", "mindmap"]})
+    assert "__interrupt__" not in out
+    assert _texts(out).count(Prompts.DOCUMENTS_UNREADABLE) == 1
+
+
+def test_mindmap_without_any_document_still_uses_general_knowledge(backend):
+    backend.intent = "mindmap"
+    backend.doc_ids = []
+    _, out = _run("vẽ sơ đồ về đa hình")
+    assert _tool_calls(out, "show_mindmap")
+
+
+@pytest.mark.parametrize("intent", ["mindmap", "mcq"])
+def test_intro_sentence_is_not_asked_to_answer_the_conversation(backend, intent):
+    """The intro got the whole chat history and the model answered the chat
+    instead (seen live: Java code / an ASCII mind map above the real one)."""
+    backend.intent = intent
+    _run("viết code ví dụ ngoại lệ tự tạo")
+    intro_call = FakeModel.seen[-1]
+    assert not any("viết code ví dụ" in str(m.content) for m in intro_call)
+
+
+# --- quiz parameters stated in the message ("tạo 3 câu hỏi toán lớp 1") ----
+
+
+def _interrupt(out):
+    return out["__interrupt__"][0].value
+
+
+def test_quiz_form_defaults_to_the_count_and_topic_the_learner_stated(backend):
+    backend.intent = "mcq"
+    backend.doc_ids = []
+    backend.quiz_request = {"topic": "toán lớp 1", "count": 3, "difficulty": "easy"}
+    _, out = _run("tạo 3 câu hỏi toán lớp 1")
+    value = _interrupt(out)
+    assert value["metadata"]["defaults"] == {"count": 3, "difficulty": "easy"}
+    assert value["message"] == "Sinh câu hỏi về: toán lớp 1"
+
+
+def test_quiz_is_generated_on_the_extracted_topic_with_the_form_count(backend):
+    backend.intent = "mcq"
+    backend.doc_ids = []
+    backend.quiz_request = {"topic": "toán lớp 1", "count": 3, "difficulty": None}
+    graph = graph_module.build_graph(checkpointer=InMemorySaver())
+    thread, _ = _run("tạo 3 câu hỏi toán lớp 1", graph=graph)
+    _resume(graph, thread, {"count": 5, "difficulty": "medium"})
+    assert ("generate_quiz", "toán lớp 1", 5, "medium") in backend.calls
+
+
+def test_quiz_form_with_documents_keeps_asking_about_the_documents(backend):
+    backend.intent = "mcq"
+    backend.quiz_request = {"topic": None, "count": 4, "difficulty": None}
+    _, out = _run("tạo 4 câu hỏi")
+    value = _interrupt(out)
+    assert value["message"] == "Sinh câu hỏi từ tài liệu đang bật?"
+    assert value["metadata"]["defaults"] == {"count": 4, "difficulty": "medium"}
+
+
+def test_quiz_still_works_when_the_parameters_cannot_be_extracted(backend):
+    backend.intent = "mcq"
+    backend.quiz_request = RuntimeError("provider down")
+    graph = graph_module.build_graph(checkpointer=InMemorySaver())
+    thread, out = _run("tạo quiz", graph=graph)
+    assert _interrupt(out)["metadata"]["defaults"] == {"count": 10, "difficulty": "medium"}
+    out = _resume(graph, thread, {"count": 2, "difficulty": "easy"})
+    assert ("generate_quiz", "tạo quiz", 2, "easy") in backend.calls

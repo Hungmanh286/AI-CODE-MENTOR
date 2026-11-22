@@ -46,6 +46,7 @@ from app.agents.mentor_agui.prompts import Prompts
 
 from . import placeholders
 from .backends import INTERNAL_LLM_CONFIG, merge_config
+from .reasoning import keep_reasoning
 from .schemas import Intent
 from .state import (
     MentorInput,
@@ -100,25 +101,37 @@ _merge_config = merge_config  # kept under this name for scripts/agui_selfcheck.
 # ---------------------------------------------------------------------------
 
 ChatModelFactory = Callable[[], BaseChatModel]
-_chat_model_factory: ChatModelFactory | None = None
+_chat_model_factory: ChatModelFactory | None = None  # answers (may reason)
+_fast_model_factory: ChatModelFactory | None = None  # one-sentence intros
 _backend: Any = None
 
 
-def set_chat_model_factory(factory: ChatModelFactory | None) -> None:
-    """Plug a streaming chat model in; ``None`` = placeholders."""
-    global _chat_model_factory
+def set_chat_model_factory(
+    factory: ChatModelFactory | None, fast_factory: ChatModelFactory | None = None
+) -> None:
+    """Plug streaming chat models in; ``None`` = placeholders. ``fast_factory``
+    (intros) defaults to ``factory``."""
+    global _chat_model_factory, _fast_model_factory
     _chat_model_factory = factory
+    _fast_model_factory = fast_factory or factory
 
 
 def configure(backend: Any) -> None:
-    """Install the real LLM/RAG/storage backend (``backends.MentorBackend``), or reset with None."""
+    """Install the real LLM/RAG/storage backend (``backends.MentorBackend``), or reset with None.
+
+    Answers use ``backend.answer_model_factory`` (a reasoning model, see
+    reasoning.py) when there is one; intros keep the fast ``chat_model_factory``.
+    """
     global _backend
     _backend = backend
-    set_chat_model_factory(getattr(backend, "chat_model_factory", None) if backend else None)
+    fast = getattr(backend, "chat_model_factory", None) if backend else None
+    answer = (getattr(backend, "answer_model_factory", None) if backend else None) or fast
+    set_chat_model_factory(answer, fast)
 
 
-def get_chat_model() -> BaseChatModel | None:
-    return _chat_model_factory() if _chat_model_factory else None
+def get_chat_model(*, fast: bool = False) -> BaseChatModel | None:
+    factory = _fast_model_factory if fast else _chat_model_factory
+    return factory() if factory else None
 
 
 def _thread_id(config: RunnableConfig) -> str:
@@ -153,6 +166,23 @@ async def llm_classify_intent(
     return placeholders.classify(question)
 
 
+NO_QUIZ_REQUEST: dict[str, Any] = {"topic": None, "count": None, "difficulty": None}
+
+
+async def llm_extract_quiz_request(question: str, config: RunnableConfig) -> dict[str, Any]:
+    """Topic / count / difficulty stated in the message; all None when unknown.
+
+    Optional: a failure only loses the pre-filled form values, never the quiz.
+    """
+    if _backend is None:
+        return dict(NO_QUIZ_REQUEST)
+    try:
+        return await _backend.extract_quiz_request(question, config)
+    except Exception as exc:
+        logger.warning(f"quiz request not extracted: {exc!r}")
+        return dict(NO_QUIZ_REQUEST)
+
+
 async def resolve_document_ids(client_ids: Sequence[str], config: RunnableConfig) -> list[str]:
     """Documents of this session the run may use (see agui_documents.select_documents)."""
     if _backend is not None:
@@ -171,17 +201,25 @@ async def retrieve_chunks(
 
 
 async def llm_stream_answer(
-    system_prompt: str, messages: Sequence[BaseMessage], config: RunnableConfig, *, placeholder: str
+    system_prompt: str,
+    messages: Sequence[BaseMessage],
+    config: RunnableConfig,
+    *,
+    placeholder: str,
+    fast: bool = False,
 ) -> AIMessage:
-    """Stream an assistant answer to the client (TEXT_MESSAGE_*); returns the message to store.
+    """Stream an assistant answer to the client (TEXT_MESSAGE_*, and REASONING_*
+    when the model reasons); returns the message to store, reasoning included.
 
     Passing the node ``config`` is what lets ag-ui-langgraph stream the tokens.
+    ``fast``: the non-reasoning model, for one-sentence intros.
     """
-    model = get_chat_model()
+    model = get_chat_model(fast=fast)
     if model is None:
         return await stream_text(placeholder, config)
     result = await model.ainvoke([SystemMessage(content=system_prompt), *llm_history(messages)], config)
-    return AIMessage(id=result.id, content=message_text(result))
+    return keep_reasoning(AIMessage(
+        id=result.id, content=result.content, additional_kwargs=result.additional_kwargs))
 
 
 async def llm_suggest_followups(question: str, answer: str, config: RunnableConfig) -> list[str]:
@@ -268,7 +306,9 @@ def _next_route(state: Mapping[str, Any]) -> tuple[str, list[str]]:
     return (pending[0], pending[1:]) if pending else (END, [])
 
 
-async def router(state: MentorState, config: RunnableConfig) -> Command[RouteNode]:
+async def router(
+    state: MentorState, config: RunnableConfig
+) -> Command[Literal["qa_rag", "summarize", "mindmap", "quiz_intro", "code_mentor", "__end__"]]:
     """Start of every new user turn (a resume never reaches it: LangGraph
     resumes the interrupted node).
 
@@ -287,6 +327,8 @@ async def router(state: MentorState, config: RunnableConfig) -> Command[RouteNod
     chips = {REQUESTED_TOOL_ROUTES[t] for t in state.get("requested_tools") or [] if t in REQUESTED_TOOL_ROUTES}
     routes = [r for r in CHIP_ORDER if r in chips]
     if routes:
+        if await _documents_unreadable(routes, doc_ids, config):
+            return await _report_unreadable_documents(update, config)
         return Command(goto=routes[0], update={**update, "route": routes[0], "pending_routes": routes[1:]})
 
     question = latest_user_text(state) or ""
@@ -302,7 +344,30 @@ async def router(state: MentorState, config: RunnableConfig) -> Command[RouteNod
         target = "qa_rag"
     else:  # "ask" without documents, "other"
         target = "code_mentor"
+    if await _documents_unreadable([target], doc_ids, config):
+        return await _report_unreadable_documents(update, config)
     return Command(goto=target, update={**update, "route": target})
+
+
+# Nodes that work on the whole text of the documents switched on.
+WHOLE_DOCUMENT_ROUTES = frozenset({"summarize", "mindmap", "quiz_intro"})
+
+
+async def _documents_unreadable(routes: Sequence[str], doc_ids: Sequence[str], config: RunnableConfig) -> bool:
+    """Documents are switched on but none has any text (e.g. the PDF parse failed).
+
+    Without this, summarize/mindmap/quiz fell back to "no document" and made
+    content up from the chat message (a mind map about "tạo cho mình").
+    Without any document switched on, general knowledge stays allowed.
+    """
+    if not doc_ids or not WHOLE_DOCUMENT_ROUTES.intersection(routes):
+        return False
+    return not await retrieve_chunks("", doc_ids, config, whole_documents=True)
+
+
+async def _report_unreadable_documents(update: dict[str, Any], config: RunnableConfig) -> Command:
+    notice = await stream_text(Prompts.DOCUMENTS_UNREADABLE, config)
+    return Command(goto=END, update={**update, "messages": [notice]})
 
 
 async def qa_rag(state: MentorState, config: RunnableConfig) -> dict[str, Any]:
@@ -353,8 +418,8 @@ async def mindmap(state: MentorState, config: RunnableConfig) -> Command[Literal
             "messages": [failed], "artifacts": artifacts, "jobs": jobs, "pending_routes": rest})
 
     intro = await llm_stream_answer(
-        Prompts.MINDMAP_INTRO.format(title=result.title), state["messages"], config,
-        placeholder=placeholders.MINDMAP_INTRO,
+        Prompts.MINDMAP_INTRO.format(title=result.title), [HumanMessage(content=Prompts.INTRO_REQUEST)],
+        config, placeholder=placeholders.MINDMAP_INTRO, fast=True,
     )
     messages = await stream_ui_tool_calls([("show_mindmap", result)], config, attach_to=intro)
     try:
@@ -384,10 +449,12 @@ async def quiz_intro(state: MentorState, config: RunnableConfig) -> dict[str, An
     Its own node on purpose: a node that calls ``interrupt()`` is re-executed
     from the top on resume, so text streamed there would be streamed twice.
     """
+    request = await llm_extract_quiz_request(latest_user_text(state) or "", config)
     intro = await llm_stream_answer(
-        Prompts.QUIZ_INTRO, state["messages"], config, placeholder=placeholders.QUIZ_INTRO
+        Prompts.QUIZ_INTRO, [HumanMessage(content=Prompts.INTRO_REQUEST)], config,
+        placeholder=placeholders.QUIZ_INTRO, fast=True,
     )
-    return {"messages": [intro]}
+    return {"messages": [intro], "quiz_request": request}
 
 
 def _parse_quiz_resume(answer: Any) -> QuizConfigPayload | None:
@@ -419,14 +486,24 @@ async def quiz(
     A "new user message" reaches the state through ``Command(update=...)`` in
     ``agent.MentorLangGraphAgent.prepare_stream``.
     """
-    # Must be the first statement: a resumed node re-runs from the top.
+    # A resumed node re-runs from the top: nothing with side effects before interrupt().
+    request = state.get("quiz_request") or NO_QUIZ_REQUEST
+    topic = request.get("topic")
     answer = interrupt(
         {
             "reason": "input_required",
-            "message": "Sinh câu hỏi từ tài liệu đang bật?",
+            "message": (
+                f"Sinh câu hỏi về: {topic}"
+                if topic and not state.get("active_document_ids")
+                else "Sinh câu hỏi từ tài liệu đang bật?"
+            ),
             "metadata": {
                 "kind": "quiz_config",
-                "defaults": dict(QUIZ_DEFAULTS),
+                # What the learner stated pre-fills the form ("tạo 3 câu" -> 3).
+                "defaults": {
+                    "count": request.get("count") or QUIZ_DEFAULTS["count"],
+                    "difficulty": request.get("difficulty") or QUIZ_DEFAULTS["difficulty"],
+                },
                 "documents": [],  # item shape not defined by contract 4.6
             },
         }
@@ -454,7 +531,9 @@ async def quiz(
         )
         jobs[job_id] = make_job("quiz", "Đang sinh câu hỏi", 40, "running")
         await publish_shared_state(artifacts, jobs, config)
-        result = await llm_generate_quiz(question, chunks, cfg.count, cfg.difficulty, config)
+        # The extracted topic, not the whole sentence: "tạo 3 câu hỏi toán lớp 1" with
+        # 5 chosen in the form would otherwise ask for 3 and 5 questions at once.
+        result = await llm_generate_quiz(topic or question, chunks, cfg.count, cfg.difficulty, config)
         jobs[job_id] = make_job("quiz", "Đang sinh câu hỏi", 80, "running")
         await publish_shared_state(artifacts, jobs, config)
     except Exception as exc:  # any failure must end the job, never leave it "running"
@@ -498,10 +577,11 @@ async def code_mentor(state: MentorState, config: RunnableConfig) -> Command[Lit
             [SystemMessage(content=Prompts.CODE_MENTOR), *llm_history(state["messages"])], config
         )
         if getattr(response, "tool_calls", None):
-            return Command(goto="ui_tools", update={"messages": [response]})
+            return Command(goto="ui_tools", update={"messages": [keep_reasoning(response)]})
         # Text-only answer: add follow-ups ourselves (pattern B, same message)
         # so every plain answer offers next questions, as the WS chat did.
-        answer = AIMessage(id=response.id, content=message_text(response))
+        answer = keep_reasoning(AIMessage(
+            id=response.id, content=response.content, additional_kwargs=response.additional_kwargs))
         calls: list[Any] = []
         followups = await llm_suggest_followups(latest_user_text(state) or "", answer.content, config)
         if followups:

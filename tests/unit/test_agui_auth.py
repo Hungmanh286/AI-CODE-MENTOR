@@ -1,6 +1,6 @@
 """Access control of the AG-UI routes (BACKEND-PLAN GĐ1.6 / GĐ4.2).
 
-Off by default (the frontend does not send Authorization yet). When
+On by default (the frontend sends the Bearer token from /login). When
 ``AGENT_AUTH_REQUIRED`` is on: Bearer JWT required, and a session that is
 registered to another user is refused. The ``user`` context sent by the client
 is never used for authorization.
@@ -67,8 +67,12 @@ def _call(method: str, path: str, **kwargs) -> httpx.Response:
     return asyncio.run(go())
 
 
-def test_auth_off_by_default_allows_requests_without_token(owned_session):
-    assert settings.AGENT_AUTH_REQUIRED is False
+def test_auth_is_required_by_default():
+    assert type(settings).model_fields["AGENT_AUTH_REQUIRED"].default is True
+
+
+def test_auth_off_allows_requests_without_token(monkeypatch, owned_session):
+    monkeypatch.setattr(settings, "AGENT_AUTH_REQUIRED", False)
     r = _call("GET", f"/threads/{owned_session}/messages")
     assert r.status_code == 200
 
@@ -102,3 +106,31 @@ def test_auth_on_allows_owner_and_unregistered_session(monkeypatch, owned_sessio
     assert r.status_code == 200 and "RUN_FINISHED" in r.text
     fresh = str(uuid.uuid4())  # new chat not yet registered via /create-session
     assert _call("GET", f"/threads/{fresh}/messages", headers=headers).status_code == 200
+
+
+def test_login_returns_a_token_the_agent_routes_accept(monkeypatch, owned_session):
+    from app.api.v1 import auth
+    from app.core.security import get_password_hash, verify_access_token
+    from app.db.models.user import User
+
+    engine = create_engine(
+        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+    )
+    SQLModel.metadata.create_all(engine, tables=[User.__table__])
+    with Session(engine) as db:
+        db.add(
+            User(user_id="owner", user_name="alice", hashed_password=get_password_hash("pw"))
+        )
+        db.commit()
+    # Private attrs live in __pydantic_private__, not __dict__: monkeypatch.setattr
+    # would record "absent" and delattr it on undo, breaking every later test.
+    monkeypatch.setitem(settings.__pydantic_private__, "_app_db_engine", engine)
+
+    result = asyncio.run(auth.login(user_name="alice", password="pw"))
+    assert result["token_type"] == "bearer"
+    assert verify_access_token(result["access_token"])["user_id"] == "owner"
+    assert asyncio.run(auth.login(user_name="alice", password="bad")).get("error")
+
+    monkeypatch.setattr(settings, "AGENT_AUTH_REQUIRED", True)
+    headers = {"authorization": f"Bearer {result['access_token']}"}
+    assert _call("GET", f"/threads/{owned_session}/messages", headers=headers).status_code == 200

@@ -194,3 +194,18 @@ def test_clean_document_text_drops_markers_and_keeps_real_text():
 
     assert clean_document_text("[ERROR: Failed to parse chunk 0]") == ""
     assert clean_document_text("# Bài 1\nOOP\n[ERROR: Failed to parse chunk 3]\nKế thừa") == "# Bài 1\nOOP\n\nKế thừa"
+
+
+def test_quiz_request_is_normalised():
+    from app.agents.mentor_agui.schemas import QuizRequestDraft
+
+    structured = ScriptedStructured(
+        QuizRequestDraft(topic=" toán lớp 1 ", count=3, difficulty="easy"),
+        QuizRequestDraft(topic="  ", count=99, difficulty=None),
+        QuizRequestDraft(topic=None, count=0, difficulty=None),
+    )
+    backend = _backend(structured)
+    assert asyncio.run(backend.extract_quiz_request("tạo 3 câu hỏi toán lớp 1", {})) == {
+        "topic": "toán lớp 1", "count": 3, "difficulty": "easy"}
+    assert asyncio.run(backend.extract_quiz_request("x", {})) == {"topic": None, "count": 30, "difficulty": None}
+    assert asyncio.run(backend.extract_quiz_request("x", {}))["count"] is None

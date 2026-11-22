@@ -23,7 +23,9 @@ Backend phục vụ giao thức AG-UI cho frontend assistant-ui (bật bằng `V
 | `MENTOR_CHECKPOINT_DB_URL` | trống | URL đầy đủ (DB riêng), ghi đè cách trên. |
 | `MENTOR_CHECKPOINT_POOL_SIZE` | `10` | Số kết nối tối đa của pool checkpoint. |
 | `AGENT_AUTH_REQUIRED` | `false` | Bật thì `/agent` và `/threads/*` cần `Authorization: Bearer <jwt>`; session đã đăng ký cho user khác trả 403. |
-| `CHAT_MODEL` | | Model trả lời và sinh dữ liệu (qua OpenRouter). |
+| `CHAT_MODEL` | | Model sinh dữ liệu có cấu trúc (intent, quiz, mindmap) và câu giới thiệu (qua OpenRouter). |
+| `CHAT_ANSWER_MODEL` | `openai/gpt-5-mini` | Model trả lời (chat, hỏi đáp, tóm tắt), có reasoning, stream thành `REASONING_*`. Để trống thì dùng `CHAT_MODEL`, không có dòng suy nghĩ. |
+| `CHAT_REASONING_EFFORT` | `low` | `minimal` / `low` / `medium` / `high`. |
 
 Checkpoint AG-UI **không được** dùng chung bảng với graph WebSocket cũ: hai graph cùng dùng `thread_id = session_uuid` nhưng khác node và kênh.
 
@@ -57,6 +59,8 @@ node scripts/agui-smoke.mjs http://<host>:8686/agent --contract-only   # kỳ v�
 - **Tài liệu:** frontend hiện gửi `active_document_ids: []`. Khi đó backend dùng các file đang bật ở khung Nguồn (`upload_file_status.active`). Id do client gửi chỉ được chấp nhận nếu là file của chính phiên đó.
 - **Trích dẫn:** đoạn văn lấy từ collection Qdrant của phiên. File tải lên từ bây giờ có `file_id`/`file_name` trên từng chunk. Chunk cũ (không có metadata) chỉ được trích dẫn khi phiên có đúng một file đã xử lý.
 - **Quiz:** luôn hỏi `quiz_config` trước. Bộ câu hỏi được lưu vào `projects`/`questions`/`question_options`, nên `/session-projects` thấy được. `show_quiz` dùng id câu hỏi trong DB, để frontend sau này gọi `/add_answer/{qid}`.
+- **Suy nghĩ:** model trả lời có reasoning stream thành `REASONING_*`. Id `rs_…` do `reasoning.StableReasoningIds` cấp, dùng chung cho lúc stream, `MESSAGES_SNAPSHOT` và `/threads` (`role: "reasoning"`, ngay trước câu trả lời), nên frontend không nhân đôi và sau F5 vẫn hiện lại. Câu giới thiệu của quiz/mindmap dùng `CHAT_MODEL`, không suy nghĩ.
+- **Quiz theo câu hỏi:** `quiz_intro` tách chủ đề, số câu, độ khó từ câu người dùng ("tạo 3 câu hỏi toán lớp 1" → `defaults.count = 3`, message `Sinh câu hỏi về: toán lớp 1` khi không bật tài liệu). Sinh câu hỏi bằng chủ đề đã tách, không dùng cả câu.
 - **Mindmap:** cây JSON lưu ở bảng `agent_mindmaps`. Không render PNG, nên Studio cũ không liệt kê các mindmap này.
 - **State:** `artifacts` luôn đọc lại từ DB (đầu mỗi run và trong `/threads`). Job của các run trước bị xóa khi bắt đầu run mới. Mọi lỗi khi sinh hoặc lưu đều chuyển job sang `error`.
 - **Phiên cũ:** nếu chưa có checkpoint AG-UI, `/threads` đọc checkpoint của graph WebSocket và trả các cặp hỏi/đáp với id cố định `legacy-{session}-{i}-u|a`. Ở run đầu tiên, các message này được lưu vào checkpoint mới (không nhân đôi).

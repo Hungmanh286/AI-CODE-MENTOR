@@ -80,7 +80,15 @@ class GlobalConfig(BaseSettings):
     MINIO_BUCKET: Optional[str] = Field(default="mybucket")
 
     # MINDMAP_API
+    # AG-UI answers (chat, Q&A, summary): a reasoning model on OpenRouter, so the
+    # client can show its "đang suy nghĩ" summary. Empty = answer with CHAT_MODEL.
+    # Structured drafts (intent, quiz, mind map) and intros keep CHAT_MODEL.
+    CHAT_ANSWER_MODEL: str = Field(default="openai/gpt-5-mini")
+    CHAT_REASONING_EFFORT: str = Field(default="low")  # minimal | low | medium | high
     MIND_MAP_MODEL: Optional[str] = Field(default="gemini-2.5-flash")
+    # Legacy WebSocket mind map: an image model on OpenRouter (output "image").
+    MIND_MAP_IMAGE_MODEL: str = Field(default="google/gemini-2.5-flash-image")
+    MIND_MAP_MAX_TOKENS: int = Field(default=8192)
 
     # PDF parsing
     PDF_PARSE_MAX_WORKERS: int = Field(default=50)
@@ -90,6 +98,9 @@ class GlobalConfig(BaseSettings):
     PDF_PARSE_CHUNK_SIZE_THRESHOLD: int = Field(default=50)
     PDF_PARSE_RETRY_ATTEMPTS: int = Field(default=3)
     PDF_PARSE_RETRY_DELAY: int = Field(default=2)
+    # Output cap of one parse request. Without it OpenRouter reserves the model's
+    # whole window (65535 tokens) and answers 402 as soon as credits run low.
+    PDF_PARSE_MAX_TOKENS: int = Field(default=32768)
 
     # AG-UI agent (POST /agent, GET /threads/{id}/messages)
     # Checkpoints live in their own schema of the CHECKPOINT_* database unless a
@@ -98,9 +109,8 @@ class GlobalConfig(BaseSettings):
     MENTOR_CHECKPOINT_SCHEMA: str = Field(default="mentor_agui")
     MENTOR_CHECKPOINT_POOL_SIZE: int = Field(default=10)
     # When true, /agent and /threads/* require "Authorization: Bearer <jwt>" and
-    # the session must belong to the token's user. Off until the frontend sends
-    # the header (BACKEND-PLAN GĐ4.2).
-    AGENT_AUTH_REQUIRED: bool = Field(default=False)
+    # the session must belong to the token's user (token from POST /login).
+    AGENT_AUTH_REQUIRED: bool = Field(default=True)
 
     _accounts: dict = PrivateAttr()
     _checkpointer_db_uri: str = PrivateAttr()
