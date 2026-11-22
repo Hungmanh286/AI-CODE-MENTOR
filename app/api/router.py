@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from app.api import agui
 from app.api.v1 import (
     auth,
     history,
@@ -27,5 +28,6 @@ api_router.include_router(history.router, tags=["HistoryChat"])
 api_router.include_router(notify.router, tags=["Notify"])
 api_router.include_router(auth.router, tags=["Auth"])
 api_router.include_router(mindmap.router, tags=["MindMap"])
+api_router.include_router(agui.router, tags=["AG-UI"])
 
 __all__ = ["api_router"]

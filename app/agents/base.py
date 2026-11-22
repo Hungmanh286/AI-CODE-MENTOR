@@ -4,7 +4,7 @@ from langchain_openrouter import ChatOpenRouter
 from app.core.config import settings
 
 
-def init_llm(model: str, **kwargs) -> BaseChatModel:
+def init_llm(model: str, model_class: type[ChatOpenRouter] = ChatOpenRouter, **kwargs) -> BaseChatModel:
     """
     Initialize the chat model with the given model name and configuration.
     Uses ChatOpenRouter to route requests through OpenRouter API.
@@ -26,4 +26,4 @@ def init_llm(model: str, **kwargs) -> BaseChatModel:
     )
     llm_config.update(kwargs)
 
-    return ChatOpenRouter(model=model, **llm_config)
+    return model_class(model=model, **llm_config)

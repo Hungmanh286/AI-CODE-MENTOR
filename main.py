@@ -5,12 +5,16 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from scalar_fastapi import get_scalar_api_reference
 
+from app.agents.mentor_agui.backends import default_backend
+from app.api.agui import NoBufferingForAgentStream, agui_lifespan, register_agui_error_handler
+from app.api.cors import install_cors
 from app.api.router import api_router
 from app.core.config import settings
+from app.infra.agui_checkpointer import agui_checkpointer
+from app.services.agui_legacy_history import legacy_history
 
 warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=FutureWarning)
@@ -20,13 +24,16 @@ load_dotenv()
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
-    """Create all database tables on startup if they don't exist."""
+async def lifespan(app: FastAPI):
+    """Create database tables, then serve the AG-UI agent (POST /agent)."""
     # Importing app.db.base registers every model with SQLModel metadata.
     from app.db.base import SQLModel
 
     SQLModel.metadata.create_all(settings._app_db_engine)
-    yield
+    async with agui_lifespan(
+        app, agui_checkpointer, backend=default_backend(), legacy_history=legacy_history
+    ):
+        yield
 
 
 app = FastAPI(
@@ -39,13 +46,9 @@ app = FastAPI(
 
 
 app.add_middleware(GZipMiddleware, minimum_size=10000)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(NoBufferingForAgentStream)
+install_cors(app)
+register_agui_error_handler(app)
 
 
 @app.get("/ping", include_in_schema=False)

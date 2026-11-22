@@ -23,8 +23,8 @@ dependencies = [
     "langchain-qdrant>=1.1.0",
     "langchain-voyageai>=0.3.3",
     "langfuse>=3.0.0",
-    "langgraph>=0.6.8",
-    "langgraph-checkpoint-postgres>=3.0.5",
+    "langgraph>=1.2.22",
+    "langgraph-checkpoint-postgres>=3.2.1",
     "minio>=7.2.18",
     "numexpr>=2.14.1",
     "openai>=2.6.1",
@@ -43,6 +43,10 @@ dependencies = [
     "structlog>=26.1.0",
     "tqdm>=4.67.1",
     "uvicorn>=0.34.0",
+    "ag-ui-langgraph[fastapi]==0.0.47",
+    "ag-ui-protocol>=1.0.0",
+    "psycopg[binary]>=3.2.0",
+    "psycopg-pool>=3.2.0",
 ]
 
 [dependency-groups]

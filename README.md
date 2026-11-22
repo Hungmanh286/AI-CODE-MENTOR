@@ -1,5 +1,6 @@
 # AI Code Mentor
 
+
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?logo=langchain&logoColor=white)
@@ -29,16 +30,19 @@ AI Code Mentor is a FastAPI-based backend for a pedagogical learning assistant a
 
 ## Multi-Agent Architecture
 
-AI Code Mentor employs a **Multi-Agent** architecture orchestrated by LangGraph to handle complex pedagogical tasks. 
+
+AI Code Mentor employs a **Multi-Agent** architecture orchestrated by LangGraph to handle complex pedagogical tasks.
 
 1. **WebSocket Entry Point**: All interactions flow through the real-time WebSocket API (`/chat/pedagogical`).
 2. **The Orchestrator (Supervisor)**: Incoming messages are processed by a central `tool_calls_node` (`app/orchestrator/nodes.py`). Using LLM tool-calling capabilities, the orchestrator analyzes the user's intent and routes the request to the appropriate specialized sub-agent.
 3. **Specialized Sub-Agents**:
    - **Mind Map Agent (`mindmap_tool`)**: Triggered by keywords like "tạo mind map" hoặc "bản đồ tư duy". It delegates to `pdf_summarize_agent` to generate a visual mind map, saves the output to MinIO, and streams status updates back to the client via Server-Sent Events (SSE) over the WebSocket.
-   - **Quiz Generation Agents**: 
+   - **Quiz Generation Agents**:
+
      - `using_to_create_questions_for_document`: A heavy-duty agent that evaluates the entire document to generate a comprehensive set of quizzes.
      - `question_generation_tool`: A lightweight agent focused on fast, targeted question generation for specific chapters or sections.
-   - **Summarization & Q&A Agents**: (`summary_tool`, `answer_tool`) Specialized agents for summarizing text and answering specific document-related questions.
+
+- **Summarization & Q&A Agents**: (`summary_tool`, `answer_tool`) Specialized agents for summarizing text and answering specific document-related questions.
 
 This modular architecture allows each agent to use its own optimized prompts, LLMs, and workflows while presenting a unified, intelligent chat interface to the user.
 
@@ -128,13 +132,13 @@ sudo apt-get install poppler-utils
 uv sync
 ```
 
-2. Create environment file:
+1. Create environment file:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Update key configurations in `.env`:
+1. Update key configurations in `.env`:
 
 ```env
 OPENROUTER_API_KEY=...
@@ -149,8 +153,10 @@ MINIO_BUCKET=mybucket
 MIND_MAP_MODEL=gemini-2.5-flash
 ```
 
+
 Do not commit actual secrets to the repository.
 
+>>>>>>>
 ## Running Auxiliary Services
 
 `docker-compose.yml` configures Redis and two PostgreSQL services:
@@ -198,6 +204,7 @@ http://localhost:8686/apidocs
 - `GET /ping`: Health check.
 - `GET /apidocs`: Scalar API documentation.
 - `WS /chat/pedagogical`: WebSocket real-time agent chat.
+- `POST /agent`: AG-UI agent (Server-Sent Events) for the assistant-ui frontend, with `GET /threads/{id}/messages` and `GET /health`. See [docs/AG-UI.md](docs/AG-UI.md).
 - `POST /upload`: Upload PDFs to MinIO and record metadata.
 - `PUT /update-file-active`: Activate files, parse PDF content, and ingest embeddings into Qdrant.
 - `GET /session-files/{session_id}`: Retrieve uploaded files by session ID.
@@ -217,7 +224,11 @@ PDF_PARSE_CHUNK_SIZE_LARGE=30
 PDF_PARSE_CHUNK_SIZE_THRESHOLD=50
 PDF_PARSE_RETRY_ATTEMPTS=3
 PDF_PARSE_RETRY_DELAY=2
+PDF_PARSE_MAX_TOKENS=32768
 ```
+
+If any chunk cannot be parsed (e.g. OpenRouter 402 when credits run out), activating the
+file returns an `error` and the file stays unprocessed: switching it on again retries.
 
 The PDF parser uses Gemini via OpenRouter. Each chunk is processed in parallel using LangChain's runnable batch:
 
@@ -250,7 +261,10 @@ uv run python tests/integration/test_parallel_processing.py
 - Qdrant must be running before generating and storing document embeddings.
 - MinIO must be accessible before uploading, viewing, or deleting files.
 - Langfuse environment variables are optional but required if you want tracing enabled.
+<<<<<<< HEAD
+=======
 
 ## License
 
 Released under the [MIT License](LICENSE).
+>>>>>>> f0dcdf6932886d96834eddb8e231dda386e47fd1
