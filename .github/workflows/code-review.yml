@@ -45,9 +45,11 @@ jobs:
         run: |
           uv run ruff format --check .
 
-      - name: Run Pytest
+      # Only the offline suite: integration/ and e2e/ need real LLM keys, databases and a
+      # running app. A failing unit test must fail the job.
+      - name: Run Unit Tests
         run: |
-          uv run pytest -v || echo "⚠️ Unit tests failed or no tests found."
+          uv run pytest tests/unit -q
 
   ai-code-review:
     name: 🤖 AI Code Reviewer
